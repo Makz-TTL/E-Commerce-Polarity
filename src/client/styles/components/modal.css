@@ -1,0 +1,65 @@
+.modal__wrap {
+  @apply fixed top-0 left-0 w-full h-full items-center justify-center hidden z-50;
+
+  &.is-open {
+    @apply flex;
+  }
+
+  &.is-centered {
+    .modal {
+      @apply pt-7;
+    }
+
+    .modal__title {
+      @apply text-center;
+    }
+
+    .modal__content {
+      @apply text-center;
+      .alert {
+        @apply text-left;
+      }
+    }
+
+    .modal__footer {
+      @apply justify-center;
+    }
+  }
+}
+
+.modal__overlay {
+  @apply fixed top-0 left-0 w-full h-full bg-gray-800 opacity-70 z-10;
+}
+
+.modal {
+  @apply w-[95%] bg-white rounded-lg shadow-md p-5 relative z-20 max-h-[90%] overflow-y-auto;
+}
+
+.modal__close {
+  @apply text-gray-400;
+}
+
+.modal__title {
+  @apply text-lg font-semibold text-gray-900 flex-1 truncate;
+}
+
+.modal__content {
+  @apply text-base text-gray-500 mb-5;
+}
+
+.modal__footer {
+  @apply flex items-center justify-end gap-x-4;
+}
+
+/* Sizes */
+.modal__wrap--sm {
+  .modal {
+    @apply max-w-113.75;
+  }
+}
+
+.modal__wrap--md {
+  .modal {
+    @apply max-w-135;
+  }
+}
