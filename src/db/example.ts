@@ -3,31 +3,23 @@
  * Esegui con: npx tsx src/db/example.ts
  */
 import { db } from "./index"
-import { usersTable } from "./schema"
+import { users } from "./schema"
 
 const main2 = async () => {
   const newUser = {
-    email: "rossia@gmail.com",
+    eMail: "rossia@gmail.com",
     name: "Mario",
     lastName: "Rossi",
     userName: "marietasdto",
+    password: "placeholder",
+    cookieStore: "",
   }
 
-  // const existingUser = await db
-  //   .select()
-  //   .from(usersTable)
-  //   .where(
-  //     or(
-  //       eq(usersTable.email, newUser.email),
-  //       eq(usersTable.userName, newUser.userName)
-  //     )
-  //   )
-
-  const existingUser = await db.query.usersTable.findMany({
+  const existingUser = await db.query.users.findMany({
     where: {
       OR: [
         {
-          email: newUser.email,
+          eMail: newUser.eMail,
         },
         {
           userName: newUser.userName,
@@ -37,9 +29,8 @@ const main2 = async () => {
   })
 
   console.log(existingUser)
-  if (!existingUser) {
-    //creo un utente
-    await db.insert(usersTable).values(newUser)
+  if (existingUser.length === 0) {
+    await db.insert(users).values(newUser)
   } else {
     console.log("UTENTE GIÀ CREATO")
   }
