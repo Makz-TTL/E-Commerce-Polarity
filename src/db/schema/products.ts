@@ -8,6 +8,7 @@ export const products = sqliteTable("products", {
   price: integer().notNull(),
   stock: integer().notNull(),
   category: text().notNull(),
+  imageUrl: text(),
 })
 
 type Product = typeof products.$inferSelect
