@@ -2,7 +2,7 @@ import dotenv from "dotenv"
 dotenv.config()
 
 const {
-  SESSION_SECRET,
+  SESSION_SECRET = "passwordPolarity2026-dev-session-secret-key",
   PORT = "3000",
   COMMON_PASSWORD = "polarity",
 } = process.env

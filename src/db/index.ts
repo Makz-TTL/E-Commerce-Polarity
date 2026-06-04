@@ -1,8 +1,15 @@
-import { drizzle } from "drizzle-orm/better-sqlite3"
-import  { relations } from "./schema/relations"
-import { schema } from "./schema/schema"
-import path from "node:path"
+import { drizzle } from "drizzle-orm/node-postgres"
+import pg from "pg"
+import "dotenv/config"
+import * as schema from "./schema"
+import relations from "./schema/relations"
 
-const dbPath = path.join(process.cwd(), "sqlite.db")
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL,
+})
 
-export const db = drizzle(dbPath, { schema, relations })
+export const db = drizzle({
+  client: pool,
+  schema,
+  relations,
+})

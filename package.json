@@ -28,12 +28,14 @@
     "fastify": "^5.3.0",
     "fastify-type-provider-zod": "^6.1.0",
     "htmx.org": "=2.0.6",
+    "pg": "^8.21.0",
     "tailwindcss": "^4.3.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.20.0",
     "drizzle-kit": "^1.0.0-beta.22",
     "esbuild": "^0.28.0",
     "tsx": "^4.19.0",

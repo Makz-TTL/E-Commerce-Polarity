@@ -60,6 +60,7 @@ const loginSchema = {
 
 const server = Fastify().withTypeProvider<ZodTypeProvider>().setValidatorCompiler(validatorCompiler)
 
+export default (server: ZodFastifyInstance) => {
 
 server.post("/login", {
   
@@ -133,4 +134,4 @@ server.post("/login", {
     await req.session.destroy()
     return reply.html(<ProfileSection session={req.session} />)
   })
-
+}

@@ -13,7 +13,10 @@ export default defineRelations({ users, products, reviews, productUsefulness, or
   },
   products: {
     reviews: r.many.reviews(),
-    productUsefulness: r.many.productUsefulness()
+    productUsefulness: r.many.productUsefulness({
+      from: r.products.id,
+      to: r.productUsefulness.productId
+    })
   },
   reviews: {
     user: r.one.users({
