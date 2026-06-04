@@ -1,12 +1,24 @@
 import env from "../../utils/env"
-import z from "zod"
 import { ZodFastifyInstance } from "../../types/index"
 import Counter from "../components/Counter"
 import ProfileSection from "../components/ProfileSection"
 import { db } from "../../db"
 import { eq } from "drizzle-orm"
-import { users } from "../../db/schema"
 import * as argon2 from "argon2";
+import path from 'path';
+import fastifyStatic from '@fastify/static';
+import { fileURLToPath } from 'url';
+import { pipeline } from 'stream/promises';
+import fastifyMultipart from '@fastify/multipart';
+import Fastify from "fastify"
+import fastifyHtml from "@kitajs/fastify-html-plugin"
+import formbody from '@fastify/formbody'
+import { validatorCompiler, ZodTypeProvider } from 'fastify-type-provider-zod'
+import fs from 'fs';
+import { z } from "zod"
+
+
+import { users } from "../../db/schema"
 import LoginForm from "../components/LoginForm"
 
 const COOKIE_NAME = 'sessionId';
@@ -46,7 +58,7 @@ const loginSchema = {
 
 
 
-export default (server: ZodFastifyInstance) => { 
+const server = Fastify().withTypeProvider<ZodTypeProvider>().setValidatorCompiler(validatorCompiler)
 
 
 server.post("/login", {
@@ -121,4 +133,4 @@ server.post("/login", {
     await req.session.destroy()
     return reply.html(<ProfileSection session={req.session} />)
   })
-}
+
