@@ -7,7 +7,7 @@ export const users = pgTable("users", {
     eMail: text().notNull().unique(),
     userName: text().notNull().unique(),
     password: text().notNull(),
-    cookieStore: text().notNull(),
+    cookie: text().notNull(),
 });
 
 type User = typeof users.$inferSelect;
