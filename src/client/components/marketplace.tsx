@@ -68,7 +68,7 @@ export default async function Marketplace() {
               <img 
                 src={product.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'} 
                 alt={product.productName}
-                class="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                class="w-full h-full object-cover transition-transform duration-500"
                 loading="lazy"
               />
             </div>
