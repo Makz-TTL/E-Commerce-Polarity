@@ -1,4 +1,4 @@
-import { env } from "process"
+import env from "../../utils/env"
 import z from "zod"
 import { ZodFastifyInstance } from "../../types/index"
 import Counter from "../components/Counter"
