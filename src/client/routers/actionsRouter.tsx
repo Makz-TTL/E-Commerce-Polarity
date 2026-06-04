@@ -4,6 +4,7 @@ import { db } from "../../db"
 import { eq } from "drizzle-orm"
 import * as argon2 from "argon2"
 import { z } from "zod"
+import SignUpForm from "../components/SignUpForm"
 import { users } from "../../db/schema"
 import LoginForm from "../components/LoginForm"
 
@@ -99,7 +100,67 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
-  // Rotta di LOGOUT (dentro l'esportazione)
+  server.post("/signUp", {
+    schema: {
+      body: z.object ({
+        nome: z.string().min(1),
+        cognome: z.string().min(1),
+        username: z.string().min(1),
+        email: z.string().min(1),
+        password: z.string().min(1)
+      })
+    }
+  }, async (req, res) => {
+
+    const { nome, cognome, username, email, password } = req.body
+
+    if (username.length < 4) {
+      return res.html(
+        <SignUpForm
+          values={{ nome, cognome, username, email, password }}
+          errors={{ username: "Username deve essere di almeno 4 caratteri" }}
+        />
+      )
+    }
+
+    if (!email.includes("@") || !email.includes(".")) {
+      return res.html(
+        <SignUpForm
+          values={{ nome, cognome, username, email, password }}
+          errors={{ email: "Email non valida" }}
+        />
+      )
+    }
+
+    if( password.length < 8){
+      return res.html(
+        <SignUpForm 
+          values={{ nome, cognome, username, email, password }} 
+          errors={{ password: "La password deve essere lunga almeno 8 caratteri" }} 
+        />
+      )
+    }
+
+    try {
+      await db.insert(users).values({
+        name: nome, lastName: cognome, userName: username, eMail: email, password: password, cookie: ""
+      })
+
+      req.session.username = username
+
+      return res.headers({ "HX-Redirect": "/" }).send()
+
+    } catch (error) {
+      //console.log(error)
+      return res.html(
+        <SignUpForm 
+          values={{ nome, cognome, username, email, password }} 
+          errors={{ email: "Email o username non valido" }} 
+        />
+      )
+    }
+  })
+
   server.post("/logout", async (req, reply) => {
     await req.session.destroy()
     return reply.html(<ProfileSection session={req.session} />)
