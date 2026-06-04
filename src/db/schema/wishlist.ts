@@ -1,11 +1,10 @@
 import { pgTable, integer, serial } from "drizzle-orm/pg-core"
 
-export const orders = pgTable("orders", {
+export const wishlist = pgTable("wishlist", {
   id: serial().primaryKey(),
   userId: integer().notNull(),
   productId: integer().notNull(),
-  quantity: integer().notNull(),
-  totalPrice: integer().notNull(),
+
 })
 
-type Order = typeof orders.$inferSelect
+type WishlistItem = typeof wishlist.$inferSelect

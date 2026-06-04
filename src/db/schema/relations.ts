@@ -5,11 +5,14 @@ import { reviews } from "./reviews"
 import { productUsefulness } from "./productUsefulness"
 import {orders} from "./orders"
 import { defineRelations } from "drizzle-orm/relations";
+import {wishlist} from "./wishlist"
 
-export default defineRelations({ users, products, reviews, productUsefulness, orders }, (r) => ({
+export default defineRelations({ users, products, reviews, productUsefulness, orders, wishlist }, (r) => ({
   users: {
     reviews: r.many.reviews(),
-    orders: r.many.orders()
+    orders: r.many.orders(),
+    wishlist: r.many.wishlist()
+
   },
   products: {
     seller: r.one.users({
