@@ -6,6 +6,7 @@ import * as argon2 from "argon2"
 import { z } from "zod"
 import { users } from "../../db/schema"
 import LoginForm from "../components/LoginForm"
+import Marketplace from "../components/marketplace"
 
 const COOKIE_NAME = 'sessionId';
 
