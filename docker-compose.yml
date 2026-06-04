@@ -1,0 +1,23 @@
+name: "e-commerce"
+
+services:
+  base_htmx_postgres:
+    image: postgres:18.3-alpine3.23
+    container_name: base_htmx_postgres
+    environment:
+      POSTGRES_USER: $POSTGRES_USER
+      POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      POSTGRES_DB: $POSTGRES_DB
+    volumes:
+      - ./pg-data:/var/lib/postgresql
+    ports:
+      - 5432:5432
+
+  base_htmx_mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: base_htmx_mailhog
+    logging:
+      driver: "none"
+    ports:
+      - 1025:1025
+      - 8025:8025

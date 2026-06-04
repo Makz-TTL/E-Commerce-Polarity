@@ -9,7 +9,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "build:css": "tailwindcss -i ./src/client/styles/global.css -o ./public/css/output.css",
-    "watch:css": "tailwindcss -i ./src/client/styles/global.css -o ./public/css/output.css --watch"
+    "watch:css": "tailwindcss -i ./src/client/styles/global.css -o ./public/css/output.css --watch",
+    "email": "email dev"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
@@ -21,6 +22,7 @@
     "@kitajs/fastify-html-plugin": "^4.1.0",
     "@kitajs/html": "^4.2.0",
     "@libsql/client": "^0.17.3",
+    "@react-email/components": "^1.0.12",
     "@tailwindcss/cli": "^4.3.0",
     "argon": "^2.0.21",
     "argon2": "^0.44.0",
@@ -32,16 +34,23 @@
     "fastify-type-provider-zod": "^6.1.0",
     "htmx.org": "=2.0.6",
     "pg": "^8.21.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "react-mail": "^0.0.1",
     "tailwindcss": "^4.3.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@react-email/ui": "6.5.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
     "@types/pg": "^8.20.0",
+    "@types/react": "^19.2.16",
+    "@types/react-dom": "^19.2.3",
     "drizzle-kit": "^1.0.0-beta.22",
     "esbuild": "^0.28.0",
+    "react-email": "^6.5.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.9.3"
   }
 }
