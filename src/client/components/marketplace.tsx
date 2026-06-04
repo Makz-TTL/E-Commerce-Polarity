@@ -22,8 +22,9 @@ export default async function Marketplace() {
             </div>
 
             <div class="flex items-center gap-4">
-              <button hx-get="/api/cart/preview" 
-                      hx-target="#cart-drawer" 
+              <button hx-get="/cart-preview"
+                      hx-target="#cart-drawer"
+                      hx-swap="innerHTML"
                       class="relative p-2.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-50 rounded-xl transition-all group"
                       aria-label="Vedi carrello">
                 
@@ -38,11 +39,17 @@ export default async function Marketplace() {
 
               <span class="h-6 w-px bg-gray-200" aria-hidden="true"></span>
 
-              <button hx-get="/api/auth/login-modal" 
-                      hx-target="#modal-container" 
-                      class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 px-5 rounded-xl shadow-sm shadow-indigo-100 transition-colors focus:outline-none">
-                Accedi
-              </button>
+              <div id="profile-section">
+                <button hx-get="/login-modal"
+                        hx-target="#modal"
+                        hx-swap="innerHTML"
+                        class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 px-6 rounded-xl shadow-sm shadow-indigo-100 transition-colors focus:outline-none">
+                  Log In
+                </button>
+                <button class="inline-flex items-center justify-center bg-white hover:bg-gray-100 text-indigo-600 hover:text-indigo-700 text-sm font-semibold py-2.5 px-6 rounded-xl shadow-lm shadow-indigo-100 transition-colors focus:outline-none ml-5">
+                  Sign Up
+                </button>
+              </div>
             </div>
 
           </div>
@@ -84,6 +91,8 @@ export default async function Marketplace() {
         ))}
 
       </div>
+
+      <div id="cart-drawer"></div>
     </div>
   )
 }

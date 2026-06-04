@@ -9,7 +9,8 @@ export default (server: ZodFastifyInstance) => {
         <Marketplace />
       </MainLayout>
     )
+    
 
   server.get("/", renderHome)
-  server.get("/home", renderHome)
+  server.get("/marketplace", renderHome)
 }

@@ -73,10 +73,10 @@ server.get("/live-script", (_req, reply) => {
 server.get("/live-style", (_req, reply) => {
   const input = join(import.meta.dirname, "client", "styles", "index.css")
   const bin = join(import.meta.dirname, "..", "node_modules", ".bin", "tailwindcss")
-  const css = execSync(`${bin} -i ${input} --content "./src/**/*.{ts,tsx}" --minify`, {
+  const css = execSync(`"${bin}" -i "${input}" --content "./src/**/*.{ts,tsx}" --minify`, {
     encoding: "utf-8",
+    cwd: join(import.meta.dirname, "..", ".."),
   })
-
   return reply.type("text/css").send(css)
 })
 

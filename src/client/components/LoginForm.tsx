@@ -21,7 +21,7 @@ const LoginForm = ({
       action={"/login"}
       method={"POST"}
       hx-boost={"true"}
-      hx-target={`#${loginFormId}`}
+      hx-target="#profile-section"
       hx-swap="outerHTML"
       hx-push-url={"false"}
     >
