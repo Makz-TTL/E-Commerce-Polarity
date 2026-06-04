@@ -12,8 +12,12 @@ export default defineRelations({ users, products, reviews, productUsefulness, or
     orders: r.many.orders()
   },
   products: {
+    seller: r.one.users({
+      from: r.products.userId,
+      to: r.users.id,
+    }),
     reviews: r.many.reviews(),
-    productUsefulness: r.many.productUsefulness()
+    productUsefulness: r.many.productUsefulness(),
   },
   reviews: {
     user: r.one.users({
@@ -26,12 +30,26 @@ export default defineRelations({ users, products, reviews, productUsefulness, or
     }),
  
   },
+  productUsefulness: {
+    product: r.one.products({
+      from: r.productUsefulness.productId,
+      to: r.products.id,
+    }),
+    user: r.one.users({
+      from: r.productUsefulness.userId,
+      to: r.users.id,
+    }),
+  },
   orders: {
     user: r.one.users({
       from: r.orders.userId,
-      to: r.users.id
-    })
-  }
+      to: r.users.id,
+    }),
+    product: r.one.products({
+      from: r.orders.productId,
+      to: r.products.id,
+    }),
+  },
 }))
 
 

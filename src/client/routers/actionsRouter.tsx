@@ -1,23 +1,9 @@
-import env from "../../utils/env"
 import { ZodFastifyInstance } from "../../types/index"
-import Counter from "../components/Counter"
 import ProfileSection from "../components/ProfileSection"
 import { db } from "../../db"
 import { eq } from "drizzle-orm"
-import * as argon2 from "argon2";
-import path from 'path';
-import fastifyStatic from '@fastify/static';
-import { fileURLToPath } from 'url';
-import { pipeline } from 'stream/promises';
-import fastifyMultipart from '@fastify/multipart';
-import Fastify from "fastify"
-import fastifyHtml from "@kitajs/fastify-html-plugin"
-import formbody from '@fastify/formbody'
-import { validatorCompiler, ZodTypeProvider } from 'fastify-type-provider-zod'
-import fs from 'fs';
+import * as argon2 from "argon2"
 import { z } from "zod"
-
-
 import { users } from "../../db/schema"
 import LoginForm from "../components/LoginForm"
 
@@ -47,90 +33,77 @@ const userLoggato = async (cookieHeader: string | undefined): Promise<number | n
   return rows[0] ? rows[0].id : null;
 };
 
-//SCHEMAS
 
+// SCHEMAS
 const loginSchema = {
   body: z.object({
-    userName: z.string().min(1),
+    username: z.string().min(1),
     password: z.string().min(1)
   })
 }
 
+// AGGIUNGI L'ESPORTAZIONE QUI:
+export default (server: ZodFastifyInstance) => {
 
+  // Rotta di LOGIN (agganciata al server passato da index.tsx)
+  server.post("/login", { schema: loginSchema }, async (req, res) => {
+    const body = req.body
+    const username = body.username.trim()
+    const password = body.password
 
-const server = Fastify().withTypeProvider<ZodTypeProvider>().setValidatorCompiler(validatorCompiler)
-
-
-server.post("/login", {
-  
-  schema: {
-    body: z.object({
-      username: z.string().min(1),
-      password: z.string().min(1)
-    })
-  }
-}, async (req, res) => {
-  const body = req.body
-  const username = body.username.trim()
-  const password = body.password
-
- 
-  if (username === '') {
-    return res.code(400).html(
-      <LoginForm 
-        values={{ username, password }} 
-        error={{ username: "Il nome utente è obbligatorio" }} 
-      />
-    )
-  }
-
-  try {
-
-    const rows = await db.select().from(users).where(eq(users.userName, username)).limit(1)
-    const dbUser = rows[0]
-
-    if (!dbUser || !(await argon2.verify(dbUser.password, password))) {
+    if (username === '') {
       return res.code(400).html(
         <LoginForm 
           values={{ username, password }} 
-          error={{ password: "Username o password errati" }} 
+          error={{ username: "Il nome utente è obbligatorio" }} 
         />
       )
     }
 
-   
-    const cookieValue = Math.random().toString(36).substring(2)
-    const cookieHeader = generateCookie(COOKIE_NAME, cookieValue, 60 * 60 * 24 * 7)
-    res.header('Set-Cookie', cookieHeader)
+    try {
+      const rows = await db.select().from(users).where(eq(users.userName, username)).limit(1)
+      const dbUser = rows[0]
 
+      if (!dbUser || !(await argon2.verify(dbUser.password, password))) {
+        return res.code(400).html(
+          <LoginForm 
+            values={{ username, password }} 
+            error={{ password: "Username o password errati" }} 
+          />
+        )
+      }
 
-    await db.update(users).set({ cookie: cookieValue }).where(eq(users.id, dbUser.id))
+      const cookieValue = Math.random().toString(36).substring(2)
+      const cookieHeader = generateCookie(COOKIE_NAME, cookieValue, 60 * 60 * 24 * 7)
+      res.header('Set-Cookie', cookieHeader)
 
-   
-    req.session.username = username
+      await db.update(users).set({ cookie: cookieValue }).where(eq(users.id, dbUser.id))
 
+      req.session.username = username
 
-    return res
-      .headers({
-        "HX-Reswap": "outerHTML",
-        "HX-Retarget": "#profile-section",
-        "HX-Trigger": JSON.stringify({ showSuccessToast: { message: "Ti sei loggato con successo" } }),
-      })
-      .html(<ProfileSection session={req.session} />)
+      return res
+        .headers({
+          "HX-Reswap": "outerHTML",
+          "HX-Retarget": "#profile-section",
+          "HX-Trigger": JSON.stringify({ showSuccessToast: { message: "Ti sei loggato con successo" } }),
+        })
+        .html(<ProfileSection session={req.session} />)
 
-  } catch (error) {
-    
-    return res.code(500).html(
-      <LoginForm 
-        values={{ username, password }} 
-        error={{ password: "Si è verificato un errore interno. Riprova più tardi." }} 
-      />
-    )
-  }
-})
+    } catch (error) {
+      return res.code(500).html(
+        <LoginForm 
+          values={{ username, password }} 
+          error={{ password: "Si è verificato un errore interno. Riprova più tardi." }} 
+        />
+      )
+    }
+  })
 
+  // Rotta di LOGOUT (dentro l'esportazione)
   server.post("/logout", async (req, reply) => {
     await req.session.destroy()
     return reply.html(<ProfileSection session={req.session} />)
   })
+
+} // CHIUSURA DELL'ESPORTAZIONE
 

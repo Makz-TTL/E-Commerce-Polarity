@@ -1,10 +1,10 @@
-import {pgTable, serial, integer, boolean} from "drizzle-orm/pg-core";
+import { sqliteTable, integer } from "drizzle-orm/sqlite-core"
 
-export const productUsefulness = pgTable("productUsefulness", {
-    id: serial("id").primaryKey(),
-    userId: integer("userId").notNull(),
-    productId: integer("productId").notNull(),
-    usefulness: boolean("usefulness").notNull(),
-});
+export const productUsefulness = sqliteTable("productUsefulness", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  userId: integer().notNull(),
+  productId: integer().notNull(),
+  usefulness: integer({ mode: "boolean" }).notNull(),
+})
 
-type ProductUsefulness = typeof productUsefulness.$inferSelect;
+type ProductUsefulness = typeof productUsefulness.$inferSelect

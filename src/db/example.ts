@@ -12,7 +12,7 @@ const main2 = async () => {
     lastName: "Rossi",
     userName: "marietasdto",
     password: "placeholder",
-    cookieStore: "",
+    cookie: "",
   }
 
   const existingUser = await db.query.users.findMany({

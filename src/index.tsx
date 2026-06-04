@@ -40,13 +40,14 @@ server.register(fastifyStatic, {
   prefix: "/public/",
 })
 
-notFoundHandler(server)
-errorHandler(server)
-
 /* Routes */
 viewsRouter(server)
 partialsRouter(server)
 actionsRouter(server)
+
+/* Handlers */
+notFoundHandler(server)
+errorHandler(server)
 
 /**
  * Builds the client TypeScript on the fly with esbuild and serves it as JS.
@@ -72,17 +73,12 @@ server.get("/live-script", (_req, reply) => {
 server.get("/live-style", (_req, reply) => {
   const input = join(import.meta.dirname, "client", "styles", "index.css")
   const bin = join(import.meta.dirname, "..", "node_modules", ".bin", "tailwindcss")
-  const css = execSync(`${bin} -i ${input} --minify`, {
+  const css = execSync(`${bin} -i ${input} --content "./src/**/*.{ts,tsx}" --minify`, {
     encoding: "utf-8",
   })
 
   return reply.type("text/css").send(css)
 })
-
-
-
-
-
 
 
 server.listen({ port: +env.PORT, host: "0.0.0.0" })
