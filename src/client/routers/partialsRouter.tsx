@@ -2,6 +2,7 @@ import { ZodFastifyInstance } from "../../types/index"
 import ConfirmLogoutModal from "../components/ConfirmLogoutModal"
 import LoginForm from "../components/LoginForm"
 import Modal from "../components/Modal"
+import SignUpForm from "../components/SignUpForm"
 
 export default (server: ZodFastifyInstance) => {
 
@@ -30,6 +31,18 @@ export default (server: ZodFastifyInstance) => {
         title={<h2 class="text-xl font-bold">Accedi</h2>}
       >
         <LoginForm values={{ username: "", password: "" }} />
+      </Modal>
+    )
+  })
+
+  // FIX: Wrapped SignUpForm inside the Modal layout component
+  server.get("/signup-modal", (_req, reply) => {
+    return reply.html(
+      <Modal
+        id="signup-modal"
+        title={<h2 class="text-xl font-bold">Registrati</h2>}
+      >
+        <SignUpForm values={{}} errors={{}} />
       </Modal>
     )
   })

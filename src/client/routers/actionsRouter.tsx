@@ -7,33 +7,11 @@ import { z } from "zod"
 import SignUpForm from "../components/SignUpForm"
 import { users } from "../../db/schema"
 import LoginForm from "../components/LoginForm"
-import Marketplace from "../components/marketplace"
+import Marketplace from "../components/marketplace"   
 
-const COOKIE_NAME = 'sessionId';
 
-const generateCookie = (key: string, value: string, age: number) => {
-  return `${key}=${value}; Max-Age=${age}; Path=/; HttpOnly; SameSite=Strict`;
-}
 
-const extractCookie = (cookieHeader: string, key: string): string | null => {
-  const cookies = cookieHeader.split(';')
-  for (const cookie of cookies) {
-    const [cookieKey, cookieValue] = cookie.trim().split('=')
-    if (cookieKey === key) {
-      return cookieValue
-    }
-  }
-  return null
-}
 
-const userLoggato = async (cookieHeader: string | undefined): Promise<number | null> => {
-  if (!cookieHeader) return null;
-  const sessionToken = extractCookie(cookieHeader, COOKIE_NAME);
-  if (!sessionToken) return null;
-
-  const rows = await db.select().from(users).where(eq(users.cookie, sessionToken)).limit(1);
-  return rows[0] ? rows[0].id : null;
-};
 
 
 // SCHEMAS
@@ -47,120 +25,126 @@ const loginSchema = {
 // AGGIUNGI L'ESPORTAZIONE QUI:
 export default (server: ZodFastifyInstance) => {
 
-  // Rotta di LOGIN (agganciata al server passato da index.tsx)
-  server.post("/login", { schema: loginSchema }, async (req, res) => {
-    const body = req.body
-    const username = body.username.trim()
-    const password = body.password
+  const loginSchema = z.object({
+  username: z.string().trim().min(1, "Il nome utente è obbligatorio"),
+  password: z.string().min(1, "La password è obbligatoria"),
+})
 
-    if (username === '') {
-      return res.code(400).html(
-        <LoginForm 
-          values={{ username, password }} 
-          error={{ username: "Il nome utente è obbligatorio" }} 
+server.post("/login", async (req, res) => {
+  
+  const result = loginSchema.safeParse(req.body)
+
+  if (!result.success) {
+    const fieldErrors = result.error.flatten().fieldErrors
+    return res.status(200).html(
+      <LoginForm
+        values={req.body as any}
+        error={{
+          username: fieldErrors.username?.[0],
+          password: fieldErrors.password?.[0],
+        }}
+      />
+    )
+  }
+
+  const { username, password } = result.data
+
+  try {
+    
+    const rows = await db.select().from(users).where(eq(users.userName, username)).limit(1)
+    const dbUser = rows[0]
+
+   
+    if (!dbUser || !(await argon2.verify(dbUser.password, password))) {
+      return res.status(200).html(
+        <LoginForm
+          values={{ username, password }}
+          error={{ password: "Username o password errati" }}
         />
       )
     }
 
-    try {
-      const rows = await db.select().from(users).where(eq(users.userName, username)).limit(1)
-      const dbUser = rows[0]
+   
+    req.session.username = username
 
-      if (!dbUser || !(await argon2.verify(dbUser.password, password))) {
-        return res.code(400).html(
-          <LoginForm 
-            values={{ username, password }} 
-            error={{ password: "Username o password errati" }} 
-          />
-        )
-      }
+    
+    return res
+      .header("HX-Reswap", "outerHTML")
+      .header("HX-Retarget", "#profile-section")
+      .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Ti sei loggato con successo" } }))
+      .html(<ProfileSection session={req.session} />)
 
-      const cookieValue = Math.random().toString(36).substring(2)
-      const cookieHeader = generateCookie(COOKIE_NAME, cookieValue, 60 * 60 * 24 * 7)
-      res.header('Set-Cookie', cookieHeader)
+  } catch (error) {
+    server.log.error(error)
+    return res.status(200).html(
+      <LoginForm
+        values={{ username, password }}
+        error={{ password: "Si è verificato un errore interno. Riprova più tardi." }}
+      />
+    )
+  }
+})
 
-      await db.update(users).set({ cookie: cookieValue }).where(eq(users.id, dbUser.id))
 
-      req.session.username = username
+const signUpSchema = z.object({
+  nome: z.string().min(1, "Il nome è obbligatorio"),
+  cognome: z.string().min(1, "Il cognome è obbligatorio"),
+  username: z.string().min(4, "Username deve essere di almeno 4 caratteri"),
+  email: z.string().email("Email non valida"),
+  password: z.string().min(8, "La password deve essere lunga almeno 8 caratteri"),
+});
 
-      return res
-        .headers({
-          "HX-Reswap": "outerHTML",
-          "HX-Retarget": "#profile-section",
-          "HX-Trigger": JSON.stringify({ showSuccessToast: { message: "Ti sei loggato con successo" } }),
-        })
-        .html(<ProfileSection session={req.session} />)
+//registrazione
 
-    } catch (error) {
-      return res.code(500).html(
-        <LoginForm 
-          values={{ username, password }} 
-          error={{ password: "Si è verificato un errore interno. Riprova più tardi." }} 
-        />
-      )
-    }
-  })
+server.post("/signUp", async (req, res) => {
 
-  server.post("/signUp", {
-    schema: {
-      body: z.object ({
-        nome: z.string().min(1),
-        cognome: z.string().min(1),
-        username: z.string().min(1),
-        email: z.string().min(1),
-        password: z.string().min(1)
-      })
-    }
-  }, async (req, res) => {
+  const result = signUpSchema.safeParse(req.body);
 
-    const { nome, cognome, username, email, password } = req.body
+  if (!result.success) {
+    
+    const fieldErrors = result.error.flatten().fieldErrors;
+    const errors = Object.fromEntries(
+      Object.entries(fieldErrors).map(([key, value]) => [key, value?.[0]])
+    );
 
-    if (username.length < 4) {
-      return res.html(
-        <SignUpForm
-          values={{ nome, cognome, username, email, password }}
-          errors={{ username: "Username deve essere di almeno 4 caratteri" }}
-        />
-      )
-    }
+    return res.status(200).html(
+      <SignUpForm
+        values={req.body as any}
+        errors={errors}
+      />
+    );
+  }
 
-    if (!email.includes("@") || !email.includes(".")) {
-      return res.html(
-        <SignUpForm
-          values={{ nome, cognome, username, email, password }}
-          errors={{ email: "Email non valida" }}
-        />
-      )
-    }
+  const { nome, cognome, username, email, password } = result.data;
 
-    if( password.length < 8){
-      return res.html(
-        <SignUpForm 
-          values={{ nome, cognome, username, email, password }} 
-          errors={{ password: "La password deve essere lunga almeno 8 caratteri" }} 
-        />
-      )
-    }
+  try {
+    // 2. Database Insertion
+    await db.insert(users).values({
+      name: nome,
+      lastName: cognome,
+      userName: username,
+      eMail: email,
+      password: await argon2.hash(password),
+    });
 
-    try {
-      await db.insert(users).values({
-        name: nome, lastName: cognome, userName: username, eMail: email, password: password, cookie: ""
-      })
+    
+    req.session.username = username;
 
-      req.session.username = username
+   
+    return res.header("HX-Redirect", "/").send();
 
-      return res.headers({ "HX-Redirect": "/" }).send()
+  } catch (error) {
+    server.log.error(error);
+    return res.status(200).html(
+      <SignUpForm
+        values={req.body as any}
+        errors={{ email: "Email o username già in uso" }}
+      />
+    );
+  }
+});
 
-    } catch (error) {
-      //console.log(error)
-      return res.html(
-        <SignUpForm 
-          values={{ nome, cognome, username, email, password }} 
-          errors={{ email: "Email o username non valido" }} 
-        />
-      )
-    }
-  })
+
 
   server.post("/logout", async (req, reply) => {
     await req.session.destroy()

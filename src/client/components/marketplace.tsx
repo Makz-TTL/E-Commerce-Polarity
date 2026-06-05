@@ -82,9 +82,24 @@ export default async function Marketplace({ searchParams, partial }: Marketplace
               <span class="h-6 w-px bg-gray-200" aria-hidden="true"></span>
 
               <div id="profile-section">
-                <button hx-get="/login-modal" hx-target="#modal" hx-swap="innerHTML" class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 px-6 rounded-xl shadow-sm shadow-indigo-100 transition-colors focus:outline-none">Log In</button>
-                <button class="inline-flex items-center justify-center bg-none text-black-600 hover:text-indigo-700 text-sm font-semibold py-2.5 px-6 rounded-xl border-2 border-black-200 transition-colors focus:outline-none ml-5">Sign Up</button>
-              </div>
+              <button 
+                hx-get="/login-modal" 
+                hx-target="#modal" 
+                hx-swap="innerHTML" 
+                class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 px-6 rounded-xl shadow-sm shadow-indigo-100 transition-colors focus:outline-none"
+              >
+                Log In
+              </button>
+              
+              <button 
+                hx-get="/signup-modal" 
+                hx-target="#modal"     
+                hx-swap="innerHTML" 
+                class="inline-flex items-center justify-center bg-none text-black-600 hover:text-indigo-700 text-sm font-semibold py-2.5 px-6 rounded-xl border-2 border-black-200 transition-colors focus:outline-none ml-5"
+              >
+                Sign Up
+              </button>
+            </div>
             </div>
 
           </div>

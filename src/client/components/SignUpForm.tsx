@@ -1,10 +1,10 @@
 type Props = {
-    values: {
-        nome: string,
-        cognome: string,
-        username: string,
-        email: string,
-        password: string
+    values?: {
+        nome?: string,
+        cognome?: string,
+        username?: string,
+        email?: string,
+        password?: string
     },
     errors?: {
         nome?: string,
@@ -15,10 +15,7 @@ type Props = {
     }
 }
 
-//export const SignUpFormId = "sign-up-form"
-
-
-export default function SignUpForm ({ values, errors }: Props){
+export default function SignUpForm({ values = {}, errors }: Props) {
     return (
         <div id="registerDiv" class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md">
@@ -30,67 +27,54 @@ export default function SignUpForm ({ values, errors }: Props){
                     hx-post="/signUp"
                     hx-target="#registerDiv"
                     hx-swap="outerHTML"
+                    class="space-y-4"
                 >
                     <div class="flex gap-3">
                         <div class="flex-1">
                             <label class="block text-sm font-medium text-gray-700 mb-1" for="nome"> Nome </label>
-                            <input type="text" name="nome" value={values.nome} required
+                            <input type="text" name="nome" value={values.nome || ""} required
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-                            {errors?.nome ?
-                                <div class="text-red-600 text-sm mt-1">
-                                    {errors?.nome}
-                                </div>
-                                : null
-                            }
+                            {errors?.nome && (
+                                <div class="text-red-600 text-xs mt-1">{errors.nome}</div>
+                            )}
                         </div>
 
                         <div class="flex-1">
                             <label class="block text-sm font-medium text-gray-700 mb-1" for="cognome"> Cognome </label>
-                            <input type="text" name="cognome" value={values.cognome} required
+                            <input type="text" name="cognome" value={values.cognome || ""} required
                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                            {errors?.cognome ?
-                                <div class="text-red-600 text-sm mt-1">
-                                    {errors?.cognome}
-                                </div> 
-                                : null
-                            }     
+                            {errors?.cognome && (
+                                <div class="text-red-600 text-xs mt-1">{errors.cognome}</div>
+                            )}     
                         </div>
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1"> Username </label>
-                        <input type="text" name="username" value={values.username} required
+                        <input type="text" name="username" value={values.username || ""} required
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        {errors?.username ?
-                            <div class="text-red-600 text-sm mt-1">
-                                {errors.username}
-                            </div>
-                            : null
-                        }
+                        {errors?.username && (
+                            <div class="text-red-600 text-xs mt-1">{errors.username}</div>
+                        )}
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1"> Email </label>
-                        <input type="email" name="email" value={values.email} required
+                        <input type="email" name="email" value={values.email || ""} required
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        {errors?.email ?
-                            <div class="text-red-600 text-sm mt-1">
-                                {errors.email}
-                            </div>
-                            : null
-                        }
+                        {errors?.email && (
+                            <div class="text-red-600 text-xs mt-1">{errors.email}</div>
+                        )}
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                        <input type="text" name="password" value={values.password} required
+                        {/* Changed type to "password" for security */}
+                        <input type="password" name="password" value={values.password || ""} required
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        {errors?.password ?
-                            <div class="text-red-600 text-sm mt-1">
-                                {errors.password}
-                            </div>
-                            : null
-                        }
+                        {errors?.password && (
+                            <div class="text-red-600 text-xs mt-1">{errors.password}</div>
+                        )}
                     </div>
 
                     <button type="submit"
@@ -98,7 +82,7 @@ export default function SignUpForm ({ values, errors }: Props){
                         Registrati
                     </button>
 
-                    <p class="text-center text-sm text-gray-500">
+                    <p class="text-center text-sm text-gray-500 pt-2">
                         Hai già un account? <a href="/login" class="text-blue-600 hover:underline"> Accedi </a>
                     </p>
                 </form>
