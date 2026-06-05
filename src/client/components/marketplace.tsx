@@ -1,4 +1,6 @@
 import { db } from "../../db" 
+import { eq } from "drizzle-orm"
+import { products as productsTable } from "../../db/schema"
 
 type MarketplaceProps = {
   searchParams?: { category?: string }
@@ -11,7 +13,7 @@ export default async function Marketplace({ searchParams, partial }: Marketplace
 
   // Query pulita e corretta per filtrare
   const products = await db.query.products.findMany({
-    where: category ? { category } : undefined,
+    where: category ? eq(productsTable.category, category) : undefined,
     with: {
       seller: true,
       reviews: true
@@ -108,49 +110,6 @@ export default async function Marketplace({ searchParams, partial }: Marketplace
     
       <h1 class="text-2xl font-bold mb-4 p-6 pb-0">Marketplace</h1>
 
-      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 p-6">
-
-        {products.map((product) => (
-          <div  class="max-w-sm rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between">
-            
-            {/* Immagine del prodotto */}
-            <div class="w-full h-48 bg-gray-100 relative overflow-hidden">
-              <img 
-                src={product.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'} 
-                alt={product.productName}
-                class="w-full h-full object-cover transition-transform duration-500"
-                loading="lazy"
-              />
-            </div>
-
-            {/* Contenuto testuale (Padding applicato qui per non stringere l'immagine) */}
-            <div class="p-6 flex-1 flex flex-col justify-between">
-              <div>
-                <h2 class="text-xl font-bold text-gray-900 tracking-tight flex flex-col mb-2">
-                  {product.productName} 
-                  <span class="text-xs text-indigo-500 font-normal mt-1">Seller: {product.seller?.name} {product.seller?.lastName}</span>
-                </h2>
-                <div class="mb-4">
-                  <span class="text-xl font-extrabold text-indigo-600">${product.price}</span>
-                </div>
-                <p class="text-gray-600 text-sm leading-relaxed mb-5 line-clamp-3">{product.description}</p>
-                
-                <div class="mb-5">
-                  <label class="text-sm font-medium text-gray-500">Categoria: </label>
-                  <span class="inline-block bg-gray-200 text-gray-800 text-xs font-semibold px-2 py-1 rounded-full">{product.category}</span>
-                </div>
-              </div>
-
-              {/* Pulsanti di azione */}
-              <div class="flex gap-3 mt-auto">
-                <button class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center">Info</button>
-                <button class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center">Cart</button>
-              </div>
-            </div>
-
-          </div>
-        ))}
-      </div>
       {/* PULSANTI DI FILTRO RAPIDI */}
       <div class="flex justify-center gap-3 mt-6 max-w-7xl mx-auto px-6">
         <button hx-get="/marketplace" hx-target="#products-grid" hx-swap="outerHTML" 

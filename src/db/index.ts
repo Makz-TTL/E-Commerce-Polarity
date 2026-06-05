@@ -1,8 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js"
-import * as schema from "./schema"
 import env from "../utils/env"
-
-import relations from "./schema/relations"
+import * as schema from "./schema"
 
 import Postgres from 'postgres'
 
@@ -16,6 +14,5 @@ const postgres = Postgres({
 
 export const db = drizzle({
     client: postgres,
-    schema,
-    relations,
+    schema
 })

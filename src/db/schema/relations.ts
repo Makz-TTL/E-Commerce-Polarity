@@ -4,69 +4,65 @@ import { reviews } from "./reviews"
 import { productUsefulness } from "./productUsefulness"
 import { orders } from "./orders"
 import { wishlist } from "./wishlist"
-import { defineRelations } from "drizzle-orm/relations";
+import { relations } from "drizzle-orm"
 
-export default defineRelations({ users, products, reviews, productUsefulness, orders, wishlist }, (r) => ({
-  users: {
-    reviews: r.many.reviews(),
-    orders: r.many.orders(),
-    wishlist: r.many.wishlist(),
-    productUsefulness: r.many.productUsefulness(),
-  },
-  
-  products: {
-   
-    seller: r.one.users({
-      from: r.products.userId, 
-      to: r.users.id,
-    }),
-    reviews: r.many.reviews(),
-    productUsefulness: r.many.productUsefulness(),
-    orders: r.many.orders(), 
-  },
+export const usersRelations = relations(users, ({ many }) => ({
+  reviews: many(reviews),
+  orders: many(orders),
+  wishlist: many(wishlist),
+  productUsefulness: many(productUsefulness),
+}))
 
-  reviews: {
-    user: r.one.users({
-      from: r.reviews.userId,
-      to: r.users.id
-    }),
-    product: r.one.products({
-      from: r.reviews.productId,
-      to: r.products.id
-    }),
-  },
+export const productsRelations = relations(products, ({ one, many }) => ({
+  seller: one(users, {
+    fields: [products.userId],
+    references: [users.id],
+  }),
+  reviews: many(reviews),
+  productUsefulness: many(productUsefulness),
+  orders: many(orders),
+}))
 
-  productUsefulness: {
-    product: r.one.products({
-      from: r.productUsefulness.productId,
-      to: r.products.id,
-    }),
-    user: r.one.users({
-      from: r.productUsefulness.userId,
-      to: r.users.id,
-    }),
-  },
+export const reviewsRelations = relations(reviews, ({ one }) => ({
+  user: one(users, {
+    fields: [reviews.userId],
+    references: [users.id],
+  }),
+  product: one(products, {
+    fields: [reviews.productId],
+    references: [products.id],
+  }),
+}))
 
-  orders: {
-    user: r.one.users({
-      from: r.orders.userId,
-      to: r.users.id,
-    }),
-    product: r.one.products({
-      from: r.orders.productId,
-      to: r.products.id,
-    }),
-  },
+export const productUsefulnessRelations = relations(productUsefulness, ({ one }) => ({
+  product: one(products, {
+    fields: [productUsefulness.productId],
+    references: [products.id],
+  }),
+  user: one(users, {
+    fields: [productUsefulness.userId],
+    references: [users.id],
+  }),
+}))
 
+export const ordersRelations = relations(orders, ({ one }) => ({
+  user: one(users, {
+    fields: [orders.userId],
+    references: [users.id],
+  }),
+  product: one(products, {
+    fields: [orders.productId],
+    references: [products.id],
+  }),
+}))
 
-  wishlist: {
-    user: r.one.users({
-      from: r.wishlist.userId,
-      to: r.users.id,
-    }),
-    product: r.one.products({
-      from: r.wishlist.productId,
-      to: r.products.id,
-    }),
-  },
+export const wishlistRelations = relations(wishlist, ({ one }) => ({
+  user: one(users, {
+    fields: [wishlist.userId],
+    references: [users.id],
+  }),
+  product: one(products, {
+    fields: [wishlist.productId],
+    references: [products.id],
+  }),
 }))
