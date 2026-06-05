@@ -5,7 +5,11 @@ type OtpFormProps = {
 
 export default function OtpForm({ email, error }: OtpFormProps) {
   return (
-    <div class="w-full max-w-md mx-auto bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 shadow-xl space-y-5">
+    /* 1. Add an explicit ID to the outermost wrapper container */
+    <div 
+      id="otp-container" 
+      class="w-full max-w-md mx-auto bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 shadow-xl space-y-5"
+    >
       {/* Header */}
       <div>
         <h2 class="text-2xl font-extrabold text-gray-900 tracking-tight">
@@ -17,9 +21,10 @@ export default function OtpForm({ email, error }: OtpFormProps) {
       </div>
 
       {/* Form */}
+      {/* 2. CHANGE hx-target from "this" to "#otp-container" */}
       <form 
         hx-post="/verify-otp" 
-        hx-target="this" 
+        hx-target="#otp-container" 
         hx-swap="outerHTML" 
         class="space-y-4"
       >
@@ -32,7 +37,9 @@ export default function OtpForm({ email, error }: OtpFormProps) {
             id="otp"
             name="otp" 
             placeholder="000000" 
+            maxlength={6}
             pattern="\d{6}"
+            required 
             autofocus
             class={`w-full px-4 py-3 bg-gray-50/50 border rounded-xl text-center text-2xl font-mono tracking-widest outline-none transition-all duration-200 focus:bg-white focus:ring-4 ${
               error 

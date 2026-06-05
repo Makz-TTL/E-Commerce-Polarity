@@ -1,7 +1,7 @@
 import { createTransport } from "nodemailer"
 import { render } from "@react-email/render"
 
-import SampleEmail, { SampleEmailProps } from "./templates/SampleEmail"
+
 import WelcomeEmail, { WelcomeEmailProps } from "./templates/WelcomeEmail"
 
 const transport = createTransport({
@@ -26,8 +26,8 @@ export const sendLocalEmail = async (options: {
 }
 
 export type SendTemplateEmailOptions = 
-  | { template: "SampleEmail"; payload: SampleEmailProps }
-  | { template: "WelcomeEmail"; payload: WelcomeEmailProps }
+  
+   { template: "WelcomeEmail"; payload: WelcomeEmailProps }
 
 export const sendTemplateEmail = async (
   options: SendTemplateEmailOptions & { to: string; subject: string }
@@ -36,16 +36,14 @@ export const sendTemplateEmail = async (
 
   let body
   
-  // FIX: Calling them as regular functions removes all JSX brackets
-  if (template === "SampleEmail") {
-    body = SampleEmail(payload)
-  } else if (template === "WelcomeEmail") {
+ 
+if (template === "WelcomeEmail") {
     body = WelcomeEmail(payload)
   }
 
   if (!body) throw new Error(`Template missing`)
 
-  // @react-email/render can process the raw function output perfectly
+
   const html = await render(body)
   const text = await render(body, { plainText: true })
 

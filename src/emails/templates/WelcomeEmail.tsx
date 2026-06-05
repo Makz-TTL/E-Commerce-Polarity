@@ -31,16 +31,16 @@ export default ({ name }: WelcomeEmailProps) => (
       />
     </Head>
     <Tailwind>
-      <Preview>This is a sample email preview.</Preview>
+     
       <Body className={"bg-gray-100 font-sans"}>
         <Container className={"bg-white p-6 rounded-lg shadow-md"}>
-          <Heading className={"text-2xl font-bold mb-4"}>Hello, World!</Heading>
-          <Text className={"text-gray-700 mb-4"}>{name}</Text>
+          <Heading className={"text-2xl font-bold mb-4"}>Benvenuto, {name}!<br /></Heading>
+          <Text className={"text-gray-700 mb-4"}>Grazie per esserti registrato</Text>
           <Button
             href={"https://example.com"}
             className={"bg-blue-500 text-white px-4 py-2 rounded"}
           >
-            Click Me
+            Copia il codice di verifica
           </Button>
         </Container>
       </Body>
