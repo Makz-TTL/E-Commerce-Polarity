@@ -7,6 +7,7 @@ import { z } from "zod"
 import SignUpForm from "../components/SignUpForm"
 import { users } from "../../db/schema"
 import LoginForm from "../components/LoginForm"
+import Marketplace from "../components/marketplace"
 
 const COOKIE_NAME = 'sessionId';
 
