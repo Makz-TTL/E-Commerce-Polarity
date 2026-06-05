@@ -23,6 +23,7 @@
     "@kitajs/html": "^4.2.0",
     "@libsql/client": "^0.17.3",
     "@react-email/components": "^1.0.12",
+    "@react-email/render": "^2.0.8",
     "@tailwindcss/cli": "^4.3.0",
     "argon": "^2.0.21",
     "argon2": "^0.44.0",

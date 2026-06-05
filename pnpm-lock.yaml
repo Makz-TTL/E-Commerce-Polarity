@@ -38,6 +38,9 @@ importers:
       '@react-email/components':
         specifier: ^1.0.12
         version: 1.0.12(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@react-email/render':
+        specifier: ^2.0.8
+        version: 2.0.8(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tailwindcss/cli':
         specifier: ^4.3.0
         version: 4.3.0
@@ -68,6 +71,9 @@ importers:
       htmx.org:
         specifier: '=2.0.6'
         version: 2.0.6
+      nodemailer:
+        specifier: ^8.0.10
+        version: 8.0.10
       pg:
         specifier: ^8.21.0
         version: 8.21.0
@@ -99,6 +105,9 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.19
+      '@types/nodemailer':
+        specifier: ^8.0.0
+        version: 8.0.0
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0
@@ -1236,6 +1245,9 @@ packages:
   '@types/node@22.19.19':
     resolution: {integrity: sha512-dyh/xO2Fh5bYrfWaaqGrRQQGkNdmYw6AmaAUvYeUMNTWQtvb796ikLdmTchRmOlOiIJ1TDXfWgVx1QkUlQ6Hew==}
 
+  '@types/nodemailer@8.0.0':
+    resolution: {integrity: sha512-fyf8jWULsCo0d0BuoQ75i6IeoHs47qcqxWc7yUdUcV0pOZGjUTTOvwdG1PRXUDqN/8A64yQdQdnA2pZgcdi+cA==}
+
   '@types/pg@8.20.0':
     resolution: {integrity: sha512-bEPFOaMAHTEP1EzpvHTbmwR8UsFyHSKsRisLIHVMXnpNefSbGA1bD6CVy+qKjGSqmZqNqBDV2azOBo8TgkcVow==}
 
@@ -1963,6 +1975,10 @@ packages:
   node-gyp-build@4.8.4:
     resolution: {integrity: sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==}
     hasBin: true
+
+  nodemailer@8.0.10:
+    resolution: {integrity: sha512-BLFuSth7QtHOkBzyqTehWWyub0NTRDuK2Q2SQfnGLsrJnzyU+Yeh4WpV1eZGuARFj1xQJHIdnTuJZLP+b9R1GQ==}
+    engines: {node: '>=6.0.0'}
 
   normalize-path@3.0.0:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
@@ -3231,6 +3247,10 @@ snapshots:
     dependencies:
       undici-types: 6.21.0
 
+  '@types/nodemailer@8.0.0':
+    dependencies:
+      '@types/node': 22.19.19
+
   '@types/pg@8.20.0':
     dependencies:
       '@types/node': 22.19.19
@@ -3861,6 +3881,8 @@ snapshots:
   node-addon-api@8.8.0: {}
 
   node-gyp-build@4.8.4: {}
+
+  nodemailer@8.0.10: {}
 
   normalize-path@3.0.0: {}
 
