@@ -1,6 +1,8 @@
 import { drizzle } from "drizzle-orm/postgres-js"
 import * as schema from "./schema"
+
 import relations from "./schema/relations"
+
 import path from "node:path"
 import Postgres from 'postgres'
 
