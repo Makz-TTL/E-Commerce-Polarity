@@ -20,3 +20,19 @@ export type ZodFastifyInstance = FastifyInstance<
   FastifyBaseLogger,
   ZodTypeProvider
 >
+
+import "fastify"
+
+declare module "fastify" {
+  interface Session {
+    username?: string;
+    tempUserData?: {
+      name: string;
+      lastName: string;
+      userName: string;
+      eMail: string;
+      passwordHash: string;
+      code: string;
+    };
+  }
+}

@@ -4,23 +4,19 @@ import { db } from "../../db"
 import { eq } from "drizzle-orm"
 import * as argon2 from "argon2"
 import { z } from "zod"
-import SignUpForm from "../components/SignUpForm"
+
 import { users } from "../../db/schema"
 import LoginForm from "../components/LoginForm"
 import Marketplace from "../components/marketplace"   
+import OtpForm from "../components/OtpForm"
+
+import SignUpForm from "../components/SignUpForm"
+import { sendTemplateEmail } from "../../emails/index"
 
 
+// Email Service Import
 
 
-
-
-// SCHEMAS
-const loginSchema = {
-  body: z.object({
-    username: z.string().min(1),
-    password: z.string().min(1)
-  })
-}
 
 // AGGIUNGI L'ESPORTAZIONE QUI:
 export default (server: ZodFastifyInstance) => {
@@ -88,68 +84,114 @@ server.post("/login", async (req, res) => {
   
 })
 
+//signUp with mail import { sendTemplateEmail } from "./emailService"
 
 const signUpSchema = z.object({
   nome: z.string().min(1, "Il nome è obbligatorio"),
   cognome: z.string().min(1, "Il cognome è obbligatorio"),
   username: z.string().min(4, "Username deve essere di almeno 4 caratteri"),
-  email: z.email({"message": "Email non valida"}),
+  email: z.string().email("Email non valida"),
   password: z.string().min(8, "La password deve essere lunga almeno 8 caratteri"),
-});
+})
 
-//registrazione
 
-server.post("/signUp", async (req, res) => {
 
-  const result = signUpSchema.safeParse(req.body);
+  // STEP 1: Process initial structural registration, dispatch code
+  server.post("/signUp", async (req, res) => {
+    const result = signUpSchema.safeParse(req.body)
 
-  if (!result.success) {
-    
-    const fieldErrors = result.error.flatten().fieldErrors; //collapso gli errori in un oggetto più semplice da gestire
-    const errors = Object.fromEntries(
-      Object.entries(fieldErrors).map(([key, value]) => [key, value?.[0]])
-    );
+    if (!result.success) {
+      const fieldErrors = result.error.flatten().fieldErrors
+      const errors = Object.fromEntries(
+        Object.entries(fieldErrors).map(([key, value]) => [key, value?.[0]])
+      )
+      return res.status(200).html(<SignUpForm values={req.body as any} errors={errors} />)
+    }
 
-    return res.status(200).html(
-      <SignUpForm
-        values={req.body as any}
-        errors={errors}
-      />
-    );
-  }
+    const { nome, cognome, username, email, password } = result.data
 
-  const { nome, cognome, username, email, password } = result.data;
-  const cookieValue = Math.random().toString(36).substring(2);
+    try {
+      const existingUser = await db.select().from(users).where(eq(users.userName, username)).limit(1)
+      if (existingUser.length > 0) {
+        return res.status(200).html(
+          <SignUpForm values={req.body as any} errors={{ username: "Username già in uso" }} />
+        )
+      }
 
-  try {
-    
-    await db.insert(users).values({
-      name: nome,
-      lastName: cognome,
-      userName: username,
-      eMail: email,
-      password: await argon2.hash(password),
-      cookie: cookieValue
-    });
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
 
-    res.header("Set-Cookie", `sessionId=${cookieValue}; Max-Age=${60 * 60 * 24 * 7}; Path=/; HttpOnly; SameSite=Strict`)
+      req.session.tempUserData = {
+        name: nome,
+        lastName: cognome,
+        userName: username,
+        eMail: email,
+        passwordHash: await argon2.hash(password),
+        code: verificationCode
+      }
 
-    req.session.username = username;
+      await sendTemplateEmail({
+        to: email,
+        subject: "Verifica il tuo account TechStore",
+        template: "WelcomeEmail",
+        payload: { name: `${nome}! Il tuo codice di verifica è: ${verificationCode}` }
+      })
 
-   
-    return res.header("HX-Redirect", "/").send(); //full page redirection
+      // Simply swap in the clean OTP form component!
+      return res.status(200).html(<OtpForm email={email} />)
 
-  } catch (error) {
-    console.log(error);
-    server.log.error(error);
-    return res.status(200).html(
-      <SignUpForm
-        values={req.body as any}
-        errors={{ email: "Email o username già in uso" }}
-      />
-    );
-  }
-});
+    } catch (error) {
+      server.log.error(error)
+      return res.status(200).html(
+        <SignUpForm values={req.body as any} errors={{ email: "Si è verificato un errore interno." }} />
+      )
+    }
+  })
+
+  // STEP 2: Validate incoming OTP input sequences
+  server.post("/verify-otp", async (req, res) => {
+    const { otp } = req.body as { otp: string }
+    const tempUser = req.session.tempUserData
+
+    if (!tempUser) {
+      return res.status(200).html(
+        <p class="text-red-500 text-sm font-semibold p-4 text-center">
+          Sessione scaduta. Per favore, ricarica la pagina e riprova.
+        </p>
+      )
+    }
+
+    if (otp !== tempUser.code) {
+      // Re-render the OtpForm component passing down the precise error message
+      return res.status(200).html(<OtpForm email={tempUser.eMail} error="Codice non valido o scaduto." />)
+    }
+
+    try {
+      const cookieValue = Math.random().toString(36).substring(2)
+
+      await db.insert(users).values({
+        name: tempUser.name,
+        lastName: tempUser.lastName,
+        userName: tempUser.userName,
+        eMail: tempUser.eMail,
+        password: tempUser.passwordHash,
+        cookie: cookieValue
+      })
+
+      delete req.session.tempUserData
+      res.header("Set-Cookie", `sessionId=${cookieValue}; Max-Age=${60 * 60 * 24 * 7}; Path=/; HttpOnly; SameSite=Strict`)
+      req.session.username = tempUser.userName
+
+      return res
+        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Registrazione completata!" } }))
+        .header("HX-Redirect", "/")
+        .send()
+
+    } catch (error) {
+      server.log.error(error)
+      return res.status(200).html(<OtpForm email={tempUser.eMail} error="Errore di sistema salvando l'utente." />)
+    }
+  })
+
 
 
 
@@ -170,5 +212,6 @@ server.post("/signUp", async (req, res) => {
     .send()
 })
 
-} // CHIUSURA DELL'ESPORTAZIONE
+}
+ // CHIUSURA DELL'ESPORTAZIONE
 
