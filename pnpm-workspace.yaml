@@ -3,3 +3,4 @@ allowBuilds:
   argon2: false
   better-sqlite3: false
   esbuild: false
+  sharp: false
