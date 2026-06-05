@@ -19,17 +19,13 @@ import partialsRouter from "./client/routers/partialsRouter"
 import actionsRouter from "./client/routers/actionsRouter"
 
 /* Error/404 handlers */
-import notFoundHandler from "./handlers/notFound"
-import errorHandler from "./handlers/error"
-import forbiddenHandler from "./handlers/forbidden"
-import paymentErrorHandler from "./handlers/paymentError"
-import paymentRequiredHandler from "./handlers/paymentRequired"
-import serviceUnavailableHandler from "./handlers/serviceUnavailable"
-import noAuthHandler from "./handlers/noAuth"
+import notFoundHandler from "./handlers/notFound" // Keeps its own setNotFoundHandler
+import registerGlobalErrorHandler from "./handlers/globalErrorHandler" // <-- New unified import
 
 /* Create Fastify instance with Zod type provider */
-
-const server = Fastify()
+const server = Fastify({
+  allowErrorHandlerOverride: false
+})
   .withTypeProvider<ZodTypeProvider>()
   .setValidatorCompiler(validatorCompiler)
 
@@ -53,18 +49,10 @@ partialsRouter(server)
 actionsRouter(server)
 
 /* Handlers */
-notFoundHandler(server)
-errorHandler(server)
-forbiddenHandler(server)
-paymentErrorHandler(server)
-paymentRequiredHandler(server)
-serviceUnavailableHandler(server)
-noAuthHandler(server)
+notFoundHandler(server)             
+registerGlobalErrorHandler(server)  
 
-/**
- * Builds the client TypeScript on the fly with esbuild and serves it as JS.
- * In production, use the "build:client" script and serve the static file.
- */
+
 server.get("/live-script", (_req, reply) => {
   const result = buildSync({
     entryPoints: [join(import.meta.dirname, "client", "scripts", "index.ts")],
@@ -80,7 +68,6 @@ server.get("/live-script", (_req, reply) => {
 
 /**
  * Builds Tailwind CSS on the fly by scanning project files.
- * In production, pre-build and serve as a static file.
  */
 server.get("/live-style", (_req, reply) => {
   const input = join(import.meta.dirname, "client", "styles", "index.css")
@@ -91,7 +78,6 @@ server.get("/live-style", (_req, reply) => {
   })
   return reply.type("text/css").send(css)
 })
-
 
 server.listen({ port: +env.PORT, host: "0.0.0.0" })
 console.log(`

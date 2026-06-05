@@ -1,30 +1,19 @@
-import { ZodFastifyInstance } from "../types"
+import { FastifyRequest, FastifyReply } from "fastify"
 import MainLayout from "../client/layouts/MainLayout"
-import { FastifyError } from "fastify"
 
-export default (server: ZodFastifyInstance) => {
-  
-  server.setErrorHandler((error: FastifyError, _req, reply) => {
-    console.error("[ERROR]", error.message)
+// Keep your standard 404 handler attached to setNotFoundHandler
+export default (server: any) => {
+  <server className="set"></server>(renderServiceUnavailable)
+}
 
-    
-    if (error.statusCode === 503) {
-      return reply.status(503).html(
-        <MainLayout title="Service Unavailable  ">
-          <div class="container">
-            <h1>503</h1>
-            <p>{error.message || "Service unavailable."}</p>
-            <a href="/">Back to homepage</a>
-          </div>
-        </MainLayout>
-      )
-    }
-
-
-    return reply.status(error.statusCode ?? 500).send({
-      statusCode: error.statusCode ?? 500,
-      error: error.name,
-      message: error.message
-    })
-  })
+export function renderServiceUnavailable(_req: FastifyRequest, reply: FastifyReply) {
+  return reply.status(502).html(
+    <MainLayout title="502 - Service Unavailable">
+      <div class="container">
+        <h1>502</h1>
+        <p>Service unavailable.</p>
+        <a href="/">Back to homepage</a>
+      </div>
+    </MainLayout>
+  )
 }
