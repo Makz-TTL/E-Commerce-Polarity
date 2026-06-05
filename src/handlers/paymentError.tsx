@@ -3,7 +3,7 @@ import MainLayout from "../client/layouts/MainLayout"
 import { FastifyError } from "fastify"
 
 export default (server: ZodFastifyInstance) => {
-  server.setErrorHandler((error: FastifyError, _req, reply) => {
+  server.setPaymentErrorHandler((error: FastifyError, req, reply) => {
     console.error("[ERROR]", error.message)
     
     return reply.status(400).html(

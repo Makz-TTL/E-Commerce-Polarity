@@ -7,7 +7,7 @@ export default (server: ZodFastifyInstance) => {
     console.error("[ERROR]", error.message)
     
     return reply.status(500).html(
-      <MainLayout title="erorr">
+      <MainLayout title="error">
         <div class="container">
           <h1>{error.statusCode ?? 500}</h1>
           <p>{error.message || "Internal server error."}</p>

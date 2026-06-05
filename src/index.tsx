@@ -21,6 +21,13 @@ import actionsRouter from "./client/routers/actionsRouter"
 /* Error/404 handlers */
 import notFoundHandler from "./handlers/notFound"
 import errorHandler from "./handlers/error"
+import forbiddenHandler from "./handlers/forbidden"
+import paymentErrorHandler from "./handlers/paymentError"
+import paymentRequiredHandler from "./handlers/paymentRequired"
+import serviceUnavailableHandler from "./handlers/serviceUnavailable"
+import noAuthHandler from "./handlers/noAuth"
+
+/* Create Fastify instance with Zod type provider */
 
 const server = Fastify()
   .withTypeProvider<ZodTypeProvider>()
@@ -48,6 +55,11 @@ actionsRouter(server)
 /* Handlers */
 notFoundHandler(server)
 errorHandler(server)
+forbiddenHandler(server)
+paymentErrorHandler(server)
+paymentRequiredHandler(server)
+serviceUnavailableHandler(server)
+noAuthHandler(server)
 
 /**
  * Builds the client TypeScript on the fly with esbuild and serves it as JS.
