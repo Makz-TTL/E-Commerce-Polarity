@@ -25,6 +25,9 @@ const loginSchema = {
 // AGGIUNGI L'ESPORTAZIONE QUI:
 export default (server: ZodFastifyInstance) => {
 
+
+  //login
+
   const loginSchema = z.object({
   username: z.string().trim().min(1, "Il nome utente è obbligatorio"),
   password: z.string().min(1, "La password è obbligatoria"),
@@ -90,7 +93,7 @@ const signUpSchema = z.object({
   nome: z.string().min(1, "Il nome è obbligatorio"),
   cognome: z.string().min(1, "Il cognome è obbligatorio"),
   username: z.string().min(4, "Username deve essere di almeno 4 caratteri"),
-  email: z.string().email("Email non valida"),
+  email: z.email({"message": "Email non valida"}),
   password: z.string().min(8, "La password deve essere lunga almeno 8 caratteri"),
 });
 
@@ -102,7 +105,7 @@ server.post("/signUp", async (req, res) => {
 
   if (!result.success) {
     
-    const fieldErrors = result.error.flatten().fieldErrors;
+    const fieldErrors = result.error.flatten().fieldErrors; //collapso gli errori in un oggetto più semplice da gestire
     const errors = Object.fromEntries(
       Object.entries(fieldErrors).map(([key, value]) => [key, value?.[0]])
     );
@@ -119,7 +122,7 @@ server.post("/signUp", async (req, res) => {
   const cookieValue = Math.random().toString(36).substring(2);
 
   try {
-    // 2. Database Insertion
+    
     await db.insert(users).values({
       name: nome,
       lastName: cognome,
@@ -134,7 +137,7 @@ server.post("/signUp", async (req, res) => {
     req.session.username = username;
 
    
-    return res.header("HX-Redirect", "/").send();
+    return res.header("HX-Redirect", "/").send(); //full page redirection
 
   } catch (error) {
     console.log(error);

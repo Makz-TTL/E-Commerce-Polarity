@@ -37,6 +37,8 @@ export default (server: ZodFastifyInstance) => {
     )
   })
 
+  
+
   server.get("/", renderMarketplace)
   server.get("/marketplace", renderMarketplace)
 }

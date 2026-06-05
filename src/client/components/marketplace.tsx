@@ -1,8 +1,10 @@
 import { db } from "../../db"
 import { Session } from "fastify"
+// 1. Import the modal component
+import ConfirmLogoutModal from "./ConfirmLogoutModal"
 
 type MarketplaceProps = {
-  searchParams?: { category?: string }  
+  searchParams?: { category?: string }
   partial?: boolean
   session?: Session
 }
@@ -25,7 +27,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
           <div class="flex-1 flex flex-col justify-between">
             <div>
               <h2 class="text-xl font-bold text-gray-900 tracking-tight flex flex-col mb-2">
-                {product.productName} 
+                {product.productName}
                 <span class="text-xs text-indigo-500 font-normal mt-1">
                   Seller: {product.seller?.name} {product.seller?.lastName}
                 </span>
@@ -60,7 +62,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
       <nav class="w-full bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex justify-between h-16 items-center">
-            
+
             <div class="flex-shrink-0 flex items-center">
               <a href="/" class="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent hover:opacity-90 transition-opacity">
                 TechStore
@@ -83,13 +85,12 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                       Ciao, <strong class="text-indigo-600">{session.username}</strong>
                     </span>
                     <button
-                      hx-post="/logout"
-                      hx-target="#profile-section"
-                      hx-swap="outerHTML"
                       class="inline-flex items-center justify-center bg-red-500 hover:bg-red-600 text-white text-sm font-semibold py-2 px-4 rounded-xl transition-colors"
+                      onclick="document.getElementById('confirm-logout-modal').classList.remove('hidden')"
                     >
-                      Logout
+                      Disconnetti
                     </button>
+
                   </div>
                 ) : (
                   <div class="flex items-center gap-2">
@@ -117,15 +118,15 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
           </div>
         </div>
       </nav>
-    
+
       <h1 class="text-2xl font-bold mb-4 p-6 pb-0">Marketplace</h1>
 
       <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 p-6">
         {products.map((product) => (
           <div class="max-w-sm rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between">
             <div class="w-full h-48 bg-gray-100 relative overflow-hidden">
-              <img 
-                src={product.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'} 
+              <img
+                src={product.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'}
                 alt={product.productName}
                 class="w-full h-full object-cover transition-transform duration-500"
                 loading="lazy"
@@ -134,7 +135,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
             <div class="p-6 flex-1 flex flex-col justify-between">
               <div>
                 <h2 class="text-xl font-bold text-gray-900 tracking-tight flex flex-col mb-2">
-                  {product.productName} 
+                  {product.productName}
                   <span class="text-xs text-indigo-500 font-normal mt-1">Seller: {product.seller?.name} {product.seller?.lastName}</span>
                 </h2>
                 <div class="mb-4">
@@ -156,20 +157,20 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
       </div>
 
       <div class="flex justify-center gap-3 mt-6 max-w-7xl mx-auto px-6">
-        <button hx-get="/marketplace" hx-target="#products-grid" hx-swap="outerHTML" 
-                class={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${category === "" ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+        <button hx-get="/marketplace" hx-target="#products-grid" hx-swap="outerHTML"
+          class={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${category === "" ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
           Tutti
         </button>
-        <button hx-get="/marketplace?category=Tech" hx-target="#products-grid" hx-swap="outerHTML" 
-                class={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${category === "Tech" ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+        <button hx-get="/marketplace?category=Tech" hx-target="#products-grid" hx-swap="outerHTML"
+          class={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${category === "Tech" ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
           Tech
         </button>
-        <button hx-get="/marketplace?category=Toy" hx-target="#products-grid" hx-swap="outerHTML" 
-                class={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${category === "Toy" ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+        <button hx-get="/marketplace?category=Toy" hx-target="#products-grid" hx-swap="outerHTML"
+          class={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${category === "Toy" ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
           Toy
         </button>
-        <button hx-get="/marketplace?category=Auto" hx-target="#products-grid" hx-swap="outerHTML" 
-                class={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${category === "Auto" ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+        <button hx-get="/marketplace?category=Auto" hx-target="#products-grid" hx-swap="outerHTML"
+          class={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${category === "Auto" ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
           Auto
         </button>
       </div>
@@ -177,6 +178,9 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
       {productsGridClass}
 
       <div id="cart-drawer"></div>
+
+      {/* 2. RENDER THE MODAL COMPONENT IF USER IS LOGGED IN */}
+      {session?.username && <ConfirmLogoutModal />}
     </div>
   )
 }

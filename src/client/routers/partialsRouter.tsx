@@ -35,7 +35,7 @@ export default (server: ZodFastifyInstance) => {
     )
   })
 
-  // FIX: Wrapped SignUpForm inside the Modal layout component
+
   server.get("/signup-modal", (_req, reply) => {
     return reply.html(
       <Modal
@@ -52,4 +52,6 @@ export default (server: ZodFastifyInstance) => {
       <div class="p-4 text-sm text-gray-600">Il carrello è vuoto.</div>
     )
   })
+
+  
 }

@@ -19,47 +19,84 @@ export default function LoginForm({ values = {}, error }: Props) {
       hx-target="this"
       hx-swap="outerHTML"
       hx-push-url="false"
-      class="space-y-4"
+      class="space-y-5 w-full max-w-md mx-auto bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 shadow-xl"
     >
-      <div>
-        <label class="block font-medium mb-1" for="username">
+      {/* Form Header */}
+      <div class="mb-2">
+        <h2 class="text-2xl font-extrabold text-gray-900 tracking-tight">
+          Accedi al tuo account
+        </h2>
+        <p class="text-sm text-gray-500 mt-1">
+          Inserisci le tue credenziali per continuare lo shopping.
+        </p>
+      </div>
+
+      {/* Username Field */}
+      <div class="flex flex-col gap-1.5">
+        <label class="text-sm font-semibold text-gray-700" for="username">
           Username
         </label>
-        <input
-          class="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          type="text"
-          id="username"
-          name="username"
-          required
-          value={values.username || ""}
-        />
+        <div class="relative">
+          <input
+            class={`w-full px-4 py-3 bg-gray-50/50 border rounded-xl text-sm transition-all duration-200 outline-none focus:bg-white focus:ring-4 ${
+              error?.username 
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500/10" 
+                : "border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/10"
+            }`}
+            type="text"
+            id="username"
+            name="username"
+            placeholder="Inserisci il tuo username"
+            required
+            value={values.username || ""}
+          />
+        </div>
         {error?.username && (
-          <div class="text-red-600 text-sm mt-1">{error.username}</div>
+          <div class="flex items-center gap-1.5 text-red-600 text-xs font-medium mt-0.5">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 flex-shrink-0">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+            </svg>
+            {error.username}
+          </div>
         )}
       </div>
 
-      <div>
-        <label class="block font-medium mb-1" for="password">
+      {/* Password Field */}
+      <div class="flex flex-col gap-1.5">
+        <label class="text-sm font-semibold text-gray-700" for="password">
           Password
         </label>
-        <input
-          class="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          type="password"
-          id="password"
-          name="password"
-          required
-          value={values.password || ""}
-        />
+        <div class="relative">
+          <input
+            class={`w-full px-4 py-3 bg-gray-50/50 border rounded-xl text-sm transition-all duration-200 outline-none focus:bg-white focus:ring-4 ${
+              error?.password 
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500/10" 
+                : "border-gray-200 focus:border-indigo-500 focus:ring-indigo-500/10"
+            }`}
+            type="password"
+            id="password"
+            name="password"
+            placeholder="••••••••"
+            required
+            value={values.password || ""}
+          />
+        </div>
         {error?.password && (
-          <div class="text-red-600 text-sm mt-1">{error.password}</div>
+          <div class="flex items-center gap-1.5 text-red-600 text-xs font-medium mt-0.5">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 flex-shrink-0">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+            </svg>
+            {error.password}
+          </div>
         )}
       </div>
 
+      {/* Submit Button */}
       <button
-        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 transition-colors cursor-pointer"
+        class="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-sm shadow-indigo-100 text-sm text-center cursor-pointer"
         type="submit"
       >
-        Login
+        Accedi
       </button>
     </form>
   )
