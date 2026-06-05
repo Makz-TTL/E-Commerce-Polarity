@@ -69,11 +69,9 @@ server.post("/login", async (req, res) => {
 
     
     return res
-      .header("HX-Reswap", "outerHTML")
-      .header("HX-Retarget", "#profile-section")
-      .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Ti sei loggato con successo" } }))
-      .header("HX-Redirect", "/")
-      .html(<ProfileSection session={req.session} />)
+  .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Ti sei loggato con successo" } }))
+  .header("HX-Redirect", "/")
+  .send()
 
   } catch (error) {
     server.log.error(error)
@@ -152,10 +150,22 @@ server.post("/signUp", async (req, res) => {
 
 
 
-  server.post("/logout", async (req, reply) => {
-    await req.session.destroy()
-    return reply.html(<ProfileSection session={req.session} />)
-  })
+ server.post("/logout", async (req, reply) => {
+
+  await req.session.destroy()
+
+  
+  const logoutToastTrigger = { 
+    showSuccessToast: { message: "Disconnesso con successo" } 
+  }
+
+  
+  return reply
+    .header("Set-Cookie", "sessionId=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict")
+    .header("HX-Trigger", JSON.stringify(logoutToastTrigger))
+    .header("HX-Redirect", "/")
+    .send()
+})
 
 } // CHIUSURA DELL'ESPORTAZIONE
 
