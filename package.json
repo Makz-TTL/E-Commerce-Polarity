@@ -8,8 +8,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "build:css": "tailwindcss -i ./src/client/styles/global.css -o ./public/css/output.css",
-    "watch:css": "tailwindcss -i ./src/client/styles/global.css -o ./public/css/output.css --watch",
+    "build:css": "tailwindcss -i ./src/client/styles/index.css -o ./public/css/output.css",
+    "watch:css": "tailwindcss -i ./src/client/styles/index.css -o ./public/css/output.css --watch",
     "email": "email dev"
   },
   "dependencies": {

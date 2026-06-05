@@ -125,6 +125,7 @@ server.post("/signUp", async (req, res) => {
       userName: username,
       eMail: email,
       password: await argon2.hash(password),
+      cookie: ""
     });
 
     
@@ -134,6 +135,7 @@ server.post("/signUp", async (req, res) => {
     return res.header("HX-Redirect", "/").send();
 
   } catch (error) {
+    console.log(error);
     server.log.error(error);
     return res.status(200).html(
       <SignUpForm
