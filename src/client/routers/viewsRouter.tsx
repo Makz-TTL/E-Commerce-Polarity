@@ -31,8 +31,6 @@ export default (server: ZodFastifyInstance) => {
     )
   }
 
-  server.get("/", renderMarketplace)
-  server.get("/marketplace", renderMarketplace)
 
   server.get("/signUp", async (req, res) => {
     return res.html(
