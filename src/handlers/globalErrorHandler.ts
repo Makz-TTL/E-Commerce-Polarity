@@ -14,7 +14,7 @@ interface FastifyHttpError extends Error {
 export default function registerGlobalErrorHandler(server: FastifyInstance) {
   server.setErrorHandler((unknownError: unknown, request, reply) => {
     const error = unknownError as FastifyHttpError
-    server.log.error(error)
+    console.error(error)
 
     const statusCode = error.statusCode || 500
 

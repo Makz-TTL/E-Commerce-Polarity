@@ -5,3 +5,4 @@ dist
 sqlite.db
 drizzle
 public/js
+pg-data
