@@ -1,15 +1,15 @@
-import { db } from "../../db" 
+import { db } from "../../db"
+import { Session } from "fastify"
 
 type MarketplaceProps = {
-  searchParams?: { category?: string }
+  searchParams?: { category?: string }  
   partial?: boolean
+  session?: Session
 }
 
-export default async function Marketplace({ searchParams, partial }: MarketplaceProps) {
-  // CORREZIONE LOGICA: Gestiamo il caso in cui category sia undefined dal router
+export default async function Marketplace({ searchParams, partial, session }: MarketplaceProps) {
   const category = searchParams?.category ? searchParams.category.trim() : ""
 
-  // Query pulita e corretta per filtrare
   const products = await db.query.products.findMany({
     where: category ? { category } : undefined,
     with: {
@@ -18,12 +18,10 @@ export default async function Marketplace({ searchParams, partial }: Marketplace
     }
   })
 
-  // Griglia parziale per HTMX
   const productsGridClass = (
     <div id="products-grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 p-6 max-w-7xl mx-auto">
       {products.map((product: any) => (
         <div class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between p-6 h-[350px]">
-          
           <div class="flex-1 flex flex-col justify-between">
             <div>
               <h2 class="text-xl font-bold text-gray-900 tracking-tight flex flex-col mb-2">
@@ -37,7 +35,6 @@ export default async function Marketplace({ searchParams, partial }: Marketplace
               </div>
               <p class="text-gray-600 text-sm leading-relaxed mb-4 line-clamp-2">{product.description}</p>
             </div>
-            
             <div class="mb-5 mt-auto">
               <label class="text-sm font-medium text-gray-500">Categoria: </label>
               <span class="inline-block bg-gray-200 text-gray-800 text-xs font-semibold px-2 py-1 rounded-full">
@@ -45,12 +42,10 @@ export default async function Marketplace({ searchParams, partial }: Marketplace
               </span>
             </div>
           </div>
-
           <div class="flex gap-3 mt-4">
             <button class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center">Info</button>
             <button class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center">Cart</button>
           </div>
-
         </div>
       ))}
     </div>
@@ -82,24 +77,41 @@ export default async function Marketplace({ searchParams, partial }: Marketplace
               <span class="h-6 w-px bg-gray-200" aria-hidden="true"></span>
 
               <div id="profile-section">
-              <button 
-                hx-get="/login-modal" 
-                hx-target="#modal" 
-                hx-swap="innerHTML" 
-                class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 px-6 rounded-xl shadow-sm shadow-indigo-100 transition-colors focus:outline-none"
-              >
-                Log In
-              </button>
-              
-              <button 
-                hx-get="/signup-modal" 
-                hx-target="#modal"     
-                hx-swap="innerHTML" 
-                class="inline-flex items-center justify-center bg-none text-black-600 hover:text-indigo-700 text-sm font-semibold py-2.5 px-6 rounded-xl border-2 border-black-200 transition-colors focus:outline-none ml-5"
-              >
-                Sign Up
-              </button>
-            </div>
+                {session?.username ? (
+                  <div class="flex items-center gap-3">
+                    <span class="text-sm font-medium text-gray-700">
+                      Ciao, <strong class="text-indigo-600">{session.username}</strong>
+                    </span>
+                    <button
+                      hx-post="/logout"
+                      hx-target="#profile-section"
+                      hx-swap="outerHTML"
+                      class="inline-flex items-center justify-center bg-red-500 hover:bg-red-600 text-white text-sm font-semibold py-2 px-4 rounded-xl transition-colors"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                ) : (
+                  <div class="flex items-center gap-2">
+                    <button
+                      hx-get="/login-modal"
+                      hx-target="#modal"
+                      hx-swap="innerHTML"
+                      class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 px-6 rounded-xl shadow-sm transition-colors"
+                    >
+                      Log In
+                    </button>
+                    <button
+                      hx-get="/signup-modal"
+                      hx-target="#modal"
+                      hx-swap="innerHTML"
+                      class="inline-flex items-center justify-center text-sm font-semibold py-2.5 px-6 rounded-xl border-2 border-gray-300 hover:border-indigo-400 transition-colors"
+                    >
+                      Sign Up
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
           </div>
@@ -109,11 +121,8 @@ export default async function Marketplace({ searchParams, partial }: Marketplace
       <h1 class="text-2xl font-bold mb-4 p-6 pb-0">Marketplace</h1>
 
       <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 p-6">
-
         {products.map((product) => (
-          <div  class="max-w-sm rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between">
-            
-            {/* Immagine del prodotto */}
+          <div class="max-w-sm rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between">
             <div class="w-full h-48 bg-gray-100 relative overflow-hidden">
               <img 
                 src={product.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'} 
@@ -122,8 +131,6 @@ export default async function Marketplace({ searchParams, partial }: Marketplace
                 loading="lazy"
               />
             </div>
-
-            {/* Contenuto testuale (Padding applicato qui per non stringere l'immagine) */}
             <div class="p-6 flex-1 flex flex-col justify-between">
               <div>
                 <h2 class="text-xl font-bold text-gray-900 tracking-tight flex flex-col mb-2">
@@ -134,24 +141,20 @@ export default async function Marketplace({ searchParams, partial }: Marketplace
                   <span class="text-xl font-extrabold text-indigo-600">${product.price}</span>
                 </div>
                 <p class="text-gray-600 text-sm leading-relaxed mb-5 line-clamp-3">{product.description}</p>
-                
                 <div class="mb-5">
                   <label class="text-sm font-medium text-gray-500">Categoria: </label>
                   <span class="inline-block bg-gray-200 text-gray-800 text-xs font-semibold px-2 py-1 rounded-full">{product.category}</span>
                 </div>
               </div>
-
-              {/* Pulsanti di azione */}
               <div class="flex gap-3 mt-auto">
                 <button class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center">Info</button>
                 <button class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center">Cart</button>
               </div>
             </div>
-
           </div>
         ))}
       </div>
-      {/* PULSANTI DI FILTRO RAPIDI */}
+
       <div class="flex justify-center gap-3 mt-6 max-w-7xl mx-auto px-6">
         <button hx-get="/marketplace" hx-target="#products-grid" hx-swap="outerHTML" 
                 class={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${category === "" ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>

@@ -116,6 +116,7 @@ server.post("/signUp", async (req, res) => {
   }
 
   const { nome, cognome, username, email, password } = result.data;
+  const cookieValue = Math.random().toString(36).substring(2);
 
   try {
     // 2. Database Insertion
@@ -125,10 +126,11 @@ server.post("/signUp", async (req, res) => {
       userName: username,
       eMail: email,
       password: await argon2.hash(password),
-      cookie: ""
+      cookie: cookieValue
     });
 
-    
+    res.header("Set-Cookie", `sessionId=${cookieValue}; Max-Age=${60 * 60 * 24 * 7}; Path=/; HttpOnly; SameSite=Strict`)
+
     req.session.username = username;
 
    

@@ -6,12 +6,11 @@ import SignUpForm from "../components/SignUpForm"
 
 export default (server: ZodFastifyInstance) => {
   const renderMarketplace = async (
-    req: FastifyRequest<{ Querystring: { category?: string } }>, // Rimosso search che non usi più
+    req: FastifyRequest<{ Querystring: { category?: string } }>,
     reply: FastifyReply
   ) => {
     const query = req.query
     
-    // Prepariamo l'oggetto esattamente come se lo aspetta MarketplaceProps
     const searchParams = {
       category: typeof query.category === "string" ? query.category : undefined,
     }
@@ -22,8 +21,7 @@ export default (server: ZodFastifyInstance) => {
       return reply.html(htmlContent)
     }
 
-    // CORREZIONE: Eseguiamo l'await anche all'interno del Layout per la pagina intera
-    const marketplaceContent = await Marketplace({ searchParams })
+    const marketplaceContent = await Marketplace({ searchParams, session: req.session })
     return reply.html(
       <MainLayout>
         {marketplaceContent}
@@ -31,11 +29,10 @@ export default (server: ZodFastifyInstance) => {
     )
   }
 
-
   server.get("/signUp", async (req, res) => {
     return res.html(
       <MainLayout>
-        <SignUpForm values = {{ nome: "", cognome: "", username: "", email: "", password: "" }}/>
+        <SignUpForm values={{ nome: "", cognome: "", username: "", email: "", password: "" }} />
       </MainLayout>
     )
   })
