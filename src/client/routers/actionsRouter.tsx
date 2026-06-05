@@ -72,6 +72,7 @@ server.post("/login", async (req, res) => {
       .header("HX-Reswap", "outerHTML")
       .header("HX-Retarget", "#profile-section")
       .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Ti sei loggato con successo" } }))
+      .header("HX-Redirect", "/")
       .html(<ProfileSection session={req.session} />)
 
   } catch (error) {
@@ -83,6 +84,7 @@ server.post("/login", async (req, res) => {
       />
     )
   }
+  
 })
 
 
