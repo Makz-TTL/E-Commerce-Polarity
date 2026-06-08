@@ -216,7 +216,6 @@ server.get("/addToCart/:id", async (req, res) => {
       return res.status(404).send("Prodotto non trovato")
     }
 
-    // 2. Verifica se lo stock è sufficiente
     if (product.stock < quantity) {
       return res
         .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: `Stock insufficiente! Disponibili solo: ${product.stock}` } }))
@@ -228,20 +227,19 @@ server.get("/addToCart/:id", async (req, res) => {
 
     console.log("Aggiornamento stock prodotto (senza eliminazione):", { productId, newStock });
 
-    // 3. Modifica lo stock sul database (andrà a 0 se la quantità acquistata copre interamente lo stock)
+   
     await db.update(products)
       .set({ stock: newStock })
       .where(eq(products.id, productId))
 
-    // 4. Inserisce la riga nella tabella degli ordini
+   
     await db.insert(orders).values({
       userId: user.id,             
       productId: productId, 
       quantity: quantity,     
       totalPrice: totalPrice  
     })  
-    
-    // 5. Notifica il client
+
     const triggerEvents = {
       showSuccessToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` }
     }
@@ -254,6 +252,93 @@ server.get("/addToCart/:id", async (req, res) => {
     console.error("ERRORE DB AGGIUNTA CARRELLO/UPDATE STOCK:", error)
     return res.status(500).send("Errore durante l'aggiunta al carrello")
   }
-})
- // CHIUSURA DELL'ESPORTAZIONE
-}
+
+  })
+
+
+
+
+ const editProfileSchema = z.object({
+    nome: z.string().min(1, "Il nome è obbligatorio"),
+    cognome: z.string().min(1, "Il cognome è obbligatorio"),
+    username: z.string().min(4, "Username deve essere di almeno 4 caratteri"),
+    email: z.string().email("Email non valida"),
+  })
+
+  server.post("/editProfile", async (req, res) => {
+    if (!req.session.username) {
+      return res.status(401).send("Non autorizzato")
+    }
+
+    const result = editProfileSchema.safeParse(req.body)
+
+    if (!result.success) {
+      const fieldErrors = result.error.flatten().fieldErrors
+      const errors = Object.fromEntries(
+        Object.entries(fieldErrors).map(([key, value]) => [key, value?.[0]])
+      )
+      return res.status(200).html(
+        <SignUpForm isEdit={true} values={req.body as any} errors={errors} />
+      )
+    }
+
+    const { nome, cognome, username, email } = result.data
+
+    try {
+      // Trova l'utente corrente per recuperare l'ID
+      const rows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+      const currentUser = rows[0]
+
+      if (!currentUser) {
+        return res.status(404).send("Utente non trovato")
+      }
+
+      // Se l'utente sta provando a cambiare username, controlliamo che non sia già occupato da qualcun altro
+      if (username !== req.session.username) {
+        const existingUser = await db.select().from(users).where(eq(users.userName, username)).limit(1)
+        if (existingUser.length > 0) {
+          return res.status(200).html(
+            <SignUpForm 
+              isEdit={true} 
+              values={req.body as any} 
+              errors={{ username: "Username già in uso da un altro utente" }} 
+            />
+          )
+        }
+      }
+
+      // Eseguiamo l'aggiornamento dei dati anagrafici sul database
+      await db.update(users)
+        .set({
+          name: nome,
+          lastName: cognome,
+          userName: username,
+          eMail: email
+        })
+        .where(eq(users.id, currentUser.id))
+
+      // Aggiorniamo il valore dell'username all'interno della sessione di Fastify
+      req.session.username = username
+
+      // 🌟 MODIFICATO: Invece di ritornare il SignUpForm, indichiamo ad HTMX di ricaricare 
+      // la pagina del profilo. Questo chiude la modale e mostra i dati aggiornati a schermo!
+      return res
+        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Profilo aggiornato con successo!" } }))
+        .header("HX-Redirect", `/profile?username=${username}`) // 👈 Assicurati che questo path corrisponda a quello della tua ProfilePage
+        .send()
+
+    } catch (error) {
+      server.log.error(error)
+      return res.status(200).html(
+        <SignUpForm 
+          isEdit={true} 
+          values={req.body as any} 
+          errors={{ email: "Si è verificato un errore interno durante il salvataggio." }} 
+        />
+      )
+    }
+  })
+  
+
+} // CHIUSURA DELL'ESPORTAZIONE
+

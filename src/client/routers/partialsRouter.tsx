@@ -6,6 +6,7 @@ import Modal from "../components/Modal"
 import OtpForm from "../components/OtpForm"
 import SignUpForm from "../components/SignUpForm"
 import { db } from "../../db"
+import { eq } from "drizzle-orm"
 
 export default (server: ZodFastifyInstance) => {
 
@@ -88,7 +89,70 @@ export default (server: ZodFastifyInstance) => {
       server.log.error(error)
       return res.status(200).html(<OtpForm email={tempUser.eMail} error="Errore di sistema salvando l'utente." />)
     }
+
+
+    
   })
+
+  server.get("/edit-profile-modal", async (req, res) => {
+  // 1. Controllo di sicurezza se l'utente è loggato
+  if (!req.session.username) {
+    return res.status(200).html(
+      <div class="p-6 text-center">
+        <p class="text-gray-600 mb-4">Devi essere autenticato per modificare il profilo.</p>
+      </div>
+    )
+  }
+
+  try {
+    // 2. Recupera i dati freschi dell'utente dal database
+    const rows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+    const currentUser = rows[0]
+
+    if (!currentUser) {
+      return res.status(404).send("Utente non trovato")
+    }
+
+    // 3. Ritorna il SignUpForm precompilato dentro la struttura grafica della modale
+    return res.status(200).html(
+      <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" id="editProfileModalContainer" onclick="if(event.target === this) this.remove()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          
+          {/* Bottone di chiusura X in alto a destra */}
+          <button 
+            type="button" 
+            onclick="document.getElementById('editProfileModalContainer').remove()" 
+            class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 cursor-pointer"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          <div class="p-2 pt-6">
+            <h2 class="text-xl font-bold text-gray-900 px-6">Modifica Profilo</h2>
+            
+            {/* Inject del form configurato per la modifica */}
+            <SignUpForm
+              isEdit={true}
+              onEditPasswordClick="alert('Gestione password non configurata')"
+              values={{
+                nome: currentUser.name || "",
+                cognome: currentUser.lastName || "",
+                username: currentUser.userName || "",
+                email: currentUser.eMail || "",
+              }}
+            />
+          </div>
+
+        </div>
+      </div>
+    )
+  } catch (error) {
+    server.log.error(error)
+    return res.status(500).send("Errore nel caricamento dei dati del profilo")
+  }
+})  
 
   
 }
