@@ -3,6 +3,7 @@ import { ZodFastifyInstance } from "../../types/index"
 import Marketplace from "../components/marketplace"
 import MainLayout from "../layouts/MainLayout"
 import SignUpForm from "../components/SignUpForm"
+import PorfilePage from "../components/ProfilePage"
 
 export default (server: ZodFastifyInstance) => {
   const renderMarketplace = async (
@@ -37,7 +38,18 @@ export default (server: ZodFastifyInstance) => {
     )
   })
 
-  
+  server.get("/profile", async (req, res) => {
+    if(!req.session.username){
+      return res.redirect("/")
+    }
+
+    const content = await PorfilePage({ username: req.session.username })
+    return res.html(
+      <MainLayout>
+        {content}
+      </MainLayout>
+    )
+  })
 
   server.get("/", renderMarketplace)
   server.get("/marketplace", renderMarketplace)
