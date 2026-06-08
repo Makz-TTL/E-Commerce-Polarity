@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm"
 import * as argon2 from "argon2"
 import { z } from "zod"
 
-import { users } from "../../db/schema"
+import { orders, users } from "../../db/schema"
 import LoginForm from "../components/LoginForm"
 import Marketplace from "../components/marketplace"   
 import OtpForm from "../components/OtpForm"
@@ -129,14 +129,18 @@ const signUpSchema = z.object({
         code: verificationCode
       }
 
+   
       await sendTemplateEmail({
         to: email,
         subject: "Verifica il tuo account TechStore",
         template: "WelcomeEmail",
-        payload: { name: `${nome}! Il tuo codice di verifica è: ${verificationCode}` }
+        payload: { 
+          name: nome,             
+          code: verificationCode  
+        }
       })
 
-      // Simply swap in the clean OTP form component!
+   
       return res.status(200).html(<OtpForm email={email} />)
 
     } catch (error) {
@@ -158,21 +162,65 @@ const signUpSchema = z.object({
   await req.session.destroy()
 
   
-  const logoutToastTrigger = { 
-    showSuccessToast: { message: "Disconnesso con successo" } 
-  }
+ 
 
   
   return reply
-    .header("Set-Cookie", "sessionId=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict")
-    .header("HX-Trigger", JSON.stringify(logoutToastTrigger))
+   .header("Set-Cookie", "sessionId=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict")
     .header("HX-Redirect", "/")
     .send()
 })
 
 
 
+server.get("/addToCart/:id", async (req, res) => {
+ 
+  const { id } = req.params as { id: string }
+  const productId = parseInt(id, 10)
 
+  if (isNaN(productId)) {
+    return res.status(400).send("ID Prodotto non valido")
+  }
+
+  if (!req.session.username) {
+    return res
+    .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Devi essere loggato per aggiungere prodotti al carrello" } }))
+    .send() 
+   
+  }
+
+  const userRows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+  const user = userRows[0]
+
+  if (!user) {
+    return res.status(401).html(
+      <LoginForm
+        values={{ username: "", password: "" }}
+        error={{ password: "Utente non trovato. Riprova." }}
+      />
+    )
+  }
+
+ try {
+  
+  console.log("Tentativo di inserimento ordine:", { userId: user.id, productId });
+
+  await db.insert(orders).values({
+    userId: user.id,             
+    productId: Number(productId), 
+    quantity: 1,
+    totalPrice: 0 //valore placeholder, da calcolare in base al prodotto reale
+  })  
+  
+  return res
+    .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Prodotto aggiunto al carrello" } }))
+    .send() 
+
+} catch (error) {
+  
+  console.error("ERRORE DB INSERIMENTO:", error)
+  return res.status(500).send("Errore durante l'aggiunta al carrello")
 }
+})
  // CHIUSURA DELL'ESPORTAZIONE
-
+}

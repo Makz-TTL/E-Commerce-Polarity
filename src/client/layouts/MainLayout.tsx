@@ -25,6 +25,8 @@ export default (props: LayoutProps) => {
         <div id={"modal"} />
         <script src="/live-script"></script>
       </body>
+      
     </html>
+    
   )
 }

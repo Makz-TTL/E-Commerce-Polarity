@@ -1,6 +1,5 @@
 import { db } from "../../db"
 import { Session } from "fastify"
-// 1. Import the modal component
 import ConfirmLogoutModal from "./ConfirmLogoutModal"
 
 type MarketplaceProps = {
@@ -12,6 +11,7 @@ type MarketplaceProps = {
 export default async function Marketplace({ searchParams, partial, session }: MarketplaceProps) {
   const category = searchParams?.category ? searchParams.category.trim() : ""
 
+  // Fetch categorized products
   const products = await db.query.products.findMany({
     where: category ? { category } : undefined,
     with: {
@@ -20,63 +20,86 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
     }
   })
 
-  const productsGridClass = (
+  // Define the master grid once
+  const productsGrid = (
     <div id="products-grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 p-6 max-w-7xl mx-auto">
       {products.map((product: any) => (
-        <div class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between p-6 h-[350px]">
+        <div class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between p-6 h-[420px]">
+          
+          <div class="w-full h-40 bg-gray-50 relative overflow-hidden rounded-xl mb-4">
+            <img
+              src={product.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'}
+              alt={product.productName}
+              class="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </div>
+
           <div class="flex-1 flex flex-col justify-between">
             <div>
-              <h2 class="text-xl font-bold text-gray-900 tracking-tight flex flex-col mb-2">
+              <h2 class="text-xl font-bold text-gray-900 tracking-tight flex flex-col mb-1">
                 {product.productName}
-                <span class="text-xs text-indigo-500 font-normal mt-1">
+                <span class="text-xs text-indigo-500 font-normal mt-0.5">
                   Seller: {product.seller?.name} {product.seller?.lastName}
                 </span>
               </h2>
-              <div class="mb-4">
+              <div class="mb-2">
                 <span class="text-xl font-extrabold text-indigo-600">${product.price}</span>
               </div>
-              <p class="text-gray-600 text-sm leading-relaxed mb-4 line-clamp-2">{product.description}</p>
+              <p class="text-gray-600 text-sm leading-relaxed mb-3 line-clamp-2">{product.description}</p>
             </div>
-            <div class="mb-5 mt-auto">
+            <div class="mb-2 mt-auto">
               <label class="text-sm font-medium text-gray-500">Categoria: </label>
-              <span class="inline-block bg-gray-200 text-gray-800 text-xs font-semibold px-2 py-1 rounded-full">
+              <span class="inline-block bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">
                 {product.category}
               </span>
             </div>
           </div>
+
           <div class="flex gap-3 mt-4">
-            <button class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center">Info</button>
-            <button class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center">Cart</button>
+            <button class="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 font-medium py-2.5 px-4 rounded-xl transition-colors text-sm text-center cursor-pointer">
+              Info
+            </button>
+            <button 
+              hx-get={`/addToCart/${product.id}`}
+              hx-swap="none" /* Prevents HTMX from trying to swap the blank network response inside the button layout */
+              class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center cursor-pointer"
+            >
+              Aggiungi
+            </button>
           </div>
+
         </div>
       ))}
     </div>
   )
 
+  // If HTMX requests just a category filter patch swap, return the raw grid segment
   if (partial) {
-    return productsGridClass
+    return productsGrid
   }
 
   return (
     <div class="bg-gray-50/50 min-h-screen pb-12">
+      {/* Navigation Header */}
       <nav class="w-full bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex justify-between h-16 items-center">
 
             <div class="flex-shrink-0 flex items-center">
-              <a href="/" class="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent hover:opacity-90 transition-opacity">
+              <a href="/" class="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
                 TechStore
               </a>
             </div>
 
             <div class="flex items-center gap-4">
-              <button hx-get="/cart-preview" hx-target="#cart-drawer" hx-swap="innerHTML" class="relative p-2.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-50 rounded-xl transition-all group" aria-label="Vedi carrello">
+              <button hx-get="/cart-preview" hx-target="#cart-drawer" hx-swap="innerHTML" class="relative p-2.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-50 rounded-xl transition-all group">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 group-hover:scale-105 transition-transform">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
                 </svg>
               </button>
 
-              <span class="h-6 w-px bg-gray-200" aria-hidden="true"></span>
+              <span class="h-6 w-px bg-gray-200"></span>
 
               <div id="profile-section">
                 {session?.username ? (
@@ -85,29 +108,18 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                       Ciao, <strong class="text-indigo-600">{session.username}</strong>
                     </span>
                     <button
-                      class="inline-flex items-center justify-center bg-red-500 hover:bg-red-600 text-white text-sm font-semibold py-2 px-4 rounded-xl transition-colors"
+                      class="inline-flex items-center justify-center bg-red-500 hover:bg-red-600 text-white text-sm font-semibold py-2 px-4 rounded-xl transition-colors cursor-pointer"
                       onclick="document.getElementById('confirm-logout-modal').classList.remove('hidden')"
                     >
                       Disconnetti
                     </button>
-
                   </div>
                 ) : (
                   <div class="flex items-center gap-2">
-                    <button
-                      hx-get="/login-modal"
-                      hx-target="#modal"
-                      hx-swap="innerHTML"
-                      class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 px-6 rounded-xl shadow-sm transition-colors"
-                    >
+                    <button hx-get="/login-modal" hx-target="#modal" hx-swap="innerHTML" class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 px-6 rounded-xl shadow-sm transition-colors cursor-pointer">
                       Log In
                     </button>
-                    <button
-                      hx-get="/signup-modal"
-                      hx-target="#modal"
-                      hx-swap="innerHTML"
-                      class="inline-flex items-center justify-center text-sm font-semibold py-2.5 px-6 rounded-xl border-2 border-gray-300 hover:border-indigo-400 transition-colors"
-                    >
+                    <button hx-get="/signup-modal" hx-target="#modal" hx-swap="innerHTML" class="inline-flex items-center justify-center text-sm font-semibold py-2.5 px-6 rounded-xl border-2 border-gray-300 hover:border-indigo-400 transition-colors cursor-pointer">
                       Sign Up
                     </button>
                   </div>
@@ -119,73 +131,35 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
         </div>
       </nav>
 
-      <h1 class="text-2xl font-bold mb-4 p-6 pb-0">Marketplace</h1>
+      <h1 class="text-3xl font-extrabold tracking-tight text-gray-900 px-6 pt-8 max-w-7xl mx-auto">
+        Marketplace
+      </h1>
 
-      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 p-6">
-        {products.map((product) => (
-          <div class="max-w-sm rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between">
-            <div class="w-full h-48 bg-gray-100 relative overflow-hidden">
-              <img
-                src={product.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'}
-                alt={product.productName}
-                class="w-full h-full object-cover transition-transform duration-500"
-                loading="lazy"
-              />
-            </div>
-            <div class="p-6 flex-1 flex flex-col justify-between">
-              <div>
-                <h2 class="text-xl font-bold text-gray-900 tracking-tight flex flex-col mb-2">
-                  {product.productName}
-                  <span class="text-xs text-indigo-500 font-normal mt-1">Seller: {product.seller?.name} {product.seller?.lastName}</span>
-                </h2>
-                <div class="mb-4">
-                  <span class="text-xl font-extrabold text-indigo-600">${product.price}</span>
-                </div>
-                <p class="text-gray-600 text-sm leading-relaxed mb-5 line-clamp-3">{product.description}</p>
-                <div class="mb-5">
-                  <label class="text-sm font-medium text-gray-500">Categoria: </label>
-                  <span class="inline-block bg-gray-200 text-gray-800 text-xs font-semibold px-2 py-1 rounded-full">{product.category}</span>
-                </div>
-              </div>
-              <div class="flex gap-3 mt-auto">
-                <button class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center">Info</button>
-
-                {/*bottone aggiungi al carrello*/}
-                <button 
-                hx-get="/addToCart"
-                class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center">
-                  Cart
-                  </button>
-              </div>
-            </div>
-          </div>
+      {/* Category Filter Controls */}
+      <div class="flex gap-2 mt-4 mb-2 max-w-7xl mx-auto px-6 overflow-x-auto pb-2">
+        {["", "Tech", "Toy", "Auto"].map((cat) => (
+          <button 
+            hx-get={cat === "" ? "/marketplace" : `/marketplace?category=${cat}`} 
+            hx-target="#products-grid" 
+            hx-swap="outerHTML"
+            class={`px-5 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer ${
+              category === cat 
+                ? "bg-indigo-600 text-white shadow-md shadow-indigo-100" 
+                : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+            }`}
+          >
+            {cat === "" ? "Tutti" : cat}
+          </button>
         ))}
       </div>
 
-      <div class="flex justify-center gap-3 mt-6 max-w-7xl mx-auto px-6">
-        <button hx-get="/marketplace" hx-target="#products-grid" hx-swap="outerHTML"
-          class={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${category === "" ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-          Tutti
-        </button>
-        <button hx-get="/marketplace?category=Tech" hx-target="#products-grid" hx-swap="outerHTML"
-          class={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${category === "Tech" ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-          Tech
-        </button>
-        <button hx-get="/marketplace?category=Toy" hx-target="#products-grid" hx-swap="outerHTML"
-          class={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${category === "Toy" ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-          Toy
-        </button>
-        <button hx-get="/marketplace?category=Auto" hx-target="#products-grid" hx-swap="outerHTML"
-          class={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${category === "Auto" ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-          Auto
-        </button>
-      </div>
-
-      {productsGridClass}
+      {/* Primary Grid Anchor */}
+      {productsGrid}
 
       <div id="cart-drawer"></div>
 
-      {/* 2. RENDER THE MODAL COMPONENT IF USER IS LOGGED IN */}
+      {/* Global Modals Appended Container */}
+      <div id="modal"></div>
       {session?.username && <ConfirmLogoutModal />}
     </div>
   )
