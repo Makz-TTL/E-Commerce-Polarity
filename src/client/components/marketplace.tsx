@@ -149,7 +149,13 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
               </div>
               <div class="flex gap-3 mt-auto">
                 <button class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center">Info</button>
-                <button class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center">Cart</button>
+
+                {/*bottone aggiungi al carrello*/}
+                <button 
+                hx-get="/addToCart"
+                class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center">
+                  Cart
+                  </button>
               </div>
             </div>
           </div>
