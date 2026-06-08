@@ -1,7 +1,7 @@
 import { db } from "../../db"
 import { Session } from "fastify"
 import ConfirmLogoutModal from "./ConfirmLogoutModal"
-import { products as productsTable, users as usersTable, reviews as reviewsTable } from "../../db/schema" // 👈 Assicurati di importare tutte le tabelbe coinvolte
+import { products as productsTable, users as usersTable, reviews as reviewsTable } from "../../db/schema" 
 import { eq, gt, and, sql } from "drizzle-orm"
 
 type MarketplaceProps = {
@@ -50,7 +50,8 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
   const productsGrid = (
     <div id="products-grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 p-6 max-w-7xl mx-auto">
       {products.map((product: any) => (
-        <div class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between p-6 h-[420px]">
+       
+        <div id={`product-card-${product.id}`} class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between p-6 h-[420px]">
           
           <div class="w-full h-40 bg-gray-50 relative overflow-hidden rounded-xl mb-4">
             <img
@@ -77,14 +78,19 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
             <div class="mb-2 mt-auto">
 
               <label class="text-sm font-medium text-gray-500">Stock disponibile: </label>
-              <span class="inline-block bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">
+            
+              <span id={`stock-badge-${product.id}`} class="inline-block bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">
                 {product.stock}
               </span>
             </div>
           </div>
 
           <div class="flex gap-3 mt-4">
-            <button class="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 font-medium py-2.5 px-4 rounded-xl transition-colors text-sm text-center cursor-pointer">
+            
+            <button 
+              onclick={`window.location.href='/product/${product.id}'`}
+              class="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 font-medium py-2.5 px-4 rounded-xl transition-colors text-sm text-center cursor-pointer"
+            >
               Info
             </button>
 
@@ -92,16 +98,16 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
 
             {/* Popup modale */}
           <div
-  id={`modal-${product.id}`}
-  class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
-  onclick="if(event.target === this) this.classList.add('hidden')"
->
-  <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4">
-    <h3 class="text-lg font-bold text-gray-900">Aggiungi al carrello</h3>
-    <p class="text-sm text-gray-500">
-      {/* 1. AGGIUNTO L'ID AL BADGE DEL MODALE */}
-      Disponibili: <span id={`modal-stock-${product.id}`} class="font-semibold text-indigo-600">{product.stock}</span>
-    </p>
+            id={`modal-${product.id}`}
+            class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+            onclick="if(event.target === this) this.classList.add('hidden')"
+          >
+            <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4">
+              <h3 class="text-lg font-bold text-gray-900">Aggiungi al carrello</h3>
+              <p class="text-sm text-gray-500">
+                
+                Disponibili: <span id={`modal-stock-${product.id}`} class="font-semibold text-indigo-600">{product.stock}</span>
+              </p>
 
               <div class="flex flex-col gap-1">
                 <label class="text-sm font-medium text-gray-700">Quantità</label>
@@ -191,7 +197,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
     </div>
   )
 
-  // If HTMX requests just a category filter patch swap, return the raw grid segment
+ 
   if (partial) {
     return productsGrid
   }
@@ -216,26 +222,12 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                 </svg>
               </button>
 
-              {session?.username && (
-                <a href="/profile" class="text-sm font-medium text-gray-600 hover:text-indigo-600 transition-colors">
-                  Il mio profilo
-                </a>
-              )}
-
-              <span class="h-6 w-px bg-gray-200"></span>
-
               <div id="profile-section">
                 {session?.username ? (
                   <div class="flex items-center gap-3">
                     <span class="text-sm font-medium text-gray-700">
                       Ciao, <strong class="text-indigo-600">{session.username}</strong>
                     </span>
-                    <button
-                      class="inline-flex items-center justify-center bg-red-500 hover:bg-red-600 text-white text-sm font-semibold py-2 px-4 rounded-xl transition-colors cursor-pointer"
-                      onclick="document.getElementById('confirm-logout-modal').classList.remove('hidden')"
-                    >
-                      Disconnetti
-                    </button>
                   </div>
                 ) : (
                   <div class="flex items-center gap-2">
@@ -248,6 +240,17 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                   </div>
                 )}
               </div>
+
+              <span class="h-6 w-px bg-gray-200"></span>
+
+              {session?.username && (
+                <button onclick="window.location.href='/profile'" class="relative p-2.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-50 rounded-xl transition-all group">
+                  <svg xmlns="http://www.w3.org/2000/xl" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 group-hover:scale-105 transition-transform">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                  </svg>
+                </button>
+              )}
+              
             </div>
 
           </div>
