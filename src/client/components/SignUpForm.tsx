@@ -13,8 +13,8 @@ type Props = {
         email?: string,
         password?: string
     },
-    isEdit?: boolean,               // 👈 Flag per identificare se siamo in modifica profilo
-    onEditPasswordClick?: string    // 👈 Codice JS nativo per gestire il comportamento del bottone password
+    isEdit?: boolean,               
+    onEditPasswordClick?: string    
 }
 
 export default function SignUpForm({ values = {}, errors, isEdit = false, onEditPasswordClick }: Props) {
@@ -26,7 +26,7 @@ export default function SignUpForm({ values = {}, errors, isEdit = false, onEdit
 
             <form 
                 hx-post={isEdit ? "/editProfile" : "/signUp"} 
-                hx-target="#registerDiv" // Cerca l'ID qui sopra e lo sostituisce
+                hx-target="#registerDiv" 
                 hx-swap="outerHTML"
                 class="space-y-4"
             >
@@ -68,7 +68,7 @@ export default function SignUpForm({ values = {}, errors, isEdit = false, onEdit
                     )}
                 </div>
 
-                {/* 🌟 LOGICA CONDIZIONALE PER LA PASSWORD */}
+                {/* LOGICA CONDIZIONALE PER LA PASSWORD */}
                 {isEdit ? (
                     <div class="pt-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Sicurezza</label>
