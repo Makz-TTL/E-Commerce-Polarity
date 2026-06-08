@@ -5,10 +5,11 @@ import MainLayout from "../layouts/MainLayout"
 import SignUpForm from "../components/SignUpForm"
 import Cart from "../components/cart"
 import PorfilePage from "../components/ProfilePage"
-import { users } from "../../db/schema"
+import { products, users } from "../../db/schema"
 import { db } from "../../db"
 import LoginForm from "../components/LoginForm"
 import { eq } from "drizzle-orm"
+import ProductInfoPage from "../components/ProductInfoPage"
 
 export default (server: ZodFastifyInstance) => {
   const renderMarketplace = async (
@@ -43,7 +44,6 @@ export default (server: ZodFastifyInstance) => {
     )
   })
 
-
   server.get("/cart", async (req, res) => {
     console.log("Session in /cart route:", req.session.username) 
     return res.html(
@@ -52,7 +52,6 @@ export default (server: ZodFastifyInstance) => {
       </MainLayout>
     )
   })
-
 
   server.get("/profile", async (req, res) => {
     if(!req.session.username){
@@ -68,43 +67,71 @@ export default (server: ZodFastifyInstance) => {
   })
 
   server.get("/editProfile", async (req, res) => {
-      if (!req.session.username) {
-        return res.status(200).html(
-          <LoginForm
-            values={{ username: "", password: "" }}
-            error={{ password: "Devi essere autenticato per modificare il profilo" }}
-          />
-        )
+    if (!req.session.username) {
+      return res.status(200).html(
+        <LoginForm
+          values={{ username: "", password: "" }}
+          error={{ password: "Devi essere autenticato per modificare il profilo" }}
+        />
+      )
+    }
+
+    try {
+      const rows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+      const currentUser = rows[0]
+
+      if (!currentUser) {
+        return res.status(404).send("Utente non trovato")
       }
-  
-      try {
-        
-        const rows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-        const currentUser = rows[0]
-  
-        if (!currentUser) {
-          return res.status(404).send("Utente non trovato")
-        }
-  
-        
-        return res.status(200).html(
-          <SignUpForm
-            isEdit={true}
-            onEditPasswordClick="alert('Pulsante cliccato! Endpoint password non configurato come da istruzioni.')"
-            values={{
-              nome: currentUser.name || "",       
-              cognome: currentUser.lastName || "", 
-              username: currentUser.userName || "",
-              email: currentUser.eMail || "",
-            }}
-          />
-        )
-      } catch (error) {
-        server.log.error(error)
-        return res.status(500).send("Errore nel caricamento del profilo")
+
+      return res.status(200).html(
+        <SignUpForm
+          isEdit={true}
+          onEditPasswordClick="alert('Pulsante cliccato! Endpoint password non configurato come da istruzioni.')"
+          values={{
+            nome: currentUser.name || "",       
+            cognome: currentUser.lastName || "", 
+            username: currentUser.userName || "",
+            email: currentUser.eMail || "",
+          }}
+        />
+      )
+    } catch (error) {
+      server.log.error(error)
+      return res.status(500).send("Errore nel caricamento del profilo")
+    }
+  })
+
+  server.get("/product/:id", async (req, res) => {
+    const { id } = req.params as { id: string }
+    const productId = parseInt(id, 10)
+
+    if (isNaN(productId)) {
+      return res.status(400).send("ID Prodotto non valido")
+    }
+
+    try {
+      const productRows = await db
+        .select()
+        .from(products)
+        .where(eq(products.id, productId))
+        .limit(1)
+
+      const product = productRows[0]
+
+      if (!product) {
+        return res.status(404).send("Prodotto non trovato o non più disponibile")
       }
-    })
-  
+
+      return res.status(200).html(
+        <MainLayout>
+          <ProductInfoPage product={product} session={req.session} />
+        </MainLayout>
+      )
+    } catch (error) {
+      return res.status(500).send("Errore interno durante il caricamento dei dettagli del prodotto")
+    }
+  })
 
   server.get("/", renderMarketplace)
   server.get("/marketplace", renderMarketplace)

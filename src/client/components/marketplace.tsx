@@ -1,7 +1,7 @@
 import { db } from "../../db"
 import { Session } from "fastify"
 import ConfirmLogoutModal from "./ConfirmLogoutModal"
-import { products as productsTable, users as usersTable, reviews as reviewsTable } from "../../db/schema"
+import { products as productsTable, users as usersTable, reviews as reviewsTable } from "../../db/schema" 
 import { eq, gt, and, sql } from "drizzle-orm"
 
 type MarketplaceProps = {
@@ -45,7 +45,8 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
   const productsGrid = (
     <div id="products-grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 p-6 max-w-7xl mx-auto">
       {products.map((product: any) => (
-        <div class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between p-6 h-[420px]">
+       
+        <div id={`product-card-${product.id}`} class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between p-6 h-[420px]">
           
           <div class="w-full h-40 bg-gray-50 relative overflow-hidden rounded-xl mb-4">
             <img
@@ -71,14 +72,19 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
             </div>
             <div class="mb-2 mt-auto">
               <label class="text-sm font-medium text-gray-500">Stock disponibile: </label>
-              <span class="inline-block bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">
+            
+              <span id={`stock-badge-${product.id}`} class="inline-block bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">
                 {product.stock}
               </span>
             </div>
           </div>
 
           <div class="flex gap-3 mt-4">
-            <button class="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 font-medium py-2.5 px-4 rounded-xl transition-colors text-sm text-center cursor-pointer">
+            
+            <button 
+              onclick={`window.location.href='/product/${product.id}'`}
+              class="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 font-medium py-2.5 px-4 rounded-xl transition-colors text-sm text-center cursor-pointer"
+            >
               Info
             </button>
 
