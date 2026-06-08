@@ -3,6 +3,7 @@ import { ZodFastifyInstance } from "../../types/index"
 import Marketplace from "../components/marketplace"
 import MainLayout from "../layouts/MainLayout"
 import SignUpForm from "../components/SignUpForm"
+import Cart from "../components/cart"
 
 export default (server: ZodFastifyInstance) => {
   const renderMarketplace = async (
@@ -37,7 +38,15 @@ export default (server: ZodFastifyInstance) => {
     )
   })
 
-  
+
+  server.get("/cart", async (req, res) => {
+    console.log("Session in /cart route:", req.session.username) // Debug log per verificare la sessione.
+    return res.html(
+      <MainLayout>
+        <Cart session={req.session} />
+      </MainLayout>
+    )
+  })
 
   server.get("/", renderMarketplace)
   server.get("/marketplace", renderMarketplace)
