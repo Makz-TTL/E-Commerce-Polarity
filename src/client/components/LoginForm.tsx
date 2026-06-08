@@ -1,4 +1,5 @@
 type Props = {
+  redirectTo?: string;
   values?: {
     username?: string
     password?: string
@@ -11,27 +12,16 @@ type Props = {
 
 export const loginFormId = "login-form"
 
-export default function LoginForm({ values = {}, error }: Props) {
+export default function LoginForm({ values = {}, error, redirectTo = "/" }: Props) {
   return (
     <form 
       id={loginFormId}
-      hx-post="/login" 
+      hx-post={`/login?redirect=${encodeURIComponent(redirectTo)}`}
       hx-target="this"
       hx-swap="outerHTML"
       hx-push-url="false"
-      class="space-y-5 w-full max-w-md mx-auto bg-white p-6 sm:p-8 rounded-2xl border border-gray-100 shadow-xl"
+      class="space-y-5 w-full max-w-md mx-auto bg-white p-2"
     >
-      {/* Form Header */}
-      <div class="mb-2">
-        <h2 class="text-2xl font-extrabold text-gray-900 tracking-tight">
-          Accedi al tuo account
-        </h2>
-        <p class="text-sm text-gray-500 mt-1">
-          Inserisci le tue credenziali per continuare lo shopping.
-        </p>
-      </div>
-
-      {/* Username Field */}
       <div class="flex flex-col gap-1.5">
         <label class="text-sm font-semibold text-gray-700" for="username">
           Username
@@ -61,7 +51,6 @@ export default function LoginForm({ values = {}, error }: Props) {
         )}
       </div>
 
-      {/* Password Field */}
       <div class="flex flex-col gap-1.5">
         <label class="text-sm font-semibold text-gray-700" for="password">
           Password
@@ -83,7 +72,7 @@ export default function LoginForm({ values = {}, error }: Props) {
         </div>
         {error?.password && (
           <div class="flex items-center gap-1.5 text-red-600 text-xs font-medium mt-0.5">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 flex-shrink-0">
+            <svg xmlns="http://www.w3.org/2000/xl" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 flex-shrink-0">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
             </svg>
             {error.password}
@@ -91,7 +80,6 @@ export default function LoginForm({ values = {}, error }: Props) {
         )}
       </div>
 
-      {/* Submit Button */}
       <button
         class="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-sm shadow-indigo-100 text-sm text-center cursor-pointer"
         type="submit"
