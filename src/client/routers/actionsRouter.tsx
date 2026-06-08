@@ -85,6 +85,7 @@ export default (server: ZodFastifyInstance) => {
   })
 
   server.post("/signUp", async (req, res) => {
+    console.log("signup")
     const result = signUpSchema.safeParse(req.body)
 
     if (!result.success) {
