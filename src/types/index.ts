@@ -7,12 +7,6 @@ import type {
 } from "fastify"
 import { type ZodTypeProvider } from "fastify-type-provider-zod"
 
-declare module "fastify" {
-  interface Session {
-    username?: string
-  }
-}
-
 export type ZodFastifyInstance = FastifyInstance<
   RawServerDefault,
   RawRequestDefaultExpression,
@@ -20,8 +14,6 @@ export type ZodFastifyInstance = FastifyInstance<
   FastifyBaseLogger,
   ZodTypeProvider
 >
-
-import "fastify"
 
 declare module "fastify" {
   interface Session {
@@ -32,6 +24,10 @@ declare module "fastify" {
       userName: string;
       eMail: string;
       passwordHash: string;
+      code: string;
+    };
+    tempPasswordData?: {
+      newPasswordHash: string;
       code: string;
     };
   }

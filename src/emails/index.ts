@@ -3,6 +3,7 @@ import { render } from "@react-email/render"
 
 
 import WelcomeEmail, { WelcomeEmailProps } from "./templates/WelcomeEmail"
+import ChangePasswordEmail, { ChangePasswordEmailProps } from "./templates/ChangePasswordEmail"
 
 const transport = createTransport({
   port: 1025,
@@ -27,7 +28,9 @@ export const sendLocalEmail = async (options: {
 
 export type SendTemplateEmailOptions = 
   
-   { template: "WelcomeEmail"; payload: WelcomeEmailProps }
+   ({ template: "WelcomeEmail"; payload: WelcomeEmailProps, } | {
+    template: "ChangePasswordEmail"; payload: ChangePasswordEmailProps
+  })
 
 export const sendTemplateEmail = async (
   options: SendTemplateEmailOptions & { to: string; subject: string }
@@ -36,9 +39,10 @@ export const sendTemplateEmail = async (
 
   let body
   
- 
-if (template === "WelcomeEmail") {
+  if (template === "WelcomeEmail") {
     body = WelcomeEmail(payload)
+  } else if (template === "ChangePasswordEmail") {
+    body = ChangePasswordEmail(payload)
   }
 
   if (!body) throw new Error(`Template missing`)

@@ -73,11 +73,13 @@ export default function SignUpForm({ values = {}, errors, isEdit = false, onEdit
                     <div class="pt-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Sicurezza</label>
                         <button
-                          type="button"
-                          onclick={onEditPasswordClick || "alert('Funzionalità password non configurata')"}
-                          class="w-full py-2 px-4 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer text-center"
+                            type="button"
+                            hx-get="/editPassword-modal"
+                            hx-target="#registerDiv"
+                            hx-swap="outerHTML"
+                            class="w-full py-2 px-4 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer text-center"
                         >
-                          Modifica Password
+                            Modifica Password
                         </button>
                     </div>
                 ) : (
