@@ -1,6 +1,8 @@
 import { db } from "../../db"
 import { Session } from "fastify"
 import ConfirmLogoutModal from "./ConfirmLogoutModal"
+import { products as productsTable, users as usersTable, reviews as reviewsTable } from "../../db/schema" // 👈 Assicurati di importare tutte le tabelbe coinvolte
+import { eq, gt, and, sql } from "drizzle-orm"
 
 type MarketplaceProps = {
   searchParams?: { category?: string }
@@ -11,14 +13,38 @@ type MarketplaceProps = {
 export default async function Marketplace({ searchParams, partial, session }: MarketplaceProps) {
   const category = searchParams?.category ? searchParams.category.trim() : ""
 
-  // Fetch categorized products
-  const products = await db.query.products.findMany({
-    where: category ? { category } : undefined,
-    with: {
-      seller: true,
-      reviews: true
-    }
-  })
+
+  const queryConditions = [gt(productsTable.stock, 0)]
+
+  if (category) {
+    queryConditions.push(eq(productsTable.category, category))
+  }
+
+  
+  const rows = await db
+    .select({
+      id: productsTable.id,
+      productName: productsTable.productName,
+      price: productsTable.price,
+      description: productsTable.description,
+      stock: productsTable.stock,
+      imageUrl: productsTable.imageUrl,
+      category: productsTable.category,
+      
+      seller: {
+        name: usersTable.name,
+        lastName: usersTable.lastName,
+      },
+    })
+    .from(productsTable)
+    .leftJoin(usersTable, eq(productsTable.userId, usersTable.id)) 
+    .where(and(...queryConditions))
+
+  
+  const products = rows.map(row => ({
+    ...row,
+    reviews: [] 
+  }))
 
   // Define the master grid once
   const productsGrid = (
@@ -66,51 +92,88 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
 
             {/* Popup modale */}
           <div
-            id={`modal-${product.id}`}
-            class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
-            onclick="if(event.target === this) this.classList.add('hidden')"
-          >
-            <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4">
-              <h3 class="text-lg font-bold text-gray-900">Aggiungi al carrello</h3>
-              <p class="text-sm text-gray-500">
-                Disponibili: <span class="font-semibold text-indigo-600">{product.stock}</span>
-              </p>
+  id={`modal-${product.id}`}
+  class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+  onclick="if(event.target === this) this.classList.add('hidden')"
+>
+  <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4">
+    <h3 class="text-lg font-bold text-gray-900">Aggiungi al carrello</h3>
+    <p class="text-sm text-gray-500">
+      {/* 1. AGGIUNTO L'ID AL BADGE DEL MODALE */}
+      Disponibili: <span id={`modal-stock-${product.id}`} class="font-semibold text-indigo-600">{product.stock}</span>
+    </p>
 
-              <div class="flex flex-col gap-1">
-                <label class="text-sm font-medium text-gray-700">Quantità</label>
-                <input
-                  id={`qty-${product.id}`}
-                  type="number"
-                  min="1"
-                  max={product.stock}
-                  value="1"
-                  class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                  oninput={`
-                    const val = parseInt(this.value);
-                    if (val > ${product.stock}) this.value = ${product.stock};
-                    if (val < 1 || isNaN(val)) this.value = 1;
-                  `}
-                />
-              </div>
+    <div class="flex flex-col gap-1">
+      <label class="text-sm font-medium text-gray-700">Quantità</label>
+      <input
+        id={`qty-${product.id}`}
+        type="number"
+        min="1"
+        max={product.stock}
+        value="1"
+        class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+        oninput={`
+          const val = parseInt(this.value);
+          if (val > ${product.stock}) this.value = ${product.stock};
+          if (val < 1 || isNaN(val)) this.value = 1;
+        `}
+      />
+    </div>
 
-              <div class="flex gap-2 mt-1">
-                <button
-                  onclick={`document.getElementById('modal-${product.id}').classList.add('hidden')`}
-                  class="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors"
-                >
-                  Annulla
-                </button>
-                <button
-                  onclick={`
-                    const qty = document.getElementById('qty-${product.id}').value;
-                    htmx.ajax('GET', '/addToCart/${product.id}?quantity=' + qty, { swap: 'none' });
-                    document.getElementById('modal-${product.id}').classList.add('hidden');
-                  `}
-                  class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-xl text-sm transition-colors"
-                >
-                  Conferma
-                </button>
-              </div>
+    <div class="flex gap-2 mt-1">
+      <button
+        type="button"
+        onclick={`document.getElementById('modal-${product.id}').classList.add('hidden')`}
+        class="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors cursor-pointer"
+      >
+        Annulla
+      </button>
+      
+      <button
+        type="button"
+        onclick={`
+          const qtyInput = document.getElementById('qty-${product.id}');
+          const qty = parseInt(qtyInput.value, 10);
+          
+          if (isNaN(qty) || qty < 1) return;
+
+          // 2. Invia la richiesta ad HTMX
+          htmx.ajax('GET', '/addToCart/${product.id}?quantity=' + qty, { swap: 'none' });
+          
+          // 3. Chiude il modale immediatamente
+          document.getElementById('modal-${product.id}').classList.add('hidden');
+          
+          // 4. Calcola il nuovo livello di stock a schermo
+          const stockBadge = document.getElementById('stock-badge-${product.id}');
+          if (stockBadge) {
+            const currentStock = parseInt(stockBadge.innerText, 10);
+            const newStock = Math.max(0, currentStock - qty);
+            
+            // 5. SE LO STOCK SI AZZERA: Fai sparire la card del prodotto dal DOM
+            if (newStock <= 0) {
+              const productCard = document.getElementById('product-card-${product.id}');
+              if (productCard) {
+                productCard.style.transition = 'all 0.3s ease';
+                productCard.style.opacity = '0';
+                productCard.style.transform = 'scale(0.95)';
+                setTimeout(() => productCard.remove(), 300);
+              }
+            } else {
+              // 6. ALTRIMENTI: Aggiorna i contatori grafici normalmente
+              stockBadge.innerText = newStock;
+              const modalStockBadge = document.getElementById('modal-stock-${product.id}');
+              if (modalStockBadge) modalStockBadge.innerText = newStock;
+              
+              qtyInput.max = newStock;
+              qtyInput.value = "1";
+            }
+          }
+        `}
+        class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2 rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
+      >
+        Conferma
+      </button>
+          </div>
             </div>
           </div>
 

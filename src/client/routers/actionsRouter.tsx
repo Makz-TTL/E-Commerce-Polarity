@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm"
 import * as argon2 from "argon2"
 import { z } from "zod"
 
-import { orders, users } from "../../db/schema"
+import { orders, users, products } from "../../db/schema"
 import LoginForm from "../components/LoginForm"
 import Marketplace from "../components/marketplace"   
 import OtpForm from "../components/OtpForm"
@@ -174,19 +174,25 @@ const signUpSchema = z.object({
 
 
 server.get("/addToCart/:id", async (req, res) => {
- 
   const { id } = req.params as { id: string }
   const productId = parseInt(id, 10)
+
+
+  const { quantity: qtyParam } = req.query as { quantity?: string }
+  const quantity = parseInt(qtyParam || "1", 10)
 
   if (isNaN(productId)) {
     return res.status(400).send("ID Prodotto non valido")
   }
 
+  if (isNaN(quantity) || quantity < 1) {
+    return res.status(400).send("Quantità non valida")
+  }
+
   if (!req.session.username) {
     return res
-    .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Devi essere loggato per aggiungere prodotti al carrello" } }))
-    .send() 
-   
+      .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Devi essere loggato per aggiungere prodotti al carrello" } }))
+      .send() 
   }
 
   const userRows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
@@ -201,26 +207,53 @@ server.get("/addToCart/:id", async (req, res) => {
     )
   }
 
- try {
-  
-  console.log("Tentativo di inserimento ordine:", { userId: user.id, productId });
+  try {
+    // 1. Recupera il prodotto dal database
+    const productRows = await db.select().from(products).where(eq(products.id, productId)).limit(1)
+    const product = productRows[0]
 
-  await db.insert(orders).values({
-    userId: user.id,             
-    productId: Number(productId), 
-    quantity: 1,
-    totalPrice: 0 //valore placeholder, da calcolare in base al prodotto reale
-  })  
-  
-  return res
-    .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Prodotto aggiunto al carrello" } }))
-    .send() 
+    if (!product) {
+      return res.status(404).send("Prodotto non trovato")
+    }
 
-} catch (error) {
-  
-  console.error("ERRORE DB INSERIMENTO:", error)
-  return res.status(500).send("Errore durante l'aggiunta al carrello")
-}
+    // 2. Verifica se lo stock è sufficiente
+    if (product.stock < quantity) {
+      return res
+        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: `Stock insufficiente! Disponibili solo: ${product.stock}` } }))
+        .send()
+    }
+
+    const totalPrice = product.price * quantity
+    const newStock = product.stock - quantity
+
+    console.log("Aggiornamento stock prodotto (senza eliminazione):", { productId, newStock });
+
+    // 3. Modifica lo stock sul database (andrà a 0 se la quantità acquistata copre interamente lo stock)
+    await db.update(products)
+      .set({ stock: newStock })
+      .where(eq(products.id, productId))
+
+    // 4. Inserisce la riga nella tabella degli ordini
+    await db.insert(orders).values({
+      userId: user.id,             
+      productId: productId, 
+      quantity: quantity,     
+      totalPrice: totalPrice  
+    })  
+    
+    // 5. Notifica il client
+    const triggerEvents = {
+      showSuccessToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` }
+    }
+
+    return res
+      .header("HX-Trigger", JSON.stringify(triggerEvents))
+      .send() 
+
+  } catch (error) {
+    console.error("ERRORE DB AGGIUNTA CARRELLO/UPDATE STOCK:", error)
+    return res.status(500).send("Errore durante l'aggiunta al carrello")
+  }
 })
  // CHIUSURA DELL'ESPORTAZIONE
 }
