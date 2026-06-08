@@ -185,9 +185,13 @@ const signUpSchema = z.object({
     }
 
     try {
+      // const o = await db.delete(orders).where(eq(orders.id, orderId))
       await db.delete(orders).where(eq(orders.id, orderId))
+      // const d = 
       return res.send("")
-    } catch (error) {
+    } 
+    
+    catch (error) {
       console.error("ERRORE ELIMINAZIONE:", error)
       return res.status(500).send("Errore durante l'eliminazione")
     }

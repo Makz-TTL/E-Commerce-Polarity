@@ -73,7 +73,7 @@ export default async function Cart({ session } : cartProps) {
             </nav>
 
             <h1 class="text-3xl font-extrabold tracking-tight text-gray-900 px-6 pt-8 max-w-7xl mx-auto">
-                Carrello di {session?.username ? session.username : "utente"}
+                Il tuo carrello
             </h1>
             
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-6 flex flex-col gap-4">
@@ -115,7 +115,9 @@ export default async function Cart({ session } : cartProps) {
                             </svg>
                         </button>
 
+
                     </div>
+
                 ))}
 
                 {orders.length === 0 && (
@@ -126,7 +128,23 @@ export default async function Cart({ session } : cartProps) {
                     </a>
                     </div>
                 )}
+
+                {orders.length > 0 && (
+                    <div class="flex justify-start">
+
+                        <a href="#" class="block w-fit">
+                            <button class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 px-6 rounded-xl shadow-sm transition-colors cursor-pointer">
+                            Check Out
+                            </button>
+                        </a>
+
+                    </div>
+                )}
+
+
                 </div>
+
+                
 
             </div>
 
