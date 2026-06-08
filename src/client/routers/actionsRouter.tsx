@@ -234,7 +234,7 @@ server.get("/addToCart/:id", async (req, res) => {
   }
 
   try {
-    // 1. Recupera il prodotto dal database
+
     const productRows = await db.select().from(products).where(eq(products.id, productId)).limit(1)
     const product = productRows[0]
 
@@ -344,14 +344,13 @@ server.get("/addToCart/:id", async (req, res) => {
         })
         .where(eq(users.id, currentUser.id))
 
-      // Aggiorniamo il valore dell'username all'interno della sessione di Fastify
+      // Aggiorniamo il valore dell'username all'interno della sessione 
       req.session.username = username
 
-      // 🌟 MODIFICATO: Invece di ritornare il SignUpForm, indichiamo ad HTMX di ricaricare 
-      // la pagina del profilo. Questo chiude la modale e mostra i dati aggiornati a schermo!
+      
       return res
         .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Profilo aggiornato con successo!" } }))
-        .header("HX-Redirect", `/profile?username=${username}`) // 👈 Assicurati che questo path corrisponda a quello della tua ProfilePage
+        .header("HX-Redirect", `/profile?username=${username}`) 
         .send()
 
     } catch (error) {
