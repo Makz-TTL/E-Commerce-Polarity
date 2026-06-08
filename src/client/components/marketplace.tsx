@@ -49,9 +49,10 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
               <p class="text-gray-600 text-sm leading-relaxed mb-3 line-clamp-2">{product.description}</p>
             </div>
             <div class="mb-2 mt-auto">
-              <label class="text-sm font-medium text-gray-500">Categoria: </label>
+
+              <label class="text-sm font-medium text-gray-500">Stock disponibile: </label>
               <span class="inline-block bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">
-                {product.category}
+                {product.stock}
               </span>
             </div>
           </div>
@@ -60,13 +61,66 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
             <button class="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 font-medium py-2.5 px-4 rounded-xl transition-colors text-sm text-center cursor-pointer">
               Info
             </button>
-            <button 
-              hx-get={`/addToCart/${product.id}`}
-              hx-swap="none" /* Prevents HTMX from trying to swap the blank network response inside the button layout */
-              class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center cursor-pointer"
-            >
-              Aggiungi
-            </button>
+
+
+
+            {/* Popup modale */}
+          <div
+            id={`modal-${product.id}`}
+            class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+            onclick="if(event.target === this) this.classList.add('hidden')"
+          >
+            <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4">
+              <h3 class="text-lg font-bold text-gray-900">Aggiungi al carrello</h3>
+              <p class="text-sm text-gray-500">
+                Disponibili: <span class="font-semibold text-indigo-600">{product.stock}</span>
+              </p>
+
+              <div class="flex flex-col gap-1">
+                <label class="text-sm font-medium text-gray-700">Quantità</label>
+                <input
+                  id={`qty-${product.id}`}
+                  type="number"
+                  min="1"
+                  max={product.stock}
+                  value="1"
+                  class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  oninput={`
+                    const val = parseInt(this.value);
+                    if (val > ${product.stock}) this.value = ${product.stock};
+                    if (val < 1 || isNaN(val)) this.value = 1;
+                  `}
+                />
+              </div>
+
+              <div class="flex gap-2 mt-1">
+                <button
+                  onclick={`document.getElementById('modal-${product.id}').classList.add('hidden')`}
+                  class="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors"
+                >
+                  Annulla
+                </button>
+                <button
+                  onclick={`
+                    const qty = document.getElementById('qty-${product.id}').value;
+                    htmx.ajax('GET', '/addToCart/${product.id}?quantity=' + qty, { swap: 'none' });
+                    document.getElementById('modal-${product.id}').classList.add('hidden');
+                  `}
+                  class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-xl text-sm transition-colors"
+                >
+                  Conferma
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottone che apre il modale */}
+          <button
+            onclick={`document.getElementById('modal-${product.id}').classList.remove('hidden')`}
+            class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center cursor-pointer"
+          >
+            Aggiungi
+          </button>
           </div>
 
         </div>

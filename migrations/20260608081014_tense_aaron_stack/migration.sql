@@ -1,0 +1,1 @@
+ALTER TABLE "users" ALTER COLUMN "cookie" DROP NOT NULL;
