@@ -26,6 +26,12 @@ export default async function PorfilePage({ username }: Props) {
 
             {/* Header profilo */}
             <div class="bg-white border-b border-gray-100 shadow-sm">
+                <a href="/" class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-indigo-600 transition-colors px-6 pt-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Torna alla home
+                </a>
                 <div class="max-w-5xl mx-auto px-6 py-8 flex items-center gap-6">
                 <div class="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-2xl font-bold text-indigo-600">
                     {user.name[0].toUpperCase()}
@@ -103,12 +109,19 @@ export default async function PorfilePage({ username }: Props) {
                 ) : (
                     <div class="divide-y divide-gray-100">
                     {userOrders.map(order => (
-                        <div class="flex items-center justify-between py-3">
-                        <div>
+                        <div class="flex items-center justify-between py-3 gap-4">
+                            <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                            <img
+                                src={order.product?.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'}
+                                alt={order.product?.productName || "Prodotto"}
+                                class="w-full h-full object-cover"
+                            />
+                            </div>
+                            <div class="flex-1">
                             <p class="font-medium text-gray-800">{order.product?.productName ?? "Prodotto eliminato"}</p>
                             <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
-                        </div>
-                        <span class="text-indigo-600 font-bold">${order.totalPrice}</span>
+                            </div>
+                            <span class="text-indigo-600 font-bold">${order.totalPrice}</span>
                         </div>
                     ))}
                     </div>
