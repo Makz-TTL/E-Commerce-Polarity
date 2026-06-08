@@ -259,11 +259,8 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
             hx-get={cat === "" ? "/marketplace" : `/marketplace?category=${cat}`} 
             hx-target="#products-grid" 
             hx-swap="outerHTML"
-            class={`px-5 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer ${
-              category === cat 
-                ? "bg-indigo-600 text-white shadow-md shadow-indigo-100" 
-                : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
-            }`}
+            onclick="document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('bg-indigo-600','text-white','shadow-md','shadow-indigo-100')); document.querySelectorAll('.cat-btn').forEach(b => b.classList.add('bg-white','border','border-gray-200','text-gray-600')); this.classList.remove('bg-white','border','border-gray-200','text-gray-600'); this.classList.add('bg-indigo-600','text-white','shadow-md','shadow-indigo-100');"
+            class="cat-btn px-5 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
           >
             {cat === "" ? "Tutti" : cat}
           </button>
