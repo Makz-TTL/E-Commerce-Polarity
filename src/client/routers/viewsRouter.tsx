@@ -4,6 +4,7 @@ import Marketplace from "../components/marketplace"
 import MainLayout from "../layouts/MainLayout"
 import SignUpForm from "../components/SignUpForm"
 import Cart from "../components/cart"
+import PorfilePage from "../components/ProfilePage"
 
 export default (server: ZodFastifyInstance) => {
   const renderMarketplace = async (
@@ -44,6 +45,20 @@ export default (server: ZodFastifyInstance) => {
     return res.html(
       <MainLayout>
         <Cart session={req.session} />
+      </MainLayout>
+    )
+  })
+
+
+  server.get("/profile", async (req, res) => {
+    if(!req.session.username){
+      return res.redirect("/")
+    }
+
+    const content = await PorfilePage({ username: req.session.username })
+    return res.html(
+      <MainLayout>
+        {content}
       </MainLayout>
     )
   })
