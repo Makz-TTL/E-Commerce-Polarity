@@ -14,25 +14,29 @@ import { sendTemplateEmail } from "../../emails/index"
 
 export default (server: ZodFastifyInstance) => {
 
-
-
   server.get("/confirm-logout-modal", (_req, reply) => {
     return reply.html(
       <ConfirmLogoutModal />
     )
   })
 
-  server.get("/login-modal", (_req, reply) => {
-    return reply.html(
+  server.get("/login-modal", async (req, res) => {
+    const { redirect } = req.query as { redirect?: string }
+    const currentRedirect = redirect || "/"
+
+    // Avvolgiamo il LoginForm dentro il componente Modal per centrarlo a schermo
+    return res.status(200).html(
       <Modal
         id="login-modal"
-        title={<h2 class="text-xl font-bold">Accedi</h2>}
+        title={<h2 class="text-xl font-bold text-gray-900">Accedi</h2>}
       >
-        <LoginForm values={{ username: "", password: "" }} />
+        <LoginForm 
+          redirectTo={currentRedirect} 
+          values={{ username: "", password: "" }} 
+        />
       </Modal>
     )
   })
-
 
   server.get("/signup-modal", (_req, reply) => {
     return reply.html(
@@ -64,7 +68,6 @@ export default (server: ZodFastifyInstance) => {
     }
 
     if (otp !== tempUser.code) {
-      // Re-render the OtpForm component passing down the precise error message
       return res.status(200).html(<OtpForm email={tempUser.eMail} error="Codice non valido o scaduto." />)
     }
 
@@ -93,64 +96,56 @@ export default (server: ZodFastifyInstance) => {
       server.log.error(error)
       return res.status(200).html(<OtpForm email={tempUser.eMail} error="Errore di sistema salvando l'utente." />)
     }
-
-
-    
   })
 
   server.get("/edit-profile-modal", async (req, res) => {
-  // 1. Controllo di sicurezza se l'utente è loggato
-  if (!req.session.username) {
-    return res.status(200).html(
-      <div class="p-6 text-center">
-        <p class="text-gray-600 mb-4">Devi essere autenticato per modificare il profilo.</p>
-      </div>
-    )
-  }
-
-  try {
-    // 2. Recupera i dati freschi dell'utente dal database
-    const rows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-    const currentUser = rows[0]
-
-    if (!currentUser) {
-      return res.status(404).send("Utente non trovato")
+    if (!req.session.username) {
+      return res.status(200).html(
+        <div class="p-6 text-center">
+          <p class="text-gray-600 mb-4">Devi essere autenticato per modificare il profilo.</p>
+        </div>
+      )
     }
 
-    // 3. Ritorna il SignUpForm precompilato dentro la struttura grafica della modale
-    return res.status(200).html(
-      <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" id="editProfileModalContainer" onclick="if(event.target === this) this.remove()">
-        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-          
-          {/* Bottone di chiusura X in alto a destra */}
-          <button 
-            type="button" 
-            onclick="document.getElementById('editProfileModalContainer').remove()" 
-            class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 cursor-pointer"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+    try {
+      const rows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+      const currentUser = rows[0]
 
-          <div class="p-2 pt-6">
-            <h2 class="text-xl font-bold text-gray-900 px-6">Modifica Profilo</h2>
+      if (!currentUser) {
+        return res.status(404).send("Utente non trovato")
+      }
+
+      return res.status(200).html(
+        <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" id="editProfileModalContainer" onclick="if(event.target === this) this.remove()">
+          <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             
-            {/* Inject del form configurato per la modifica */}
-            <SignUpForm
-              isEdit={true}
-              onEditPasswordClick="alert('Gestione password non configurata')"
-              values={{
-                nome: currentUser.name || "",
-                cognome: currentUser.lastName || "",
-                username: currentUser.userName || "",
-                email: currentUser.eMail || "",
-              }}
-            />
-          </div>
+            <button 
+              type="button" 
+              onclick="document.getElementById('editProfileModalContainer').remove()" 
+              class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
 
+            <div class="p-2 pt-6">
+              <h2 class="text-xl font-bold text-gray-900 px-6">Modifica Profilo</h2>
+              
+              <SignUpForm
+                isEdit={true}
+                onEditPasswordClick="alert('Gestione password non configurata')"
+                values={{
+                  nome: currentUser.name || "",
+                  cognome: currentUser.lastName || "",
+                  username: currentUser.userName || "",
+                  email: currentUser.eMail || "",
+                }}
+              />
+            </div>
+
+          </div>
         </div>
-      </div>
     )
   } catch (error) {
     server.log.error(error)
