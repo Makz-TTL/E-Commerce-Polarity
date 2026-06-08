@@ -172,6 +172,28 @@ const signUpSchema = z.object({
 })
 
 
+  server.post("/deleteFromCart/:id", async (req, res) => {
+    const { id } = req.params as { id: string }
+    const orderId = parseInt(id, 10)
+
+    if (isNaN(orderId)) {
+      return res.status(400).send("ID non valido")
+    }
+
+    if (!req.session.username) {
+      return res.status(401).send("Devi essere loggato")
+    }
+
+    try {
+      await db.delete(orders).where(eq(orders.id, orderId))
+      return res.send("")
+    } catch (error) {
+      console.error("ERRORE ELIMINAZIONE:", error)
+      return res.status(500).send("Errore durante l'eliminazione")
+    }
+
+});
+
 
 server.get("/addToCart/:id", async (req, res) => {
   const { id } = req.params as { id: string }
@@ -253,7 +275,11 @@ server.get("/addToCart/:id", async (req, res) => {
   } catch (error) {
     console.error("ERRORE DB AGGIUNTA CARRELLO/UPDATE STOCK:", error)
     return res.status(500).send("Errore durante l'aggiunta al carrello")
+
   }
+
+
+
 })
  // CHIUSURA DELL'ESPORTAZIONE
 }
