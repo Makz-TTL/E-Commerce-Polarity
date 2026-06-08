@@ -134,9 +134,9 @@ export default async function Cart({ session } : cartProps) {
                 {orders.length > 0 && (
                     <div class="flex justify-start">
 
-                        <a href="#" class="block w-fit">
+                        <a href="/checkout" class="block w-fit">
                             <button class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 px-6 rounded-xl shadow-sm transition-colors cursor-pointer">
-                            Check Out
+                                Check Out
                             </button>
                         </a>
 

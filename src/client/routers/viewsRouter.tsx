@@ -9,6 +9,8 @@ import { users } from "../../db/schema"
 import { db } from "../../db"
 import LoginForm from "../components/LoginForm"
 import { eq } from "drizzle-orm"
+import Checkout from "../components/checkout"
+import Payment from "../components/payment"
 
 export default (server: ZodFastifyInstance) => {
   const renderMarketplace = async (
@@ -63,6 +65,36 @@ export default (server: ZodFastifyInstance) => {
     return res.html(
       <MainLayout>
         {content}
+      </MainLayout>
+    )
+  })
+
+
+  server.get("/checkout", async (req, res) => {
+    const user = await db.query.users.findFirst({
+      where: { userName: req.session.username }
+    })
+
+    const orders = await db.query.orders.findMany({
+      where: user ? { userId: user.id } : undefined,
+      with: { product: true }
+    })
+
+    return res.html(
+      <MainLayout>
+        <Checkout session={req.session} orders={orders} user={user}/>
+      </MainLayout>
+    )
+  })
+
+
+  server.get("/payment", async (req, res) => {
+
+    const orders = await db.query.orders.findMany({})
+
+    return res.html(
+      <MainLayout>
+        <Payment session={req.session} orders={orders}/>
       </MainLayout>
     )
   })
