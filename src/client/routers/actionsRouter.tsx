@@ -185,18 +185,30 @@ const signUpSchema = z.object({
     }
 
     try {
-      // const o = await db.delete(orders).where(eq(orders.id, orderId))
-      await db.delete(orders).where(eq(orders.id, orderId))
-      // const d = 
+      const deletedOrder = await db.delete(orders)
+        .where(eq(orders.id, orderId))
+        .returning()
+
+      const order = deletedOrder[0]
+
+      if (order) {
+        const product = await db.query.products.findFirst({
+          where: { id: order.productId }
+        })
+
+        if (product) {
+          await db.update(products)
+            .set({ stock: product.stock + order.quantity })
+            .where(eq(products.id, order.productId))
+        }
+      }
+
       return res.send("")
-    } 
-    
-    catch (error) {
+    } catch (error) {
       console.error("ERRORE ELIMINAZIONE:", error)
       return res.status(500).send("Errore durante l'eliminazione")
     }
-
-});
+})
 
 
 server.get("/addToCart/:id", async (req, res) => {
