@@ -1,9 +1,10 @@
 import { ZodFastifyInstance } from "../../types/index"
 import ProfileSection from "../components/ProfileSection"
 import { db } from "../../db"
-import { eq } from "drizzle-orm"
+import { eq, and } from "drizzle-orm"
 import * as argon2 from "argon2"
 import { z } from "zod"
+import fs from "fs"
 
 import { orders, users, products } from "../../db/schema"
 import LoginForm from "../components/LoginForm"
@@ -12,6 +13,12 @@ import OtpForm from "../components/OtpForm"
 
 import SignUpForm from "../components/SignUpForm"
 import { sendTemplateEmail } from "../../emails/index"
+import path from "path"
+import { pipeline } from "stream/promises"
+import { fileURLToPath } from "url"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 export default (server: ZodFastifyInstance) => {
 
@@ -20,6 +27,7 @@ export default (server: ZodFastifyInstance) => {
     password: z.string().min(1, "La password è obbligatoria"),
   })
 
+  //Log In back-end.
   server.post("/login", async (req, res) => {
     const { redirect } = req.query as { redirect?: string }
     const redirectTo = redirect || "/"
@@ -84,6 +92,7 @@ export default (server: ZodFastifyInstance) => {
     password: z.string().min(8, "La password deve essere lunga almeno 8 caratteri"),
   })
 
+  //Sign Up back-end.
   server.post("/signUp", async (req, res) => {
     console.log("signup")
     const result = signUpSchema.safeParse(req.body)
@@ -137,6 +146,7 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
+  //Log Out back-end.
   server.post("/logout", async (req, reply) => {
     await req.session.destroy()
     return reply
@@ -145,6 +155,7 @@ export default (server: ZodFastifyInstance) => {
       .send()
   })
 
+  //Delete form card back-end.
   server.post("/deleteFromCart/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const orderId = parseInt(id, 10)
@@ -183,6 +194,7 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
+  //Add to cart back-end.
   server.get("/addToCart/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
@@ -224,6 +236,14 @@ export default (server: ZodFastifyInstance) => {
         return res.status(404).send("Prodotto non trovato")
       }
 
+      // --- CONTROLLO DI SICUREZZA BLOCCANTE ---
+      // Impedisce la richiesta diretta HTMX se l'utente tenta di comprare un proprio articolo
+      if (product.userId === user.id) {
+        return res
+          .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Non puoi aggiungere al carrello un tuo prodotto!" } }))
+          .send()
+      }
+
       if (product.stock < quantity) {
         return res
           .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: `Stock insufficiente! Disponibili solo: ${product.stock}` } }))
@@ -231,11 +251,6 @@ export default (server: ZodFastifyInstance) => {
       }
 
       const totalPrice = product.price * quantity
-      const newStock = product.stock - quantity
-
-      await db.update(products)
-        .set({ stock: newStock })
-        .where(eq(products.id, productId))
 
       await db.insert(orders).values({
         userId: user.id,             
@@ -243,7 +258,6 @@ export default (server: ZodFastifyInstance) => {
         quantity: quantity,     
         totalPrice: totalPrice  
       })  
-
       const triggerEvents = {
         showSuccessToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` }
       }
@@ -264,6 +278,7 @@ export default (server: ZodFastifyInstance) => {
     username: z.string().min(4, "Username deve essere di almeno 4 caratteri"),
   })
 
+  //Edit profile back-end.
   server.post("/editProfile", async (req, res) => {
     if (!req.session.username) {
       return res.status(401).send("Non autorizzato")
@@ -331,6 +346,207 @@ export default (server: ZodFastifyInstance) => {
           errors={{ email: "Si è verificato un errore interno durante il salvataggio." }} 
         />
       )
+    }
+  })
+
+  type PaymentBody = {
+      cardNumber : string
+      expiry : string
+  }
+  
+  server.post("/payment/confirm", async (req, res) => {
+      const { cardNumber, expiry} = req.body as PaymentBody;
+
+      const [month, year] = expiry.split("/");
+      const expiryMonth = parseInt(month);
+      const expiryYear = parseInt("20"+year);
+
+      const now = new Date();
+      const currentMonth = now.getMonth()+1;
+      const currentYear = now.getFullYear();
+
+      const isValidExpiryDate = 
+        expiryMonth >= 1 && expiryMonth <= 12 &&
+        (expiryYear > currentYear || (expiryYear === currentYear && expiryMonth >= currentMonth));
+
+      if(cardNumber == "1234 5678 1234 5678" || !isValidExpiryDate){
+        return res.header("HX-Redirect", "/payment/declined").send();
+      }
+      else{
+
+        // Prendi tutti gli ordini dell'utente e svuota il carrello
+        const user = await db.query.users.findFirst({
+          where: { userName: req.session.username }
+        })
+
+        if (user) {
+          const userOrders = await db.query.orders.findMany({
+            where: { userId: user.id },
+            with: { product: true }
+          })
+
+          // Per ogni ordine, scala lo stock
+          for (const order of userOrders) {
+            if (order.product) {
+              await db.update(products)
+                .set({ stock: order.product.stock - order.quantity })
+                .where(eq(products.id, order.productId))
+            }
+          }
+
+          // Svuota il carrello
+          await db.delete(orders).where(eq(orders.userId, user.id))
+        }
+
+        return res.header("HX-Redirect", "/payment/accepted").send();
+      }
+  })
+
+  server.post("/sell-product", async (req, res) => {
+    if (!req.session.username) {
+      return res.status(401).send("Non autorizzato")
+    }
+
+    const uploadDir = path.join(process.cwd(), "public", "images")
+    
+    try {
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true })
+      }
+    } catch (dirError: any) {
+      console.error("Errore creazione cartella 'images':", dirError.message)
+    }
+
+    try {
+      const parts = req.parts()
+      let productName = ""
+      let price = 0
+      let stock = 0
+      let category = ""
+      let description = ""
+      
+      const imageUrls: string[] = []
+      let coverIndex = 0 
+
+      const userRows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+      const user = userRows[0]
+
+      if (!user) {
+        return res.status(404).send("Utente non trovato")
+      }
+
+      for await (const part of parts) {
+        if (part.type === "file" && part.fieldname === "images" && part.filename) {
+          const ext = path.extname(part.filename).toLowerCase()
+          const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"]
+          
+          if (!allowedExtensions.includes(ext)) {
+            part.file.resume() 
+            continue
+          }
+
+          const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`
+          const uploadPath = path.join(uploadDir, uniqueFilename)
+          
+          await pipeline(part.file, fs.createWriteStream(uploadPath))
+          imageUrls.push(`/images/${uniqueFilename}`)
+
+        } else if (part.type === "field") {
+          if (part.fieldname === "productName") productName = part.value as string
+          if (part.fieldname === "price") price = parseFloat(part.value as string) || 0
+          if (part.fieldname === "stock") stock = parseInt(part.value as string, 10) || 0
+          if (part.fieldname === "category") category = part.value as string
+          if (part.fieldname === "description") description = part.value as string
+       
+          if (part.fieldname === "coverIndex") {
+            coverIndex = parseInt(part.value as string, 10) || 0
+          }
+        }
+      }
+
+      if (!productName || price <= 0 || stock < 1) {
+         return res
+           .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Errore: Campi non compilati correttamente." } }))
+           .send()
+      }
+
+      if (imageUrls.length > 0 && coverIndex >= 0 && coverIndex < imageUrls.length) {
+        const coverImage = imageUrls.splice(coverIndex, 1)[0]
+        imageUrls.unshift(coverImage)
+      }
+
+      await db.insert(products).values({
+        productName,
+        price, 
+        stock,
+        category,
+        description,
+        imageUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : undefined, 
+        userId: user.id
+      })
+
+      return res
+        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Prodotto inserito nel marketplace!" } }))
+        .header("HX-Redirect", `/profile?username=${user.userName}`)
+        .send()
+
+    } catch (error: any) {
+      console.error("ERRORE INTERNO:", error.message)
+      return res
+        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Errore interno durante il salvataggio." } }))
+        .send()
+    }
+  })
+
+
+server.delete("/product/:id", async (req, res) => {
+    const { id } = req.params as { id: string }
+    const productId = parseInt(id, 10)
+    const sessionUsername = req.session?.username
+
+    const currentUrl = req.headers["hx-current-url"] as string || ""
+
+    if (isNaN(productId)) {
+      return res.status(400).send("ID Prodotto non valido")
+    }
+
+    if (!sessionUsername) {
+      return res.status(401).send("Devi effettuare il login per completare questa azione")
+    }
+
+    try {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.userName, sessionUsername)) 
+        .limit(1)
+
+      if (!user) {
+        return res.status(404).send("Utente non trovato")
+      }
+
+     
+      await db
+        .delete(products)
+        .where(
+          and(
+            eq(products.id, productId),
+            eq(products.userId, user.id)
+          )
+        )
+
+      
+      if (currentUrl.includes(`/product/${productId}`)) {
+        res.header("HX-Redirect", "/")
+        return res.status(200).send()
+      }
+
+      
+      return res.status(200).send()
+
+    } catch (error) {
+      console.error("Errore durante l'eliminazione:", error)
+      return res.status(500).send("Impossibile eliminare il prodotto")
     }
   })
 }

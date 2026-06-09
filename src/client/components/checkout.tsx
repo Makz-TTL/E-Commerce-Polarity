@@ -136,11 +136,11 @@ export default function Checkout({ session, orders, user }: CheckoutProps) {
                 </div>
                 <div class="border-t border-gray-100 pt-2 flex justify-between text-base font-extrabold text-gray-900">
                   <span>Totale</span>
-                  <span class="text-indigo-600">${grandTotal}</span>
+                  <span class="text-indigo-600">${grandTotal.toLocaleString("it-IT")}</span>
                 </div>
               </div>
 
-              <a href="/payment">
+              <a href="/checkout/payment">
 
                 <button
                     class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-3 px-6 rounded-xl shadow-sm transition-colors cursor-pointer text-sm">

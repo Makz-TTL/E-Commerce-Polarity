@@ -80,22 +80,55 @@ export default async function PorfilePage({ username }: Props) {
                     <p class="text-gray-400 text-sm text-center py-6">Non hai ancora messo nessun prodotto in vendita.</p>
                 ) : (
                     <div class="divide-y divide-gray-100">
-                    {userProducts.map(product => (
-                        <div class="flex items-center justify-between py-3 gap-4">
-                            <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                            <img
-                                src={product.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'}
-                                alt={product.productName}
-                                class="w-full h-full object-cover"
-                            />
+                    {userProducts.map(product => {
+                        // Parsing sicuro del JSON per estrarre la copertina all'indice 0
+                        let coverImage = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80';
+                        if (product.imageUrl) {
+                            try {
+                                const images = JSON.parse(product.imageUrl);
+                                if (Array.isArray(images) && images.length > 0) {
+                                    coverImage = images[0];
+                                }
+                            } catch (e) {
+                                coverImage = product.imageUrl; // fallback stringa nativa
+                            }
+                        }
+
+                        return (
+                            /* Aggiunta classe 'product-item-row' per il target HTMX */
+                            <div class="flex items-center justify-between py-3 gap-4 product-item-row">
+                                <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                                <img
+                                    src={coverImage}
+                                    alt={product.productName}
+                                    class="w-full h-full object-cover"
+                                />
+                                </div>
+                                <div class="flex-1">
+                                <p class="font-medium text-gray-800">{product.productName}</p>
+                                <p class="text-xs text-gray-400">{product.category} · Stock: {product.stock}</p>
+                                </div>
+                                
+                                {/* Container Prezzo + Azioni di eliminazione */}
+                                <div class="flex items-center gap-4">
+                                    <span class="text-indigo-600 font-bold">${product.price}</span>
+                                    
+                                    <button
+                                        hx-delete={`/product/${product.id}`}
+                                        hx-confirm="Sei sicuro di voler eliminare definitivamente questo annuncio?"
+                                        hx-target="closest .product-item-row"
+                                        hx-swap="delete"
+                                        class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+                                        title="Elimina annuncio"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
-                            <div class="flex-1">
-                            <p class="font-medium text-gray-800">{product.productName}</p>
-                            <p class="text-xs text-gray-400">{product.category} · Stock: {product.stock}</p>
-                            </div>
-                            <span class="text-indigo-600 font-bold">${product.price}</span>
-                        </div>
-                    ))}
+                        )
+                    })}
                     </div>
                 )}
                 </div>
@@ -108,22 +141,36 @@ export default async function PorfilePage({ username }: Props) {
                     <p class="text-gray-400 text-sm text-center py-6">Non hai ancora effettuato nessun ordine.</p>
                 ) : (
                     <div class="divide-y divide-gray-100">
-                    {userOrders.map(order => (
-                        <div class="flex items-center justify-between py-3 gap-4">
-                            <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                            <img
-                                src={order.product?.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'}
-                                alt={order.product?.productName || "Prodotto"}
-                                class="w-full h-full object-cover"
-                            />
+                    {userOrders.map(order => {
+                        let orderCoverImage = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80';
+                        if (order.product?.imageUrl) {
+                            try {
+                                const images = JSON.parse(order.product.imageUrl);
+                                if (Array.isArray(images) && images.length > 0) {
+                                    orderCoverImage = images[0];
+                                }
+                            } catch (e) {
+                                orderCoverImage = order.product.imageUrl;
+                            }
+                        }
+
+                        return (
+                            <div class="flex items-center justify-between py-3 gap-4">
+                                <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                                <img
+                                    src={orderCoverImage}
+                                    alt={order.product?.productName || "Prodotto"}
+                                    class="w-full h-full object-cover"
+                                />
+                                </div>
+                                <div class="flex-1">
+                                <p class="font-medium text-gray-800">{order.product?.productName ?? "Prodotto eliminato"}</p>
+                                <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
+                                </div>
+                                <span class="text-indigo-600 font-bold">${order.totalPrice}</span>
                             </div>
-                            <div class="flex-1">
-                            <p class="font-medium text-gray-800">{order.product?.productName ?? "Prodotto eliminato"}</p>
-                            <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
-                            </div>
-                            <span class="text-indigo-600 font-bold">${order.totalPrice}</span>
-                        </div>
-                    ))}
+                        )
+                    })}
                     </div>
                 )}
                 </div>

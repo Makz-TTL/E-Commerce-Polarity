@@ -14,6 +14,7 @@ import { sendTemplateEmail } from "../../emails/index"
 import ForgotPasswordForm from "../components/ForgotPasswordForm"
 import ResetPasswordForm from "../components/ResetPasswordForm"
 import * as crypto from "crypto"
+import SellProductModal from "../components/SellProductModal"
 
 export default (server: ZodFastifyInstance) => {
 
@@ -276,4 +277,16 @@ server.post("/reset-password", async (req, res) => {
         .header("HX-Redirect", "/")
         .send()
 })
+  server.get("/sell-product-modal", async (req, res) => {
+  if (!req.session.username) {
+    return res.status(200).html(
+      <div class="p-6 text-center">
+        <p class="text-gray-600 mb-4">Devi essere autenticato per vendere un prodotto.</p>
+      </div>
+    )
+  }
+
+  return res.status(200).html(<SellProductModal />)
+})
+  
 }
