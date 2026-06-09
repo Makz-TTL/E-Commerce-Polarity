@@ -1,5 +1,5 @@
 import env from "./utils/env"
-import { join } from "path"
+import path, { join } from "path"
 import { buildSync } from "esbuild"
 import { execSync } from "child_process"
 
@@ -38,10 +38,13 @@ server.register(fastifySession, {
 server.register(fastifyHtml)
 server.register(fastifyMultipart)
 server.register(fastifyFormbody)
-server.register(fastifyStatic, {
-  root: join(import.meta.dirname, "..", "public"),
-  prefix: "/public/",
+
+
+await server.register(import('@fastify/static'), {
+  root: path.join(process.cwd(), "public"),
+  prefix: "/",
 })
+
 
 /* Routes */
 viewsRouter(server)

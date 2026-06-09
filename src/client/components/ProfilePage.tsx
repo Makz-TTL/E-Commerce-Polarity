@@ -80,22 +80,37 @@ export default async function PorfilePage({ username }: Props) {
                     <p class="text-gray-400 text-sm text-center py-6">Non hai ancora messo nessun prodotto in vendita.</p>
                 ) : (
                     <div class="divide-y divide-gray-100">
-                    {userProducts.map(product => (
-                        <div class="flex items-center justify-between py-3 gap-4">
-                            <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                            <img
-                                src={product.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'}
-                                alt={product.productName}
-                                class="w-full h-full object-cover"
-                            />
+                    {userProducts.map(product => {
+                        // Parsing sicuro del JSON per estrarre la copertina all'indice 0
+                        let coverImage = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80';
+                        if (product.imageUrl) {
+                            try {
+                                const images = JSON.parse(product.imageUrl);
+                                if (Array.isArray(images) && images.length > 0) {
+                                    coverImage = images[0];
+                                }
+                            } catch (e) {
+                                coverImage = product.imageUrl; // fallback stringa nativa
+                            }
+                        }
+
+                        return (
+                            <div class="flex items-center justify-between py-3 gap-4">
+                                <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                                <img
+                                    src={coverImage}
+                                    alt={product.productName}
+                                    class="w-full h-full object-cover"
+                                />
+                                </div>
+                                <div class="flex-1">
+                                <p class="font-medium text-gray-800">{product.productName}</p>
+                                <p class="text-xs text-gray-400">{product.category} · Stock: {product.stock}</p>
+                                </div>
+                                <span class="text-indigo-600 font-bold">${product.price}</span>
                             </div>
-                            <div class="flex-1">
-                            <p class="font-medium text-gray-800">{product.productName}</p>
-                            <p class="text-xs text-gray-400">{product.category} · Stock: {product.stock}</p>
-                            </div>
-                            <span class="text-indigo-600 font-bold">${product.price}</span>
-                        </div>
-                    ))}
+                        )
+                    })}
                     </div>
                 )}
                 </div>
@@ -108,22 +123,37 @@ export default async function PorfilePage({ username }: Props) {
                     <p class="text-gray-400 text-sm text-center py-6">Non hai ancora effettuato nessun ordine.</p>
                 ) : (
                     <div class="divide-y divide-gray-100">
-                    {userOrders.map(order => (
-                        <div class="flex items-center justify-between py-3 gap-4">
-                            <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
-                            <img
-                                src={order.product?.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'}
-                                alt={order.product?.productName || "Prodotto"}
-                                class="w-full h-full object-cover"
-                            />
+                    {userOrders.map(order => {
+                        // Parsing sicuro del JSON anche per i prodotti ordinati
+                        let orderCoverImage = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80';
+                        if (order.product?.imageUrl) {
+                            try {
+                                const images = JSON.parse(order.product.imageUrl);
+                                if (Array.isArray(images) && images.length > 0) {
+                                    orderCoverImage = images[0];
+                                }
+                            } catch (e) {
+                                orderCoverImage = order.product.imageUrl;
+                            }
+                        }
+
+                        return (
+                            <div class="flex items-center justify-between py-3 gap-4">
+                                <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                                <img
+                                    src={orderCoverImage}
+                                    alt={order.product?.productName || "Prodotto"}
+                                    class="w-full h-full object-cover"
+                                />
+                                </div>
+                                <div class="flex-1">
+                                <p class="font-medium text-gray-800">{order.product?.productName ?? "Prodotto eliminato"}</p>
+                                <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
+                                </div>
+                                <span class="text-indigo-600 font-bold">${order.totalPrice}</span>
                             </div>
-                            <div class="flex-1">
-                            <p class="font-medium text-gray-800">{order.product?.productName ?? "Prodotto eliminato"}</p>
-                            <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
-                            </div>
-                            <span class="text-indigo-600 font-bold">${order.totalPrice}</span>
-                        </div>
-                    ))}
+                        )
+                    })}
                     </div>
                 )}
                 </div>

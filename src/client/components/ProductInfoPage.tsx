@@ -12,9 +12,25 @@ type Props = {
 export default function ProductInfoPage({ product, session }: Props) {
   const currentPath = `/product/${product.id}`
 
+  // Parsing sicuro delle immagini (Array JSON, stringa singola o fallback)
+  const getImages = (): string[] => {
+    if (!product.imageUrl) {
+      return ['https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80']
+    }
+    try {
+      const parsed = JSON.parse(product.imageUrl)
+      return Array.isArray(parsed) ? parsed : [product.imageUrl]
+    } catch (e) {
+      return [product.imageUrl]
+    }
+  }
+
+  const images = getImages()
+
   return (
     <div class="bg-gray-50/50 min-h-screen pb-12">
       
+      {/* Navbar */}
       <nav class="w-full bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex justify-between h-16 items-center">
@@ -77,6 +93,7 @@ export default function ProductInfoPage({ product, session }: Props) {
         </div>
       </nav>
 
+      {/* Torna indietro */}
       <div class="max-w-5xl mx-auto px-6 mt-6">
         <a href="/" class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-indigo-600 transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -86,18 +103,96 @@ export default function ProductInfoPage({ product, session }: Props) {
         </a>
       </div>
 
+      {/* Box Principale Prodotto */}
       <div class="max-w-5xl mx-auto px-6 mt-4">
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden grid grid-cols-1 md:grid-cols-2 gap-8 p-6 md:p-8">
           
-          <div class="w-full h-80 md:h-[400px] rounded-xl overflow-hidden bg-gray-100 shadow-inner">
-            <img 
-              src={product.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'} 
-              alt={product.productName} 
-              class="w-full h-full object-cover"
-              loading="lazy"
-            />
+          {/* CAROSELLO IMMAGINI */}
+          <div class="relative w-full h-80 md:h-[400px] rounded-xl overflow-hidden bg-gray-100 shadow-inner group flex items-center justify-center">
+            
+            {images.map((url, index) => (
+              <img 
+                src={url} 
+                alt={`${product.productName} - Immagine ${index + 1}`} 
+                data-carousel-item
+                class={`absolute inset-0 w-full h-full object-cover transition-all duration-300 ${index === 0 ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}
+                loading={index === 0 ? "eager" : "lazy"}
+              />
+            ))}
+
+            {/* Controlli del carosello abilitati solo se ci sono più immagini */}
+            {images.length > 1 && (
+              <>
+                {/* Freccia Sinistra */}
+                <button 
+                  type="button"
+                  onclick={`(() => {
+                    const container = this.parentElement;
+                    const imgs = container.querySelectorAll('[data-carousel-item]');
+                    const dots = container.querySelectorAll('[data-carousel-dot]');
+                    let idx = Array.from(imgs).findIndex(i => i.classList.contains('opacity-100'));
+                    
+                    imgs[idx].classList.replace('opacity-100', 'opacity-0');
+                    imgs[idx].classList.add('pointer-events-none');
+                    imgs[idx].classList.replace('z-10', 'z-0');
+                    dots[idx].classList.replace('bg-indigo-600', 'bg-white/60');
+                    
+                    idx = (idx - 1 + imgs.length) % imgs.length;
+                    
+                    imgs[idx].classList.replace('opacity-0', 'opacity-100');
+                    imgs[idx].classList.remove('pointer-events-none');
+                    imgs[idx].classList.replace('z-0', 'z-10');
+                    dots[idx].classList.replace('bg-white/60', 'bg-indigo-600');
+                  })()`}
+                  class="absolute left-3 top-1/2 -translate-y-1/2 z-20 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-md transition-all opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                  </svg>
+                </button>
+
+                {/* Freccia Destra */}
+                <button 
+                  type="button"
+                  onclick={`(() => {
+                    const container = this.parentElement;
+                    const imgs = container.querySelectorAll('[data-carousel-item]');
+                    const dots = container.querySelectorAll('[data-carousel-dot]');
+                    let idx = Array.from(imgs).findIndex(i => i.classList.contains('opacity-100'));
+                    
+                    imgs[idx].classList.replace('opacity-100', 'opacity-0');
+                    imgs[idx].classList.add('pointer-events-none');
+                    imgs[idx].classList.replace('z-10', 'z-0');
+                    dots[idx].classList.replace('bg-indigo-600', 'bg-white/60');
+                    
+                    idx = (idx + 1) % imgs.length;
+                    
+                    imgs[idx].classList.replace('opacity-0', 'opacity-100');
+                    imgs[idx].classList.remove('pointer-events-none');
+                    imgs[idx].classList.replace('z-0', 'z-10');
+                    dots[idx].classList.replace('bg-white/60', 'bg-indigo-600');
+                  })()`}
+                  class="absolute right-3 top-1/2 -translate-y-1/2 z-20 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-md transition-all opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
+
+                {/* Pallini indicatori */}
+                <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2 bg-black/10 backdrop-blur-xs px-2 py-1 rounded-full">
+                  {images.map((_, index) => (
+                    <span 
+                      data-carousel-dot
+                      class={`w-2 h-2 rounded-full transition-all ${index === 0 ? 'bg-indigo-600' : 'bg-white/60'}`}
+                    ></span>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
+          {/* DETTAGLI PRODOTTO */}
           <div class="flex flex-col justify-between">
             <div class="space-y-4">
               <span class="inline-block px-3 py-1 bg-indigo-50 text-indigo-600 text-xs font-semibold rounded-full uppercase tracking-wider">
@@ -118,6 +213,7 @@ export default function ProductInfoPage({ product, session }: Props) {
               </div>
             </div>
 
+            {/* SEZIONE ACQUISTO / STOCK */}
             <div class="pt-6 mt-6 border-t border-gray-100 flex items-center justify-between">
               <div>
                 <p class="text-xs text-gray-400 uppercase tracking-wider font-medium">Disponibilità</p>
@@ -132,12 +228,13 @@ export default function ProductInfoPage({ product, session }: Props) {
               
               <div id={`purchase-actions-${product.id}`} class={product.stock > 0 ? "flex gap-3" : "hidden"}>
                 
+                {/* MODALE AGGIUNGI AL CARRELLO */}
                 <div
                   id={`modal-${product.id}`}
                   class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center cursor-default"
                   onclick="if(event.target === this) this.classList.add('hidden')"
                 >
-                  <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4">
+                  <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4" onclick="event.stopPropagation()">
                     <h3 class="text-lg font-bold text-gray-900">Aggiungi al carrello</h3>
                     <p class="text-sm text-gray-500">
                       Disponibili: <span id={`modal-stock-${product.id}`} class="font-semibold text-indigo-600">{product.stock}</span>
@@ -218,6 +315,7 @@ export default function ProductInfoPage({ product, session }: Props) {
           </div>
         </div>
 
+        {/* FEEDBACK & RECENSIONI */}
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 mt-8">
           <div class="flex items-center gap-2 pb-4 border-b border-gray-100 mb-6">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
