@@ -178,51 +178,13 @@ export default (server: ZodFastifyInstance) => {
       return res.status(200).html(<EditPasswordForm error="La vecchia password non è corretta." />)
     }
 
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
-
-    req.session.tempPasswordData = {
-      newPasswordHash: await argon2.hash(newPassword),
-      code: verificationCode
-    }
-    
-    await sendTemplateEmail({
-      to: user.eMail,
-      subject: "Conferma cambio password TechStore",
-      template: "ChangePasswordEmail",
-      payload: {
-        name: user.name,
-        code: verificationCode
-      }
-    })
-
-    return res.status(200).html(<OtpPasswordForm email={user.eMail} />)
-  })
-
-  server.post("/verify-password-otp", async (req, res) => {
-    if (!req.session.username) return res.status(401).send("Non autorizzato")
-
-    const { otp } = req.body as { otp: string }
-    const tempData = req.session.tempPasswordData
-
-    if (!tempData) {
-      return res.status(200).html(<OtpPasswordForm email="" error="Sessione scaduta. Riprova." />)
-    }
-
-    if (otp !== tempData.code) {
-      const rows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-      return res.status(200).html(<OtpPasswordForm email={rows[0]?.eMail ?? ""} error="Codice non corretto." />)
-    }
-
     await db.update(users)
-      .set({ password: tempData.newPasswordHash })
+      .set({ password: await argon2.hash(newPassword) })
       .where(eq(users.userName, req.session.username))
-
-    req.session.tempPasswordData = undefined
 
     return res
       .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Password aggiornata con successo!" } }))
       .header("HX-Redirect", "/profile")
       .send()
   })
-  
 }
