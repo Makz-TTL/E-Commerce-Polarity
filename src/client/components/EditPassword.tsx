@@ -14,19 +14,19 @@ export default function EditPasswordForm({ error }: Props) {
                 class="space-y-4"
             >
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Vecchia password</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"> Vecchia password </label>
                     <input type="password" name="oldPassword" required
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nuova password</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"> Nuova password </label>
                     <input type="password" name="newPassword" required
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Conferma nuova password</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1"> Conferma nuova password </label>
                     <input type="password" name="confirmPassword" required
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
