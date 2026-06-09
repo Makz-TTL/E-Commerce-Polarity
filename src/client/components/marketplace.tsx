@@ -93,7 +93,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                 <span id={`stock-badge-${product.id}`} class="inline-block bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">
                   {product.stock}
                 </span>
-              </h2>
+              </div>
               <div class="mb-2">
                 <span class="text-xl font-extrabold text-indigo-600">${product.price.toLocaleString("it-IT")}</span>
               </div>
