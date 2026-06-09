@@ -1,7 +1,7 @@
 import { ZodFastifyInstance } from "../../types/index"
 import ProfileSection from "../components/ProfileSection"
 import { db } from "../../db"
-import { eq } from "drizzle-orm"
+import { eq, and } from "drizzle-orm"
 import * as argon2 from "argon2"
 import { z } from "zod"
 import fs from "fs"
@@ -491,10 +491,62 @@ export default (server: ZodFastifyInstance) => {
         .send()
 
     } catch (error: any) {
-      console.error("ERRORE INTERNO:", error.message)
+      console.error("ERRORE INTERNO:", error)
       return res
         .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Errore interno durante il salvataggio." } }))
         .send()
+    }
+  })
+
+
+server.delete("/product/:id", async (req, res) => {
+    const { id } = req.params as { id: string }
+    const productId = parseInt(id, 10)
+    const sessionUsername = req.session?.username
+
+    const currentUrl = req.headers["hx-current-url"] as string || ""
+
+    if (isNaN(productId)) {
+      return res.status(400).send("ID Prodotto non valido")
+    }
+
+    if (!sessionUsername) {
+      return res.status(401).send("Devi effettuare il login per completare questa azione")
+    }
+
+    try {
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.userName, sessionUsername)) 
+        .limit(1)
+
+      if (!user) {
+        return res.status(404).send("Utente non trovato")
+      }
+
+     
+      await db
+        .delete(products)
+        .where(
+          and(
+            eq(products.id, productId),
+            eq(products.userId, user.id)
+          )
+        )
+
+      
+      if (currentUrl.includes(`/product/${productId}`)) {
+        res.header("HX-Redirect", "/")
+        return res.status(200).send()
+      }
+
+      
+      return res.status(200).send()
+
+    } catch (error) {
+      console.error("Errore durante l'eliminazione:", error)
+      return res.status(500).send("Impossibile eliminare il prodotto")
     }
   })
 }

@@ -11,6 +11,9 @@ import { db } from "../../db"
 import { eq } from "drizzle-orm"
 import * as argon2 from "argon2"
 import { sendTemplateEmail } from "../../emails/index"
+import ForgotPasswordForm from "../components/ForgotPasswordForm"
+import ResetPasswordForm from "../components/ResetPasswordForm"
+import * as crypto from "crypto"
 import SellProductModal from "../components/SellProductModal"
 
 export default (server: ZodFastifyInstance) => {
@@ -189,6 +192,91 @@ export default (server: ZodFastifyInstance) => {
       .send()
   })
 
+  // Carica il form email nel modal
+server.get("/forgot-password-modal", async (req, res) => {
+    return res.status(200).html(<ForgotPasswordForm />)
+})
+
+// Riceve l'email, genera il token e manda il codice
+server.post("/forgot-password", async (req, res) => {
+    const { email } = req.body as { email: string }
+
+    const rows = await db.select().from(users).where(eq(users.eMail, email)).limit(1)
+    const user = rows[0]
+
+    // Rispondiamo sempre con successo per non rivelare se l'email esiste
+    if (!user) {
+        return res.status(200).html(
+            <ForgotPasswordForm success="Se l'email è registrata, riceverai il codice a breve." />
+        )
+    }
+
+    // Token univoco a 6 cifre legato all'utente
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString()
+
+    // Scadenza di 15 minuti
+    const expiry = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+
+    await db.update(users)
+        .set({ resetToken: resetCode, resetTokenExpiry: expiry })
+        .where(eq(users.id, user.id))
+
+    await sendTemplateEmail({
+        to: user.eMail,
+        subject: "Reimposta la tua password TechStore",
+        template: "ChangePasswordEmail",
+        payload: {
+            name: user.name,
+            code: resetCode
+        }
+    })
+
+    return res.status(200).html(<ResetPasswordForm email={email} />)
+})
+
+// Verifica il codice e salva la nuova password
+server.post("/reset-password", async (req, res) => {
+    const { email, otp, newPassword, confirmPassword } = req.body as {
+        email: string
+        otp: string
+        newPassword: string
+        confirmPassword: string
+    }
+
+    if (newPassword !== confirmPassword) {
+        return res.status(200).html(<ResetPasswordForm email={email} error="Le password non coincidono." />)
+    }
+
+    const rows = await db.select().from(users).where(eq(users.eMail, email)).limit(1)
+    const user = rows[0]
+
+    if (!user || !user.resetToken || !user.resetTokenExpiry) {
+        return res.status(200).html(<ResetPasswordForm email={email} error="Codice non valido. Riprova." />)
+    }
+
+    // Controlla che il codice sia scaduto
+    if (new Date() > new Date(user.resetTokenExpiry)) {
+        return res.status(200).html(<ResetPasswordForm email={email} error="Il codice è scaduto. Richiedine uno nuovo." />)
+    }
+
+    // Controlla che il codice corrisponda a quello salvato per QUELL'utente
+    if (otp !== user.resetToken) {
+        return res.status(200).html(<ResetPasswordForm email={email} error="Codice non corretto." />)
+    }
+
+    await db.update(users)
+        .set({
+            password: await argon2.hash(newPassword),
+            resetToken: null,
+            resetTokenExpiry: null
+        })
+        .where(eq(users.id, user.id))
+
+    return res
+        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Password reimpostata con successo!" } }))
+        .header("HX-Redirect", "/")
+        .send()
+})
   server.get("/sell-product-modal", async (req, res) => {
   if (!req.session.username) {
     return res.status(200).html(

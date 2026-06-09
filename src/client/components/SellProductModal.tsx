@@ -1,5 +1,4 @@
 type Props = {
-  // Proprietà per gestire stati o errori futuri
   error?: string;
 }
 
@@ -10,7 +9,6 @@ export default function SellProductModal({ error }: Props) {
         class="bg-white w-full max-w-xl rounded-2xl shadow-xl border border-gray-100 flex flex-col max-h-[90vh] overflow-hidden"
         onclick="event.stopPropagation()"
       >
-        {/* Header della Modale */}
         <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
           <h2 class="text-xl font-bold text-gray-900">Vendi un Prodotto</h2>
           <button 
@@ -24,7 +22,6 @@ export default function SellProductModal({ error }: Props) {
           </button>
         </div>
 
-        {/* FORM FONDAMENTALE CON ENCODING MULTIPART PER I FILE */}
         <form 
           hx-post="/sell-product" 
           hx-encoding="multipart/form-data" 
@@ -38,7 +35,6 @@ export default function SellProductModal({ error }: Props) {
             </div>
           )}
 
-          {/* Nome Prodotto */}
           <div class="flex flex-col gap-1">
             <label class="text-sm font-semibold text-gray-700" for="productName">Nome Prodotto</label>
             <input 
@@ -46,12 +42,14 @@ export default function SellProductModal({ error }: Props) {
               id="productName" 
               name="productName" 
               required 
+              maxlength="80"
+              pattern=".*\S.*"
+              title="Il nome del prodotto non può essere vuoto o composto da soli spazi"
               placeholder="es. iPhone 15 Pro Max"
               class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
             />
           </div>
 
-          {/* Prezzo e Stock */}
           <div class="grid grid-cols-2 gap-4">
             <div class="flex flex-col gap-1">
               <label class="text-sm font-semibold text-gray-700" for="price">Prezzo ($)</label>
@@ -61,6 +59,7 @@ export default function SellProductModal({ error }: Props) {
                 name="price" 
                 step="0.01" 
                 min="0.01" 
+                max="999999.99"
                 required 
                 placeholder="0.00"
                 class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
@@ -73,6 +72,7 @@ export default function SellProductModal({ error }: Props) {
                 id="stock" 
                 name="stock" 
                 min="1" 
+                max="99999"
                 required 
                 placeholder="1"
                 class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
@@ -80,7 +80,6 @@ export default function SellProductModal({ error }: Props) {
             </div>
           </div>
 
-          {/* Categoria */}
           <div class="flex flex-col gap-1">
             <label class="text-sm font-semibold text-gray-700" for="category">Categoria</label>
             <select 
@@ -93,23 +92,21 @@ export default function SellProductModal({ error }: Props) {
               <option value="Toy">Toy</option>
               <option value="Tech">Tech</option>
               <option value="Auto">Auto</option>
-              
             </select>
           </div>
 
-          {/* Descrizione */}
           <div class="flex flex-col gap-1">
             <label class="text-sm font-semibold text-gray-700" for="description">Descrizione</label>
             <textarea 
               id="description" 
               name="description" 
               rows="3"
-              placeholder="Descrivi brevemente le caratteristiche del prodotto..."
+              maxlength="1000"
+              placeholder="Descrivi brevemente le caratteristiche del prodotto (max 1000 caratteri)..."
               class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white resize-none"
             ></textarea>
           </div>
 
-          {/* Sezione Caricamento Immagini */}
           <div class="space-y-3 pt-2">
             <label class="block text-sm font-semibold text-gray-700 mb-1" for="images">
               Immagini Prodotto (Seleziona una o più)
@@ -121,18 +118,17 @@ export default function SellProductModal({ error }: Props) {
               name="images" 
               accept="image/*" 
               multiple 
+              required
               onchange="handleProductPreviews(this)"
               class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
             />
 
-            {/* Contenitore dinamico per l'anteprima e la scelta della copertina */}
             <div class="space-y-2 mt-3 hidden" id="cover-selection-wrapper">
               <p class="text-xs font-medium text-gray-500">Seleziona l'immagine che preferisci come copertina principale:</p>
               <div id="image-previews" class="grid grid-cols-3 gap-3"></div>
             </div>
           </div>
 
-          {/* Pulsanti di Azione in fondo al Form */}
           <div class="pt-4 border-t border-gray-100 flex justify-end gap-3 bg-white sticky bottom-0">
             <button 
               type="button" 
@@ -151,7 +147,6 @@ export default function SellProductModal({ error }: Props) {
         </form>
       </div>
 
-      {/* Script Vanilla isolato per le anteprime dinamiche */}
       <script type="text/javascript">
         {`
           window.handleProductPreviews = function(input) {

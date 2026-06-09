@@ -2,7 +2,6 @@ import { products } from "../../db/schema"
 import { Session } from "fastify"
 import ConfirmLogoutModal from "./ConfirmLogoutModal"
 
-// Estendiamo il tipo inferito per includere le info del venditore dal join
 type Product = typeof products.$inferSelect & {
   seller?: {
     userName?: string
@@ -22,7 +21,7 @@ export default function ProductInfoPage({ product, session }: Props) {
   // Controllo di proprietà basato sullo username in sessione
   const isOwnProduct = session?.username && session.username === product.seller?.userName
 
-  // Parsing sicuro delle immagini (Array JSON, stringa singola o fallback)
+  // Parsing sicuro delle immagini
   const getImages = (): string[] => {
     if (!product.imageUrl) {
       return ['https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80']
@@ -44,7 +43,6 @@ export default function ProductInfoPage({ product, session }: Props) {
       <nav class="w-full bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex justify-between h-16 items-center">
-
             <div class="flex-shrink-0 flex items-center">
               <a href="/" class="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
                 TechStore
@@ -96,9 +94,7 @@ export default function ProductInfoPage({ product, session }: Props) {
                   </svg>
                 </button>
               )}
-              
             </div>
-
           </div>
         </div>
       </nav>
@@ -119,7 +115,6 @@ export default function ProductInfoPage({ product, session }: Props) {
           
           {/* CAROSELLO IMMAGINI */}
           <div class="relative w-full h-80 md:h-[400px] rounded-xl overflow-hidden bg-gray-100 shadow-inner group flex items-center justify-center">
-            
             {images.map((url, index) => (
               <img 
                 src={url} 
@@ -132,7 +127,6 @@ export default function ProductInfoPage({ product, session }: Props) {
 
             {images.length > 1 && (
               <>
-                {/* Freccia Sinistra */}
                 <button 
                   type="button"
                   onclick={`(() => {
@@ -140,14 +134,11 @@ export default function ProductInfoPage({ product, session }: Props) {
                     const imgs = container.querySelectorAll('[data-carousel-item]');
                     const dots = container.querySelectorAll('[data-carousel-dot]');
                     let idx = Array.from(imgs).findIndex(i => i.classList.contains('opacity-100'));
-                    
                     imgs[idx].classList.replace('opacity-100', 'opacity-0');
                     imgs[idx].classList.add('pointer-events-none');
                     imgs[idx].classList.replace('z-10', 'z-0');
                     dots[idx].classList.replace('bg-indigo-600', 'bg-white/60');
-                    
                     idx = (idx - 1 + imgs.length) % imgs.length;
-                    
                     imgs[idx].classList.replace('opacity-0', 'opacity-100');
                     imgs[idx].classList.remove('pointer-events-none');
                     imgs[idx].classList.replace('z-0', 'z-10');
@@ -160,7 +151,6 @@ export default function ProductInfoPage({ product, session }: Props) {
                   </svg>
                 </button>
 
-                {/* Freccia Destra */}
                 <button 
                   type="button"
                   onclick={`(() => {
@@ -168,14 +158,11 @@ export default function ProductInfoPage({ product, session }: Props) {
                     const imgs = container.querySelectorAll('[data-carousel-item]');
                     const dots = container.querySelectorAll('[data-carousel-dot]');
                     let idx = Array.from(imgs).findIndex(i => i.classList.contains('opacity-100'));
-                    
                     imgs[idx].classList.replace('opacity-100', 'opacity-0');
                     imgs[idx].classList.add('pointer-events-none');
                     imgs[idx].classList.replace('z-10', 'z-0');
                     dots[idx].classList.replace('bg-indigo-600', 'bg-white/60');
-                    
                     idx = (idx + 1) % imgs.length;
-                    
                     imgs[idx].classList.replace('opacity-0', 'opacity-100');
                     imgs[idx].classList.remove('pointer-events-none');
                     imgs[idx].classList.replace('z-0', 'z-10');
@@ -188,13 +175,9 @@ export default function ProductInfoPage({ product, session }: Props) {
                   </svg>
                 </button>
 
-                {/* Pallini indicatori */}
                 <div class="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2 bg-black/10 backdrop-blur-xs px-2 py-1 rounded-full">
                   {images.map((_, index) => (
-                    <span 
-                      data-carousel-dot
-                      class={`w-2 h-2 rounded-full transition-all ${index === 0 ? 'bg-indigo-600' : 'bg-white/60'}`}
-                    ></span>
+                    <span data-carousel-dot class={`w-2 h-2 rounded-full transition-all ${index === 0 ? 'bg-indigo-600' : 'bg-white/60'}`}></span>
                   ))}
                 </div>
               </>
@@ -222,7 +205,7 @@ export default function ProductInfoPage({ product, session }: Props) {
               </div>
             </div>
 
-            {/* SEZIONE ACQUISTO / STOCK */}
+            {/* SEZIONE AMMINISTRAZIONE / ACQUISTO / STOCK */}
             <div class="pt-6 mt-6 border-t border-gray-100 flex items-center justify-between">
               <div>
                 <p class="text-xs text-gray-400 uppercase tracking-wider font-medium">Disponibilità</p>
@@ -235,100 +218,105 @@ export default function ProductInfoPage({ product, session }: Props) {
                 </p>
               </div>
               
-              <div id={`purchase-actions-${product.id}`} class={product.stock > 0 ? "flex gap-3" : "hidden"}>
+              <div class="flex gap-3">
                 
-                {/* MODALE AGGIUNGI AL CARRELLO (Renderizzato solo se il prodotto non è dell'utente) */}
-                {!isOwnProduct && (
-                  <div
-                    id={`modal-${product.id}`}
-                    class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center cursor-default"
-                    onclick="if(event.target === this) this.classList.add('hidden')"
-                  >
-                    <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4" onclick="event.stopPropagation()">
-                      <h3 class="text-lg font-bold text-gray-900">Aggiungi al carrello</h3>
-                      <p class="text-sm text-gray-500">
-                        Disponibili: <span id={`modal-stock-${product.id}`} class="font-semibold text-indigo-600">{product.stock}</span>
-                      </p>
-
-                      <div class="flex flex-col gap-1">
-                        <label class="text-sm font-medium text-gray-700">Quantità</label>
-                        <input
-                          id={`qty-${product.id}`}
-                          type="number"
-                          min="1"
-                          max={product.stock}
-                          value="1"
-                          class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-gray-900 bg-white"
-                          onblur={`
-                            const val = parseInt(this.value);
-                            if (isNaN(val) || val < 1) this.value = 1;
-                            if (val > parseInt(this.max)) this.value = this.max;
-                          `}
-                        />
-                      </div>
-
-                      <div class="flex gap-2 mt-1">
-                        <button
-                          type="button"
-                          onclick={`document.getElementById('modal-${product.id}').classList.add('hidden')`}
-                          class="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors cursor-pointer"
-                        >
-                          Annulla
-                        </button>
-                        
-                        <button
-                          type="button"
-                          onclick={`
-                            const qtyInput = document.getElementById('qty-${product.id}');
-                            const qty = parseInt(qtyInput.value, 10);
-                            
-                            if (isNaN(qty) || qty < 1) return;
-
-                            htmx.ajax('GET', '/addToCart/${product.id}?quantity=' + qty, { swap: 'none' });
-                            document.getElementById('modal-${product.id}').classList.add('hidden');
-                            
-                            const stockBadge = document.getElementById('stock-badge-${product.id}');
-                            if (stockBadge) {
-                              const currentStock = parseInt(stockBadge.innerText, 10);
-                              const newStock = Math.max(0, currentStock - qty);
-                              
-                              if (newStock <= 0) {
-                                document.getElementById('stock-status-${product.id}').innerText = 'Esaurito';
-                                document.getElementById('purchase-actions-${product.id}').remove();
-                              } else {
-                                stockBadge.innerText = newStock;
-                                const modalStockBadge = document.getElementById('modal-stock-${product.id}');
-                                if (modalStockBadge) modalStockBadge.innerText = newStock;
-                                
-                                qtyInput.max = newStock;
-                                qtyInput.value = "1";
-                              }
-                            }
-                          `}
-                          class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2 rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
-                        >
-                          Conferma
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Bottone condizionale */}
+                {/* Se l'utente corrente è il venditore dell'oggetto */}
                 {isOwnProduct ? (
                   <button
-                    disabled
-                    class="px-6 py-2.5 bg-gray-100 text-gray-400 font-semibold rounded-xl text-sm cursor-not-allowed border border-gray-200"
+                    hx-delete={`/product/${product.id}`}
+                    hx-confirm="Sei sicuro di voler eliminare definitivamente questo annuncio? L'azione è irreversibile."
+                    hx-target="body"
+                    class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
                   >
-                    Tuo prodotto
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                    </svg>
+                    Elimina Annuncio
                   </button>
                 ) : (
-                  <button
-                    onclick={`document.getElementById('modal-${product.id}').classList.remove('hidden')`}
-                    class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
-                  >
-                    Aggiungi al Carrello
-                  </button>
+                  /* Flusso Acquirente (Nascosto se lo stock è esaurito) */
+                  <div id={`purchase-actions-${product.id}`} class={product.stock > 0 ? "flex gap-3" : "hidden"}>
+                    
+                    {/* MODALE AGGIUNGI AL CARRELLO */}
+                    <div
+                      id={`modal-${product.id}`}
+                      class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center cursor-default"
+                      onclick="if(event.target === this) this.classList.add('hidden')"
+                    >
+                      <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4" onclick="event.stopPropagation()">
+                        <h3 class="text-lg font-bold text-gray-900">Aggiungi al carrello</h3>
+                        <p class="text-sm text-gray-500">
+                          Disponibili: <span id={`modal-stock-${product.id}`} class="font-semibold text-indigo-600">{product.stock}</span>
+                        </p>
+
+                        <div class="flex flex-col gap-1">
+                          <label class="text-sm font-medium text-gray-700">Quantità</label>
+                          <input
+                            id={`qty-${product.id}`}
+                            type="number"
+                            min="1"
+                            max={product.stock}
+                            value="1"
+                            class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-gray-900 bg-white"
+                            onblur={`
+                              const val = parseInt(this.value);
+                              if (isNaN(val) || val < 1) this.value = 1;
+                              if (val > parseInt(this.max)) this.value = this.max;
+                            `}
+                          />
+                        </div>
+
+                        <div class="flex gap-2 mt-1">
+                          <button
+                            type="button"
+                            onclick={`document.getElementById('modal-${product.id}').classList.add('hidden')`}
+                            class="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors cursor-pointer"
+                          >
+                            Annulla
+                          </button>
+                          
+                          <button
+                            type="button"
+                            onclick={`
+                              const qtyInput = document.getElementById('qty-${product.id}');
+                              const qty = parseInt(qtyInput.value, 10);
+                              if (isNaN(qty) || qty < 1) return;
+
+                              htmx.ajax('GET', '/addToCart/${product.id}?quantity=' + qty, { swap: 'none' });
+                              document.getElementById('modal-${product.id}').classList.add('hidden');
+                              
+                              const stockBadge = document.getElementById('stock-badge-${product.id}');
+                              if (stockBadge) {
+                                const currentStock = parseInt(stockBadge.innerText, 10);
+                                const newStock = Math.max(0, currentStock - qty);
+                                
+                                if (newStock <= 0) {
+                                  document.getElementById('stock-status-${product.id}').innerText = 'Esaurito';
+                                  document.getElementById('purchase-actions-${product.id}').remove();
+                                } else {
+                                  stockBadge.innerText = newStock;
+                                  const modalStockBadge = document.getElementById('modal-stock-${product.id}');
+                                  if (modalStockBadge) modalStockBadge.innerText = newStock;
+                                  qtyInput.max = newStock;
+                                  qtyInput.value = "1";
+                                }
+                              }
+                            `}
+                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2 rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
+                          >
+                            Conferma
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onclick={`document.getElementById('modal-${product.id}').classList.remove('hidden')`}
+                      class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
+                    >
+                      Aggiungi al Carrello
+                    </button>
+                  </div>
                 )}
 
               </div>

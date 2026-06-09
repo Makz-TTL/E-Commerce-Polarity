@@ -6,6 +6,7 @@ export const orders = pgTable("orders", {
   productId: integer().notNull(),
   quantity: integer().notNull(),
   totalPrice: integer().notNull(),
+  
 })
 
 type Order = typeof orders.$inferSelect
