@@ -491,7 +491,7 @@ export default (server: ZodFastifyInstance) => {
         .send()
 
     } catch (error: any) {
-      console.error("ERRORE INTERNO:", error.message)
+      console.error("ERRORE INTERNO:", error)
       return res
         .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Errore interno durante il salvataggio." } }))
         .send()
