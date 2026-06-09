@@ -185,35 +185,48 @@ export default (server: ZodFastifyInstance) => {
 
   //Product page.
   server.get("/product/:id", async (req, res) => {
-    const { id } = req.params as { id: string }
-    const productId = parseInt(id, 10)
+  const { id } = req.params as { id: string }
+  const productId = parseInt(id, 10)
 
-    if (isNaN(productId)) {
-      return res.status(400).send("ID Prodotto non valido")
+  if (isNaN(productId)) {
+    return res.status(400).send("ID Prodotto non valido")
+  }
+
+  try {
+    // Facciamo il join con la tabella degli utenti per recuperare il venditore
+    const productRows = await db
+      .select()
+      .from(products)
+      .leftJoin(users, eq(products.userId, users.id)) // <-- Modifica 'userId' se la tua FK si chiama diversamente (es. sellerId)
+      .where(eq(products.id, productId))
+      .limit(1)
+
+    const result = productRows[0]
+
+    if (!result) {
+      return res.status(404).send("Prodotto non trovato o non più disponibile")
     }
 
-    try {
-      const productRows = await db
-        .select()
-        .from(products)
-        .where(eq(products.id, productId))
-        .limit(1)
-
-      const product = productRows[0]
-
-      if (!product) {
-        return res.status(404).send("Prodotto non trovato o non più disponibile")
-      }
-
-      return res.status(200).html(
-        <MainLayout>
-          <ProductInfoPage product={product} session={req.session} />
-        </MainLayout>
-      )
-    } catch (error) {
-      return res.status(500).send("Errore interno durante il caricamento dei dettagli del prodotto")
+    // Ricostruiamo la struttura dati piatta + oggetto seller annidato per la pagina
+    const product = {
+      ...result.products,
+      seller: result.users ? {
+        userName: result.users.userName, 
+        name: result.users.name,
+        lastName: result.users.lastName
+      } : undefined
     }
-  })
+
+    return res.status(200).html(
+      <MainLayout>
+        <ProductInfoPage product={product} session={req.session} />
+      </MainLayout>
+    )
+  } catch (error) {
+    console.error("Errore nel recupero del prodotto:", error)
+    return res.status(500).send("Errore interno durante il caricamento dei dettagli del prodotto")
+  }
+})
 
 
 

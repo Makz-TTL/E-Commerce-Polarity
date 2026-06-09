@@ -11,6 +11,7 @@ import { db } from "../../db"
 import { eq } from "drizzle-orm"
 import * as argon2 from "argon2"
 import { sendTemplateEmail } from "../../emails/index"
+import SellProductModal from "../components/SellProductModal"
 
 export default (server: ZodFastifyInstance) => {
 
@@ -187,4 +188,17 @@ export default (server: ZodFastifyInstance) => {
       .header("HX-Redirect", "/profile")
       .send()
   })
+
+  server.get("/sell-product-modal", async (req, res) => {
+  if (!req.session.username) {
+    return res.status(200).html(
+      <div class="p-6 text-center">
+        <p class="text-gray-600 mb-4">Devi essere autenticato per vendere un prodotto.</p>
+      </div>
+    )
+  }
+
+  return res.status(200).html(<SellProductModal />)
+})
+  
 }
