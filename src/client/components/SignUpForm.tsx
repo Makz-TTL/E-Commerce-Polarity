@@ -61,8 +61,19 @@ export default function SignUpForm({ values = {}, errors, isEdit = false, onEdit
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1"> Email </label>
-                    <input type="email" name="email" value={values.email || ""} required
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    {/* Aggiunto il controllo condizionale readonly/disabled e classi CSS per mostrare il campo bloccato */}
+                    <input 
+                        type="email" 
+                        name="email" 
+                        value={values.email || ""} 
+                        required={!isEdit}
+                        disabled={isEdit}
+                        class={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            isEdit 
+                                ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed select-none" 
+                                : "border-gray-300 text-gray-900"
+                        }`} 
+                    />
                     {errors?.email && (
                         <div class="text-red-600 text-xs mt-1">{errors.email}</div>
                     )}
@@ -73,11 +84,13 @@ export default function SignUpForm({ values = {}, errors, isEdit = false, onEdit
                     <div class="pt-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Sicurezza</label>
                         <button
-                          type="button"
-                          onclick={onEditPasswordClick || "alert('Funzionalità password non configurata')"}
-                          class="w-full py-2 px-4 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer text-center"
+                            type="button"
+                            hx-get="/editPassword-modal"
+                            hx-target="#registerDiv"
+                            hx-swap="outerHTML"
+                            class="w-full py-2 px-4 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer text-center"
                         >
-                          Modifica Password
+                            Modifica Password
                         </button>
                     </div>
                 ) : (

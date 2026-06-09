@@ -4,9 +4,13 @@ import ConfirmLogoutModal from "../components/ConfirmLogoutModal"
 import LoginForm from "../components/LoginForm"
 import Modal from "../components/Modal"
 import OtpForm from "../components/OtpForm"
+import OtpPasswordForm from "../components/OtpPasswordForm"
+import EditPasswordForm from "../components/EditPassword"
 import SignUpForm from "../components/SignUpForm"
 import { db } from "../../db"
 import { eq } from "drizzle-orm"
+import * as argon2 from "argon2"
+import { sendTemplateEmail } from "../../emails/index"
 
 export default (server: ZodFastifyInstance) => {
 
@@ -142,10 +146,45 @@ export default (server: ZodFastifyInstance) => {
 
           </div>
         </div>
-      )
-    } catch (error) {
-      server.log.error(error)
-      return res.status(500).send("Errore nel caricamento dei dati del profilo")
+    )
+  } catch (error) {
+    server.log.error(error)
+    return res.status(500).send("Errore nel caricamento dei dati del profilo")
+  }
+})  
+
+  server.get("/editPassword-modal", async (req, res) => {
+    if (!req.session.username) return res.status(401).send("Non autorizzato")
+    return res.status(200).html(<EditPasswordForm />)
+  })
+
+  server.post("/editPassword", async (req, res) => {
+    if (!req.session.username) return res.status(401).send("Non autorizzato")
+
+    const { oldPassword, newPassword, confirmPassword } = req.body as {
+      oldPassword: string
+      newPassword: string
+      confirmPassword: string
     }
-  })  
+
+    if (newPassword !== confirmPassword) {
+      return res.status(200).html(<EditPasswordForm error="Le password non coincidono." />)
+    }
+
+    const rows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+    const user = rows[0]
+
+    if (!user || !(await argon2.verify(user.password, oldPassword))) {
+      return res.status(200).html(<EditPasswordForm error="La vecchia password non è corretta." />)
+    }
+
+    await db.update(users)
+      .set({ password: await argon2.hash(newPassword) })
+      .where(eq(users.userName, req.session.username))
+
+    return res
+      .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Password aggiornata con successo!" } }))
+      .header("HX-Redirect", "/profile")
+      .send()
+  })
 }
