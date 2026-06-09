@@ -90,11 +90,10 @@ export default function SellProductModal({ error }: Props) {
               class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
             >
               <option value="" disabled selected>Seleziona una categoria</option>
-              <option value="Smartphone">Smartphone</option>
-              <option value="Laptop">Laptop</option>
-              <option value="Accessori">Accessori</option>
-              <option value="Audio">Audio</option>
-              <option value="Gaming">Gaming</option>
+              <option value="Toy">Toy</option>
+              <option value="Tech">Tech</option>
+              <option value="Auto">Auto</option>
+              
             </select>
           </div>
 
