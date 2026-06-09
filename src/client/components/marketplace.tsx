@@ -44,140 +44,154 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
 
   const productsGrid = (
     <div id="products-grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 p-6 max-w-7xl mx-auto">
-      {products.map((product: any) => (
-       
-        <div id={`product-card-${product.id}`} class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between p-6 h-[420px]">
-          
-          <div class="w-full h-40 bg-gray-50 relative overflow-hidden rounded-xl mb-4">
-            <img
-              src={product.imageUrl || 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'}
-              alt={product.productName}
-              class="w-full h-full object-cover"
-              loading="lazy"
-            />
-          </div>
+      {products.map((product: any) => {
+        // Estrazione controllata della copertina per la card
+        let productCover = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80';
+        if (product.imageUrl) {
+            try {
+                const images = JSON.parse(product.imageUrl);
+                if (Array.isArray(images) && images.length > 0) {
+                    productCover = images[0];
+                }
+            } catch (e) {
+                productCover = product.imageUrl;
+            }
+        }
 
-          <div class="flex-1 flex flex-col justify-between">
-            <div>
-              <h2 class="text-xl font-bold text-gray-900 tracking-tight flex flex-col mb-1">
-                {product.productName}
-                <span class="text-xs text-indigo-500 font-normal mt-0.5">
-                  Seller: {product.seller?.name} {product.seller?.lastName}
+        return (
+          <div id={`product-card-${product.id}`} class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between p-6 h-[420px]">
+            
+            <div class="w-full h-40 bg-gray-50 relative overflow-hidden rounded-xl mb-4">
+              <img
+                src={productCover}
+                alt={product.productName}
+                class="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </div>
+
+            <div class="flex-1 flex flex-col justify-between">
+              <div>
+                <h2 class="text-xl font-bold text-gray-900 tracking-tight flex flex-col mb-1">
+                  {product.productName}
+                  <span class="text-xs text-indigo-500 font-normal mt-0.5">
+                    Seller: {product.seller?.name} {product.seller?.lastName}
+                  </span>
+                </h2>
+                <div class="mb-2">
+                  <span class="text-xl font-extrabold text-indigo-600">${product.price}</span>
+                </div>
+                <p class="text-gray-600 text-sm leading-relaxed mb-3 line-clamp-2">{product.description}</p>
+              </div>
+              <div class="mb-2 mt-auto">
+                <label class="text-sm font-medium text-gray-500">Stock disponibile: </label>
+              
+                <span id={`stock-badge-${product.id}`} class="inline-block bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">
+                  {product.stock}
                 </span>
-              </h2>
-              <div class="mb-2">
-                <span class="text-xl font-extrabold text-indigo-600">${product.price}</span>
               </div>
-              <p class="text-gray-600 text-sm leading-relaxed mb-3 line-clamp-2">{product.description}</p>
             </div>
-            <div class="mb-2 mt-auto">
-              <label class="text-sm font-medium text-gray-500">Stock disponibile: </label>
-            
-              <span id={`stock-badge-${product.id}`} class="inline-block bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">
-                {product.stock}
-              </span>
-            </div>
-          </div>
 
-          <div class="flex gap-3 mt-4">
-            
-            <button 
-              onclick={`window.location.href='/product/${product.id}'`}
-              class="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 font-medium py-2.5 px-4 rounded-xl transition-colors text-sm text-center cursor-pointer"
-            >
-              Info
-            </button>
+            <div class="flex gap-3 mt-4">
+              
+              <button 
+                onclick={`window.location.href='/product/${product.id}'`}
+                class="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 font-medium py-2.5 px-4 rounded-xl transition-colors text-sm text-center cursor-pointer"
+              >
+                Info
+              </button>
 
-            <div
-              id={`modal-${product.id}`}
-              class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
-              onclick="if(event.target === this) this.classList.add('hidden')"
-            >
-              <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4">
-                <h3 class="text-lg font-bold text-gray-900">Aggiungi al carrello</h3>
-                <p class="text-sm text-gray-500">
-                  Disponibili: <span id={`modal-stock-${product.id}`} class="font-semibold text-indigo-600">{product.stock}</span>
-                </p>
+              <div
+                id={`modal-${product.id}`}
+                class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center"
+                onclick="if(event.target === this) this.classList.add('hidden')"
+              >
+                <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4">
+                  <h3 class="text-lg font-bold text-gray-900">Aggiungi al carrello</h3>
+                  <p class="text-sm text-gray-500">
+                    Disponibili: <span id={`modal-stock-${product.id}`} class="font-semibold text-indigo-600">{product.stock}</span>
+                  </p>
 
-                <div class="flex flex-col gap-1">
-                  <label class="text-sm font-medium text-gray-700">Quantità</label>
-                  <input
-                    id={`qty-${product.id}`}
-                    type="number"
-                    min="1"
-                    max={product.stock}
-                    value="1"
-                    class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                    onblur={`
-                      const val = parseInt(this.value);
-                      if (isNaN(val) || val < 1) this.value = 1;
-                      if (val > ${product.stock}) this.value = ${product.stock};
-                    `}
-                  />
-                </div>
+                  <div class="flex flex-col gap-1">
+                    <label class="text-sm font-medium text-gray-700">Quantità</label>
+                    <input
+                      id={`qty-${product.id}`}
+                      type="number"
+                      min="1"
+                      max={product.stock}
+                      value="1"
+                      class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      onblur={`
+                        const val = parseInt(this.value);
+                        if (isNaN(val) || val < 1) this.value = 1;
+                        if (val > ${product.stock}) this.value = ${product.stock};
+                      `}
+                    />
+                  </div>
 
-                <div class="flex gap-2 mt-1">
-                  <button
-                    type="button"
-                    onclick={`document.getElementById('modal-${product.id}').classList.add('hidden')`}
-                    class="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors cursor-pointer"
-                  >
-                    Annulla
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onclick={`
-                      const qtyInput = document.getElementById('qty-${product.id}');
-                      const qty = parseInt(qtyInput.value, 10);
-                      
-                      if (isNaN(qty) || qty < 1) return;
-
-                      htmx.ajax('GET', '/addToCart/${product.id}?quantity=' + qty, { swap: 'none' });
-                      
-                      document.getElementById('modal-${product.id}').classList.add('hidden');
-                      
-                      const stockBadge = document.getElementById('stock-badge-${product.id}');
-                      if (stockBadge) {
-                        const currentStock = parseInt(stockBadge.innerText, 10);
-                        const newStock = Math.max(0, currentStock - qty);
+                  <div class="flex gap-2 mt-1">
+                    <button
+                      type="button"
+                      onclick={`document.getElementById('modal-${product.id}').classList.add('hidden')`}
+                      class="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors cursor-pointer"
+                    >
+                      Annulla
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onclick={`
+                        const qtyInput = document.getElementById('qty-${product.id}');
+                        const qty = parseInt(qtyInput.value, 10);
                         
-                        if (newStock <= 0) {
-                          const productCard = document.getElementById('product-card-${product.id}');
-                          if (productCard) {
-                            productCard.style.transition = 'all 0.3s ease';
-                            productCard.style.opacity = '0';
-                            productCard.style.transform = 'scale(0.95)';
-                            setTimeout(() => productCard.remove(), 300);
-                          }
-                        } else {
-                          stockBadge.innerText = newStock;
-                          const modalStockBadge = document.getElementById('modal-stock-${product.id}');
-                          if (modalStockBadge) modalStockBadge.innerText = newStock;
+                        if (isNaN(qty) || qty < 1) return;
+
+                        htmx.ajax('GET', '/addToCart/${product.id}?quantity=' + qty, { swap: 'none' });
+                        
+                        document.getElementById('modal-${product.id}').classList.add('hidden');
+                        
+                        const stockBadge = document.getElementById('stock-badge-${product.id}');
+                        if (stockBadge) {
+                          const currentStock = parseInt(stockBadge.innerText, 10);
+                          const newStock = Math.max(0, currentStock - qty);
                           
-                          qtyInput.max = newStock;
-                          qtyInput.value = "1";
+                          if (newStock <= 0) {
+                            const productCard = document.getElementById('product-card-${product.id}');
+                            if (productCard) {
+                              productCard.style.transition = 'all 0.3s ease';
+                              productCard.style.opacity = '0';
+                              productCard.style.transform = 'scale(0.95)';
+                              setTimeout(() => productCard.remove(), 300);
+                            }
+                          } else {
+                            stockBadge.innerText = newStock;
+                            const modalStockBadge = document.getElementById('modal-stock-${product.id}');
+                            if (modalStockBadge) modalStockBadge.innerText = newStock;
+                            
+                            qtyInput.max = newStock;
+                            qtyInput.value = "1";
+                          }
                         }
-                      }
-                    `}
-                    class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2 rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
-                  >
-                    Conferma
-                  </button>
+                      `}
+                      class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2 rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
+                    >
+                      Conferma
+                    </button>
+                  </div>
                 </div>
               </div>
+
+              <button
+                onclick={`document.getElementById('modal-${product.id}').classList.remove('hidden')`}
+                class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center cursor-pointer"
+              >
+                Aggiungi
+              </button>
             </div>
 
-            <button
-              onclick={`document.getElementById('modal-${product.id}').classList.remove('hidden')`}
-              class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center cursor-pointer"
-            >
-              Aggiungi
-            </button>
           </div>
-
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 
