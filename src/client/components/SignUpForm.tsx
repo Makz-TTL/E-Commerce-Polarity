@@ -1,3 +1,22 @@
+type Props = {
+    values?: {
+        nome?: string,
+        cognome?: string,
+        username?: string,
+        email?: string,
+        password?: string
+    },
+    errors?: {
+        nome?: string,
+        cognome?: string,
+        username?: string,
+        email?: string,
+        password?: string
+    },
+    isEdit?: boolean,               
+    onEditPasswordClick?: string    
+}
+
 export default function SignUpForm({ values = {}, errors, isEdit = false, onEditPasswordClick }: Props) {
     return (
        <div id="registerDiv" class="p-6">
@@ -42,6 +61,7 @@ export default function SignUpForm({ values = {}, errors, isEdit = false, onEdit
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1"> Email </label>
+                    {/* Aggiunto il controllo condizionale readonly/disabled e classi CSS per mostrare il campo bloccato */}
                     <input 
                         type="email" 
                         name="email" 
@@ -59,7 +79,7 @@ export default function SignUpForm({ values = {}, errors, isEdit = false, onEdit
                     )}
                 </div>
 
-                
+                {/* LOGICA CONDIZIONALE PER LA PASSWORD */}
                 {isEdit ? (
                     <div class="pt-2">
                         <label class="block text-sm font-medium text-gray-700 mb-1">Sicurezza</label>
