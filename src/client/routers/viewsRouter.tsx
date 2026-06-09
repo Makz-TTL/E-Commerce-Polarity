@@ -106,11 +106,21 @@ export default (server: ZodFastifyInstance) => {
   //Payment form page.
   server.get("/checkout/payment", async (req, res) => {
 
-    const orders = await db.query.orders.findMany({})
+    const user = await db.query.users.findFirst({
+      where: {userName : req.session.username}
+    });
+
+    const orders = await db.query.orders.findMany({
+      where: user ? { userId: user.id } : undefined,
+      with: { product: true }
+    })
+
+    //Dato che è un array calcola il totale di tutti gli ordini nel carrello.
+    const totalAmountOrders = orders.reduce((acc, order) => acc + (order.totalPrice || 0), 0);
 
     return res.html(
       <MainLayout>
-        <Payment session={req.session} orders={orders}/>
+        <Payment session={req.session} orders={orders} totalPrice={totalAmountOrders}/>
       </MainLayout>
     )
   })

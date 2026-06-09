@@ -63,50 +63,72 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
         }
 
         return (
-          <div id={`product-card-${product.id}`} class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between p-6 h-[420px]">
+          <div id={`product-card-${product.id}`} class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl flex flex-col justify-between h-[470px]">
             
-            <div class="w-full h-40 bg-gray-50 relative overflow-hidden rounded-xl mb-4">
+            <div class="w-full bg-gray-50 overflow-hidden rounded-t-xl mb-4 hover:cursor-pointer" onclick={`window.location.href='/product/${product.id}'`}>
               <img
                 src={productCover}
                 alt={product.productName}
-                class="w-full h-full object-cover"
+                class="w-full h-[470px] object-cover hover:h-[490px] transition-all duration-300"
                 loading="lazy"
               />
             </div>
 
-            <div class="flex-1 flex flex-col justify-between">
+            <div class="flex-1 flex flex-col justify-between p-6">
               <div>
-                <h2 class="text-xl font-bold text-gray-900 tracking-tight flex flex-col mb-1">
-                  {product.productName}
-                  <span class="text-xs text-indigo-500 font-normal mt-0.5">
-                    Seller: {product.seller?.name} {product.seller?.lastName} {isOwnProduct && "(Tu)"}
-                  </span>
-                </h2>
-                <div class="mb-2">
-                  <span class="text-xl font-extrabold text-indigo-600">${product.price}</span>
+
+                  <h2 class="text-[26px] font-bold text-black-600 tracking-tight flex flex-col mb-1">
+                    {product.productName}
+
+                    {/* <span class="text-[16px] text-600 font-normal mt-0.5 text-[#7F6363]">
+                      Seller: {product.seller?.name} {product.seller?.lastName} {isOwnProduct && "(Tu)"}
+                    </span> */}
+                  </h2>
+                  
+                  <div class="mb-6 mt-auto ml-auto">
+                    <label class="text-[14px] font-medium text-gray-500">Stock disponibile: </label>
+                  
+                    <span id={`stock-badge-${product.id}`} class="inline-block bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">
+                      {product.stock}
+                    </span>
+                  </div>
+
+              </div>
+
+              <div class="flex">
+
+                <div class=" pr-4 ">
+                  <span class="text-[26px] font-medium text-black-500">${product.price.toLocaleString("it-IT")}</span>
                 </div>
-                <p class="text-gray-600 text-sm leading-relaxed mb-3 line-clamp-2">{product.description}</p>
+
+                {isOwnProduct ? (
+                  <button
+                    disabled
+                    class="w-35 bg-gray-100 text-gray-400 font-medium py-2.5 px-4 rounded-xl text-sm text-center cursor-not-allowed border border-gray-200 ml-auto"
+                  >
+                    Tuo prodotto
+                  </button>
+                ) : (
+                  <button
+                    onclick={`document.getElementById('modal-${product.id}').classList.remove('hidden')`}
+                    class="w-35 h-12 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2.5 px-2 rounded-xl transition-colors shadow-sm text-sm text-center cursor-pointer ml-auto mb-auto"
+                  >
+                    Aggiungi
+                  </button>
+                )}
+
               </div>
-              <div class="mb-2 mt-auto">
-                <label class="text-sm font-medium text-gray-500">Stock disponibile: </label>
-              
-                <span id={`stock-badge-${product.id}`} class="inline-block bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">
-                  {product.stock}
-                </span>
-              </div>
-              <div class="mb-2">
-                <span class="text-xl font-extrabold text-indigo-600">${product.price.toLocaleString("it-IT")}</span>
-              </div>
+
             </div>
 
             <div class="flex gap-3 mt-4">
               
-              <button 
+              {/* <button 
                 onclick={`window.location.href='/product/${product.id}'`}
                 class="flex-1 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-200 font-medium py-2.5 px-4 rounded-xl transition-colors text-sm text-center cursor-pointer"
               >
                 Info
-              </button>
+              </button> */}
 
               {/* Se il prodotto non è mio, mostro il modal e il flusso di acquisto regolare */}
               {!isOwnProduct && (
@@ -189,22 +211,6 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                     </div>
                   </div>
                 </div>
-              )}
-
-              {isOwnProduct ? (
-                <button
-                  disabled
-                  class="flex-1 bg-gray-100 text-gray-400 font-medium py-2.5 px-4 rounded-xl text-sm text-center cursor-not-allowed border border-gray-200"
-                >
-                  Tuo prodotto
-                </button>
-              ) : (
-                <button
-                  onclick={`document.getElementById('modal-${product.id}').classList.remove('hidden')`}
-                  class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2.5 px-4 rounded-xl transition-colors shadow-sm text-sm text-center cursor-pointer"
-                >
-                  Aggiungi
-                </button>
               )}
             </div>
 

@@ -5,7 +5,7 @@ export const products = pgTable("products", {
   userId: integer().notNull(),
   productName: text().notNull(),
   description: text(),
-  price: integer().notNull(),
+  price: serial().notNull(),
   stock: integer().notNull(),
   category: text().notNull(),
   imageUrl: text(),
