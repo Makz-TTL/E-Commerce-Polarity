@@ -258,11 +258,6 @@ export default (server: ZodFastifyInstance) => {
       }
 
       const totalPrice = product.price * quantity
-      const newStock = product.stock - quantity
-
-      await db.update(products)
-        .set({ stock: newStock })
-        .where(eq(products.id, productId))
 
       await db.insert(orders).values({
         userId: user.id,             
@@ -270,7 +265,6 @@ export default (server: ZodFastifyInstance) => {
         quantity: quantity,     
         totalPrice: totalPrice  
       })  
-
       const triggerEvents = {
         showSuccessToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` }
       }
@@ -404,6 +398,31 @@ export default (server: ZodFastifyInstance) => {
       }
   
       else{
+
+        // Prendi tutti gli ordini dell'utente e svuota il carrello
+        const user = await db.query.users.findFirst({
+          where: { userName: req.session.username }
+        })
+
+        if (user) {
+          const userOrders = await db.query.orders.findMany({
+            where: { userId: user.id },
+            with: { product: true }
+          })
+
+          // Per ogni ordine, scala lo stock
+          for (const order of userOrders) {
+            if (order.product) {
+              await db.update(products)
+                .set({ stock: order.product.stock - order.quantity })
+                .where(eq(products.id, order.productId))
+            }
+          }
+
+          // Svuota il carrello
+          await db.delete(orders).where(eq(orders.userId, user.id))
+        }
+
         return res.header("HX-Redirect", "/payment/accepted").send();
       }
   

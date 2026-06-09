@@ -66,7 +66,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                 </span>
               </h2>
               <div class="mb-2">
-                <span class="text-xl font-extrabold text-indigo-600">${product.price}</span>
+                <span class="text-xl font-extrabold text-indigo-600">${product.price.toLocaleString("it-IT")}</span>
               </div>
               <p class="text-gray-600 text-sm leading-relaxed mb-3 line-clamp-2">{product.description}</p>
             </div>
@@ -155,7 +155,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                           const modalStockBadge = document.getElementById('modal-stock-${product.id}');
                           if (modalStockBadge) modalStockBadge.innerText = newStock;
                           
-                          qtyInput.max = newStock;
+                          // qtyInput.max = newStock;
                           qtyInput.value = "1";
                         }
                       }

@@ -102,7 +102,7 @@ export default async function Cart({ session } : cartProps) {
                         {/* Prezzo */}
                         <div class="flex flex-col items-end gap-1 min-w-[80px]">
                             <span class="text-xs text-gray-400 font-medium">Totale</span>
-                            <span class="text-xl font-extrabold text-indigo-600">${order.totalPrice}</span>
+                            <span class="text-xl font-extrabold text-indigo-600">${order.totalPrice.toLocaleString("it-IT")}</span>
                         </div>
 
                         {/* Rimuovi */}

@@ -76,7 +76,7 @@ export default function Payment({session, orders} : paymentProps){
                 <div class="border-t border-gray-100 pt-4 flex justify-between items-center">
                 <span class="text-sm font-semibold text-gray-500">Totale da pagare</span>
                 <span class="text-xl font-extrabold text-indigo-600">
-                    ${orders.reduce((sum, o) => sum + o.totalPrice, 0)}
+                    ${orders.reduce((sum, o) => sum + o.totalPrice, 0).toLocaleString("it-IT")}
                 </span>
                 </div>
 

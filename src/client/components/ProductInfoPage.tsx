@@ -107,7 +107,7 @@ export default function ProductInfoPage({ product, session }: Props) {
               <h1 class="text-3xl font-bold text-gray-900">{product.productName}</h1>
               
               <div class="text-2xl font-extrabold text-indigo-600">
-                ${product.price}
+                ${product.price.toLocaleString("it-IT")}
               </div>
 
               <div class="pt-2 border-t border-gray-100">

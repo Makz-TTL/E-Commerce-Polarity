@@ -136,7 +136,7 @@ export default function Checkout({ session, orders, user }: CheckoutProps) {
                 </div>
                 <div class="border-t border-gray-100 pt-2 flex justify-between text-base font-extrabold text-gray-900">
                   <span>Totale</span>
-                  <span class="text-indigo-600">${grandTotal}</span>
+                  <span class="text-indigo-600">${grandTotal.toLocaleString("it-IT")}</span>
                 </div>
               </div>
 

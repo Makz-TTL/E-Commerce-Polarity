@@ -118,7 +118,7 @@ export default (server: ZodFastifyInstance) => {
 
   //Accepted payment page.
   server.get("/payment/accepted", async (req, res) => {
-
+    
     return res.html(
 
       <MainLayout>
