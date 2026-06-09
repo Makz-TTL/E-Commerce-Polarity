@@ -13,6 +13,9 @@ import OtpForm from "../components/OtpForm"
 import SignUpForm from "../components/SignUpForm"
 import { sendTemplateEmail } from "../../emails/index"
 
+
+
+
 export default (server: ZodFastifyInstance) => {
 
   const loginSchema = z.object({
@@ -20,6 +23,10 @@ export default (server: ZodFastifyInstance) => {
     password: z.string().min(1, "La password è obbligatoria"),
   })
 
+
+
+
+  //Log In back-end.
   server.post("/login", async (req, res) => {
     const { redirect } = req.query as { redirect?: string }
     const redirectTo = redirect || "/"
@@ -84,6 +91,11 @@ export default (server: ZodFastifyInstance) => {
     password: z.string().min(8, "La password deve essere lunga almeno 8 caratteri"),
   })
 
+
+
+
+
+  //Sign Up back-end.
   server.post("/signUp", async (req, res) => {
     const result = signUpSchema.safeParse(req.body)
 
@@ -136,6 +148,11 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
+
+
+
+
+  //Log Out back-end.
   server.post("/logout", async (req, reply) => {
     await req.session.destroy()
     return reply
@@ -144,6 +161,11 @@ export default (server: ZodFastifyInstance) => {
       .send()
   })
 
+
+
+
+
+  //Delete form card back-end.
   server.post("/deleteFromCart/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const orderId = parseInt(id, 10)
@@ -182,6 +204,11 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
+
+
+
+
+  //Add to cart back-end.
   server.get("/addToCart/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
@@ -264,6 +291,11 @@ export default (server: ZodFastifyInstance) => {
     email: z.string().email("Email non valida"),
   })
 
+
+
+
+
+  //Edi profile back-end.
   server.post("/editProfile", async (req, res) => {
     if (!req.session.username) {
       return res.status(401).send("Non autorizzato")
@@ -330,5 +362,48 @@ export default (server: ZodFastifyInstance) => {
         />
       )
     }
+  })
+
+
+
+
+
+  type PaymentBody = {
+  
+      cardNumber : string
+      expiry : string
+  
+  }
+  
+  server.post("/payment/confirm", async (req, res) => {
+  
+      const { cardNumber, expiry} = req.body as PaymentBody;
+  
+      //Check sicurezza
+
+      const [month, year] = expiry.split("/");
+      const expiryMonth = parseInt(month);
+      const expiryYear = parseInt("20"+year);
+
+      const now = new Date();
+      const currentMonth = now.getMonth()+1;
+      const currentYear = now.getFullYear();
+
+      const isValidExpiryDate = 
+        expiryMonth >= 1 && expiryMonth <= 12 &&
+        (expiryYear > currentYear || (expiryYear === currentYear && expiryMonth >= currentMonth));
+
+
+
+      //Final check
+      
+      if(cardNumber == "1234 5678 1234 5678" || !isValidExpiryDate){
+        return res.header("HX-Redirect", "/payment/declined").send();
+      }
+  
+      else{
+        return res.header("HX-Redirect", "/payment/accepted").send();
+      }
+  
   })
 }

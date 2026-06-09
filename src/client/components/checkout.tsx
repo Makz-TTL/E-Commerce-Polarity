@@ -140,7 +140,7 @@ export default function Checkout({ session, orders, user }: CheckoutProps) {
                 </div>
               </div>
 
-              <a href="/payment">
+              <a href="/checkout/payment">
 
                 <button
                     class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-3 px-6 rounded-xl shadow-sm transition-colors cursor-pointer text-sm">

@@ -21,13 +21,14 @@ export default function Payment({session, orders} : paymentProps){
     return(
 
         <div class="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-            <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 flex flex-col gap-4 w-full max-w-md">
+            <div id="formData" class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 flex flex-col gap-4 w-full max-w-md">
                 <h2 class="text-lg font-bold text-gray-700">Pagamento</h2>
 
                 {/* Numero carta */}
                 <div class="flex flex-col gap-1">
                 <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Numero carta</label>
                 <input
+                    name = "cardNumber"
                     type="text"
                     placeholder="1234 5678 9012 3456"
                     maxlength="19"
@@ -52,6 +53,7 @@ export default function Payment({session, orders} : paymentProps){
                     <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Scadenza</label>
                     <input
                     type="text"
+                    name = "expiry"
                     placeholder="MM/AA"
                     maxlength="5"
                     oninput="this.value = this.value.replace(/[^0-9]/g,'').replace(/^(.{2})(.+)$/,'$1/$2')"
@@ -88,6 +90,7 @@ export default function Payment({session, orders} : paymentProps){
                 <button
                     hx-post="/payment/confirm"
                     hx-swap="none"
+                    hx-include="#formData"
                     class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-2.5 rounded-xl text-sm shadow-sm transition-colors cursor-pointer"
                 >
                     Paga
