@@ -262,7 +262,6 @@ export default (server: ZodFastifyInstance) => {
     nome: z.string().min(1, "Il nome è obbligatorio"),
     cognome: z.string().min(1, "Il cognome è obbligatorio"),
     username: z.string().min(4, "Username deve essere di almeno 4 caratteri"),
-    email: z.string().email("Email non valida"),
   })
 
   server.post("/editProfile", async (req, res) => {
@@ -277,12 +276,16 @@ export default (server: ZodFastifyInstance) => {
       const errors = Object.fromEntries(
         Object.entries(fieldErrors).map(([key, value]) => [key, value?.[0]])
       )
+      
+      const rows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+      const email = rows[0]?.eMail || ""
+
       return res.status(200).html(
-        <SignUpForm isEdit={true} values={req.body as any} errors={errors} />
+        <SignUpForm isEdit={true} values={{ ...(req.body as any), email }} errors={errors} />
       )
     }
 
-    const { nome, cognome, username, email } = result.data
+    const { nome, cognome, username } = result.data
 
     try {
       const rows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
@@ -298,19 +301,17 @@ export default (server: ZodFastifyInstance) => {
           return res.status(200).html(
             <SignUpForm 
               isEdit={true} 
-              values={req.body as any} 
+              values={{ ...(req.body as any), email: currentUser.eMail }} 
               errors={{ username: "Username già in uso da un altro utente" }} 
             />
           )
         }
       }
-
       await db.update(users)
         .set({
           name: nome,
           lastName: cognome,
-          userName: username,
-          eMail: email
+          userName: username
         })
         .where(eq(users.id, currentUser.id))
 
@@ -326,7 +327,7 @@ export default (server: ZodFastifyInstance) => {
       return res.status(200).html(
         <SignUpForm 
           isEdit={true} 
-          values={req.body as any} 
+          values={{ ...(req.body as any), email: users?.eMail }} 
           errors={{ email: "Si è verificato un errore interno durante il salvataggio." }} 
         />
       )
