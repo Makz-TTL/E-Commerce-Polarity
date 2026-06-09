@@ -8,6 +8,8 @@ export const users = pgTable("users", {
   userName: text().notNull().unique(),
   password: text().notNull(),
   cookie: text(),
+  resetToken: text(),
+  resetTokenExpiry: text(),
 })
 
 type User = typeof users.$inferSelect

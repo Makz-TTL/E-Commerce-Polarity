@@ -86,6 +86,18 @@ export default function LoginForm({ values = {}, error, redirectTo = "/" }: Prop
       >
         Accedi
       </button>
+
+      <p class="text-center text-sm text-gray-500 pt-2">
+        Hai dimenticato la password? 
+        <a 
+          hx-get="/forgot-password-modal"
+          hx-target="#login-form"
+          hx-swap="outerHTML"
+          class="text-blue-600 hover:underline"
+        > 
+          Recuperala!
+        </a>
+      </p>
     </form>
   )
 }
