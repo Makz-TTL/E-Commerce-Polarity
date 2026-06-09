@@ -2,7 +2,14 @@ import { products } from "../../db/schema"
 import { Session } from "fastify"
 import ConfirmLogoutModal from "./ConfirmLogoutModal"
 
-type Product = typeof products.$inferSelect
+// Estendiamo il tipo inferito per includere le info del venditore dal join
+type Product = typeof products.$inferSelect & {
+  seller?: {
+    userName?: string
+    name?: string
+    lastName?: string
+  }
+}
 
 type Props = {
   product: Product
@@ -11,6 +18,9 @@ type Props = {
 
 export default function ProductInfoPage({ product, session }: Props) {
   const currentPath = `/product/${product.id}`
+  
+  // Controllo di proprietà basato sullo username in sessione
+  const isOwnProduct = session?.username && session.username === product.seller?.userName
 
   // Parsing sicuro delle immagini (Array JSON, stringa singola o fallback)
   const getImages = (): string[] => {
@@ -120,7 +130,6 @@ export default function ProductInfoPage({ product, session }: Props) {
               />
             ))}
 
-            {/* Controlli del carosello abilitati solo se ci sono più immagini */}
             {images.length > 1 && (
               <>
                 {/* Freccia Sinistra */}
@@ -228,87 +237,99 @@ export default function ProductInfoPage({ product, session }: Props) {
               
               <div id={`purchase-actions-${product.id}`} class={product.stock > 0 ? "flex gap-3" : "hidden"}>
                 
-                {/* MODALE AGGIUNGI AL CARRELLO */}
-                <div
-                  id={`modal-${product.id}`}
-                  class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center cursor-default"
-                  onclick="if(event.target === this) this.classList.add('hidden')"
-                >
-                  <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4" onclick="event.stopPropagation()">
-                    <h3 class="text-lg font-bold text-gray-900">Aggiungi al carrello</h3>
-                    <p class="text-sm text-gray-500">
-                      Disponibili: <span id={`modal-stock-${product.id}`} class="font-semibold text-indigo-600">{product.stock}</span>
-                    </p>
+                {/* MODALE AGGIUNGI AL CARRELLO (Renderizzato solo se il prodotto non è dell'utente) */}
+                {!isOwnProduct && (
+                  <div
+                    id={`modal-${product.id}`}
+                    class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center cursor-default"
+                    onclick="if(event.target === this) this.classList.add('hidden')"
+                  >
+                    <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4" onclick="event.stopPropagation()">
+                      <h3 class="text-lg font-bold text-gray-900">Aggiungi al carrello</h3>
+                      <p class="text-sm text-gray-500">
+                        Disponibili: <span id={`modal-stock-${product.id}`} class="font-semibold text-indigo-600">{product.stock}</span>
+                      </p>
 
-                    <div class="flex flex-col gap-1">
-                      <label class="text-sm font-medium text-gray-700">Quantità</label>
-                      <input
-                        id={`qty-${product.id}`}
-                        type="number"
-                        min="1"
-                        max={product.stock}
-                        value="1"
-                        class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-gray-900 bg-white"
-                        onblur={`
-                          const val = parseInt(this.value);
-                          if (isNaN(val) || val < 1) this.value = 1;
-                          if (val > parseInt(this.max)) this.value = this.max;
-                        `}
-                      />
-                    </div>
+                      <div class="flex flex-col gap-1">
+                        <label class="text-sm font-medium text-gray-700">Quantità</label>
+                        <input
+                          id={`qty-${product.id}`}
+                          type="number"
+                          min="1"
+                          max={product.stock}
+                          value="1"
+                          class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-gray-900 bg-white"
+                          onblur={`
+                            const val = parseInt(this.value);
+                            if (isNaN(val) || val < 1) this.value = 1;
+                            if (val > parseInt(this.max)) this.value = this.max;
+                          `}
+                        />
+                      </div>
 
-                    <div class="flex gap-2 mt-1">
-                      <button
-                        type="button"
-                        onclick={`document.getElementById('modal-${product.id}').classList.add('hidden')`}
-                        class="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors cursor-pointer"
-                      >
-                        Annulla
-                      </button>
-                      
-                      <button
-                        type="button"
-                        onclick={`
-                          const qtyInput = document.getElementById('qty-${product.id}');
-                          const qty = parseInt(qtyInput.value, 10);
-                          
-                          if (isNaN(qty) || qty < 1) return;
-
-                          htmx.ajax('GET', '/addToCart/${product.id}?quantity=' + qty, { swap: 'none' });
-                          document.getElementById('modal-${product.id}').classList.add('hidden');
-                          
-                          const stockBadge = document.getElementById('stock-badge-${product.id}');
-                          if (stockBadge) {
-                            const currentStock = parseInt(stockBadge.innerText, 10);
-                            const newStock = Math.max(0, currentStock - qty);
+                      <div class="flex gap-2 mt-1">
+                        <button
+                          type="button"
+                          onclick={`document.getElementById('modal-${product.id}').classList.add('hidden')`}
+                          class="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors cursor-pointer"
+                        >
+                          Annulla
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onclick={`
+                            const qtyInput = document.getElementById('qty-${product.id}');
+                            const qty = parseInt(qtyInput.value, 10);
                             
-                            if (newStock <= 0) {
-                              document.getElementById('stock-status-${product.id}').innerText = 'Esaurito';
-                              document.getElementById('purchase-actions-${product.id}').remove();
-                            } else {
-                              stockBadge.innerText = newStock;
-                              const modalStockBadge = document.getElementById('modal-stock-${product.id}');
-                              if (modalStockBadge) modalStockBadge.innerText = newStock;
+                            if (isNaN(qty) || qty < 1) return;
+
+                            htmx.ajax('GET', '/addToCart/${product.id}?quantity=' + qty, { swap: 'none' });
+                            document.getElementById('modal-${product.id}').classList.add('hidden');
+                            
+                            const stockBadge = document.getElementById('stock-badge-${product.id}');
+                            if (stockBadge) {
+                              const currentStock = parseInt(stockBadge.innerText, 10);
+                              const newStock = Math.max(0, currentStock - qty);
                               
-                              qtyInput.max = newStock;
-                              qtyInput.value = "1";
+                              if (newStock <= 0) {
+                                document.getElementById('stock-status-${product.id}').innerText = 'Esaurito';
+                                document.getElementById('purchase-actions-${product.id}').remove();
+                              } else {
+                                stockBadge.innerText = newStock;
+                                const modalStockBadge = document.getElementById('modal-stock-${product.id}');
+                                if (modalStockBadge) modalStockBadge.innerText = newStock;
+                                
+                                qtyInput.max = newStock;
+                                qtyInput.value = "1";
+                              }
                             }
-                          }
-                        `}
-                        class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2 rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
-                      >
-                        Conferma
-                      </button>
+                          `}
+                          class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2 rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
+                        >
+                          Conferma
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
-                <button
-                  onclick={`document.getElementById('modal-${product.id}').classList.remove('hidden')`}
-                  class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
-                >
-                  Aggiungi al Carrello
-                </button>
+                {/* Bottone condizionale */}
+                {isOwnProduct ? (
+                  <button
+                    disabled
+                    class="px-6 py-2.5 bg-gray-100 text-gray-400 font-semibold rounded-xl text-sm cursor-not-allowed border border-gray-200"
+                  >
+                    Tuo prodotto
+                  </button>
+                ) : (
+                  <button
+                    onclick={`document.getElementById('modal-${product.id}').classList.remove('hidden')`}
+                    class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
+                  >
+                    Aggiungi al Carrello
+                  </button>
+                )}
 
               </div>
             </div>
