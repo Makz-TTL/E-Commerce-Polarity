@@ -110,17 +110,25 @@ export default (server: ZodFastifyInstance) => {
       where: {userName : req.session.username}
     });
 
-    const orders = await db.query.orders.findMany({
+    const cartItems = await db.query.cart.findMany({
       where: user ? { userId: user.id } : undefined,
-      with: { product: true }
+      with: { cartItem: true }
     })
 
+
+
     //Dato che è un array calcola il totale di tutti gli ordini nel carrello.
-    const totalAmountOrders = orders.reduce((acc, order) => acc + (order.totalPrice || 0), 0);
+    const totalAmountOrders = cartItems.reduce((acc, item) => {
+      // Accediamo al prezzo dentro cartItem e alla quantità nel carrello
+      const price = item.cartItem?.price || 0; 
+      const quantity = item.quantity || 1; // Metti 1 se non hai una colonna quantità
+      
+      return acc + (price * quantity);
+    }, 0);
 
     return res.html(
       <MainLayout>
-        <Payment session={req.session} orders={orders} totalPrice={totalAmountOrders}/>
+        <Payment session={req.session} cart={cartItems} totalPrice={totalAmountOrders}/>
       </MainLayout>
     )
   })

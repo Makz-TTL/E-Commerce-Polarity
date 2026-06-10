@@ -15,8 +15,11 @@ export default function PaymentAccepted(){
                 {/* Testo */}
                 <div class="flex flex-col gap-2">
                 <h1 class="text-2xl font-extrabold text-gray-900">Pagamento accettato!</h1>
-                <p class="text-sm text-gray-500 leading-relaxed">
-                    Grazie per aver acquistato dal nostro e-commerce.</p>
+                <p>
+                    Ti abbiamo inviato una mail di conferma ordine.</p>
+                <p  class="text-sm text-gray-500 leading-relaxed">
+                    Grazie per aver acquistato da TechStore.
+                </p>
                 </div>
 
                 {/* Bottone */}

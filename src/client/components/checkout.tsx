@@ -43,13 +43,12 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
       </nav>
 
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <h1 class="text-3xl font-extrabold tracking-tight text-gray-900 mb-8">Checkout</h1>
-
+        
         <div class="flex flex-col lg:flex-row gap-8">
 
           {/* Colonna sinistra - Riepilogo ordine */}
           <div class="flex-1 flex flex-col gap-4">
-            <h2 class="text-lg font-bold text-gray-700">Riepilogo ordine</h2>
+            <h2 class="text-[28px] font-bold text-gray-700">Riepilogo ordine</h2>
 
             {cart.map((order) => (
               <div class="flex items-center gap-4 bg-white border border-gray-200 rounded-2xl shadow-sm p-4">
@@ -70,7 +69,7 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
                 </div>
                 <div class="flex flex-col items-end gap-0.5 min-w-[70px]">
                   <span class="text-xs text-gray-400">Totale</span>
-                  <span class="text-base font-extrabold text-indigo-600">€{((Number(order.cartItem?.price) || 0) * (Number(order.quantity) || 1)).toLocaleString("it-IT")}</span>
+                  <span class="text-[16px] font-bold text-balck-600">€{((Number(order.cartItem?.price) || 0) * (Number(order.quantity) || 1)).toLocaleString("it-IT")}</span>
                 </div>
               </div>
             ))}
@@ -124,7 +123,6 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
 
             {/* Totale e CTA */}
             <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 flex flex-col gap-4">
-              <h2 class="text-lg font-bold text-gray-700">Totale</h2>
 
               <div class="flex flex-col gap-2 text-sm text-gray-600">
                 <div class="flex justify-between">
@@ -135,9 +133,9 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
                   <span>Spedizione</span>
                   <span class="font-semibold text-green-600">Gratuita</span>
                 </div>
-                <div class="border-t border-gray-100 pt-2 flex justify-between text-base font-extrabold text-gray-900">
+                <div class="border-t border-gray-100 pt-2 flex justify-between text-base text-gray-900">
                   <span>Totale</span>
-                  <span class="text-indigo-600">€{totalPrice.toLocaleString("it-IT")}</span>
+                  <span class="text-[22px] font-bold text-indigo-600">€{totalPrice.toLocaleString("it-IT")}</span>
                 </div>
               </div>
 

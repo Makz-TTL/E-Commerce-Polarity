@@ -3,7 +3,7 @@ import { Session } from "fastify"
 type paymentProps = {
 
     session?: Session
-    orders: {
+    cart: {
 
         id: number
         userId: number
@@ -16,7 +16,7 @@ type paymentProps = {
 
 }
 
-export default function Payment({session, orders, totalPrice} : paymentProps){
+export default function Payment({session, cart, totalPrice} : paymentProps){
 
     return(
 

@@ -339,66 +339,86 @@ export default (server: ZodFastifyInstance) => {
   }
   
   server.post("/payment/confirm", async (req, res) => {
-      const { cardNumber, expiry} = req.body as PaymentBody;
+    const { cardNumber, expiry } = req.body as PaymentBody;
 
-      const [month, year] = expiry.split("/");
-      const expiryMonth = parseInt(month);
-      const expiryYear = parseInt("20"+year);
+    const [month, year] = expiry.split("/");
+    const expiryMonth = parseInt(month);
+    const expiryYear = parseInt("20" + year);
 
-      const now = new Date();
-      const currentMonth = now.getMonth()+1;
-      const currentYear = now.getFullYear();
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
 
-      const isValidExpiryDate = 
-        expiryMonth >= 1 && expiryMonth <= 12 &&
-        (expiryYear > currentYear || (expiryYear === currentYear && expiryMonth >= currentMonth));
+    const isValidExpiryDate =
+      expiryMonth >= 1 && expiryMonth <= 12 &&
+      (expiryYear > currentYear || (expiryYear === currentYear && expiryMonth >= currentMonth));
 
-      if(cardNumber == "1234 5678 1234 5678" || !isValidExpiryDate){
-        return res.header("HX-Redirect", "/payment/declined").send();
-      }
-      else{
+    if (cardNumber == "1234 5678 1234 5678" || !isValidExpiryDate) {
+      return res.header("HX-Redirect", "/payment/declined").send();
+    } else {
 
-        // Prendi tutti gli ordini dell'utente e svuota il carrello
-        const user = await db.query.users.findFirst({
-          where: { userName: req.session.username }
-        })
+      const user = await db.query.users.findFirst({
+        where: { userName: req.session.username }
+      });
 
-        if (user) {
-          const userOrders = await db.query.orders.findMany({
-            where: { userId: user.id },
-            with: { product: true }
-          })
+      if (user) {
+        // 1. Prendi gli elementi dal CARRELLO, non dagli ordini
+        const cartItems = await db.query.cart.findMany({
+          where: { userId: user.id },
+          with: { cartItem: true } // Assicurati che la relazione sia attiva nel carrello
+        });
 
-          // Per ogni ordine, scala lo stock
-          for (const order of userOrders) {
-            if (order.product) {
-              await db.update(products)
-                .set({ stock: order.product.stock - order.quantity })
-                .where(eq(products.id, order.productId))
-            }
-          }
-          
-          const total = userOrders
-          .reduce((sum, order) => sum + order.totalPrice, 0)
-          .toFixed(2)
-
-          // Svuota il carrello
-          await db.delete(orders).where(eq(orders.userId, user.id))
-
-          await sendTemplateEmail({
-            to: user.eMail,
-            subject: "Conferma del tuo ordine TechStore",
-            template: "OrderConfirmEmail",
-            payload: {
-              name: user.name,
-              total
-            }
-          })
+        // Se il carrello è vuoto, evita di procedere
+        if (cartItems.length === 0) {
+          return res.header("HX-Redirect", "/cart").send();
         }
 
-        return res.header("HX-Redirect", "/payment/accepted").send();
+        let totalAmount = 0;
+
+        // Usiamo un ciclo for...of per gestire le operazioni asincrone in sequenza
+        for (const item of cartItems) {
+          if (item.cartItem) {
+            // 2. Calcola il prezzo totale per questo specifico elemento
+            const itemTotal = (item.cartItem.price || 0) * item.quantity;
+            totalAmount += itemTotal;
+
+            // 3. Inserisci il record definitivo nella tabella ORDERS
+            await db.insert(orders).values({
+              userId: user.id,
+              productId: item.productId,
+              quantity: item.quantity,
+              totalPrice: itemTotal // Qui inseriamo il doublePrecision richiesto dal tuo db
+            });
+
+            // 4. Scala lo stock dal prodotto
+            await db.update(products)
+              .set({ stock: item.cartItem.stock - item.quantity })
+              .where(eq(products.id, item.productId));
+          }
+        }
+
+        // Formatta il totale complessivo per l'email
+        const totalFormatted = totalAmount.toFixed(2);
+        // const totalCart = totalFormatted.toLocaleString()
+
+        // 5. SVUOTA IL CARRELLO (e non gli ordini!)
+        await db.delete(cart).where(eq(cart.userId, user.id));
+
+        // 6. Invia l'email con il totale corretto
+        await sendTemplateEmail({
+          to: user.eMail,
+          subject: "Conferma del tuo ordine TechStore",
+          template: "OrderConfirmEmail",
+          payload: {
+            name: user.name,
+            totalPrice: totalFormatted
+          }
+        });
       }
-  })
+
+      return res.header("HX-Redirect", "/payment/accepted").send();
+    }
+  });
 
 server.post("/sell-product", async (req, res) => {
   if (!req.session.username) {

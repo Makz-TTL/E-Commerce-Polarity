@@ -14,10 +14,10 @@ import {
 
 export type OrderConfirmEmailProps = {
     name: string,
-    total: string
+    totalPrice: string
 }
 
-export default function OrderConfirmEmail ({ name, total } : OrderConfirmEmailProps){
+export default function OrderConfirmEmail ({ name, totalPrice } : OrderConfirmEmailProps){
     return (
     <Html>
         <Head>
@@ -42,7 +42,7 @@ export default function OrderConfirmEmail ({ name, total } : OrderConfirmEmailPr
 
             <div className={"bg-gray-50 border border-gray-200 rounded-xl p-4 my-6"}>
                 <Text className={"text-sm text-gray-500 mb-1"}>Totale pagato</Text>
-                <Text className={"text-3xl font-extrabold text-indigo-600"}>€ {total}</Text>
+                <Text className={"text-3xl font-extrabold text-indigo-600"}>€ {totalPrice}</Text>
             </div>
 
             <Text className={"text-xs text-gray-400 mt-6"}>
