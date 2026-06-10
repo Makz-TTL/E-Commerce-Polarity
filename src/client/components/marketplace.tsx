@@ -99,28 +99,32 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                     Tuo prodotto
                   </button>
                 ) : (
-                  /* Il bottone ora esegue direttamente l'aggiunta immediata e decrementa lo stock di 1 */
                   <button
+                    type="button"
                     onclick={`
-                      htmx.ajax('GET', '/addToCart/${product.id}?quantity=1', { swap: 'none' });
+                      const btn = this;
+                      const badge = document.getElementById('stock-badge-${product.id}');
+                      const card = document.getElementById('product-card-${product.id}');
                       
-                      const stockBadge = document.getElementById('stock-badge-${product.id}');
-                      if (stockBadge) {
-                        const currentStock = parseInt(stockBadge.innerText, 10);
-                        const newStock = Math.max(0, currentStock - 1);
-                        
-                        if (newStock <= 0) {
-                          const productCard = document.getElementById('product-card-${product.id}');
-                          if (productCard) {
-                            productCard.style.transition = 'all 0.3s ease';
-                            productCard.style.opacity = '0';
-                            productCard.style.transform = 'scale(0.95)';
-                            setTimeout(() => productCard.remove(), 300);
+                      // Ascolta l'evento HTMX sul bottone prima di sparare la richiesta
+                      btn.addEventListener('htmx:afterRequest', function(e) {
+                        if (e.detail.successful && badge) {
+                          const currentStock = parseInt(badge.innerText, 10);
+                          const newStock = Math.max(0, currentStock - 1);
+                          
+                          if (newStock <= 0 && card) {
+                            card.style.transition = 'all 0.3s ease';
+                            card.style.opacity = '0';
+                            card.style.transform = 'scale(0.95)';
+                            setTimeout(() => card.remove(), 300);
+                          } else {
+                            badge.innerText = newStock;
                           }
-                        } else {
-                          stockBadge.innerText = newStock;
                         }
-                      }
+                      }, { once: true });
+
+                      // Esegue la chiamata AJAX programmatica iniettando il bottone come elemento sorgente
+                      htmx.ajax('GET', '/addToCart/${product.id}?quantity=1', { swap: 'none', elt: btn });
                     `}
                     class="w-32 h-10 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2 px-2 rounded-xl transition-colors shadow-sm text-xs text-center cursor-pointer"
                   >
