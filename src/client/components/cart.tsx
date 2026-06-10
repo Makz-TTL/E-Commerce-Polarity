@@ -183,13 +183,13 @@ export default async function Cart({ session } : cartProps) {
                     )}
 
                     {cartProducts.length > 0 && (
-                        <div class="block justify-start mt-2">
+                        <div class="flex justify-start mt-2">
                             <a href="/checkout" class="block w-fit">
                                 <button class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 px-6 rounded-xl shadow-sm transition-colors cursor-pointer">
                                     Check Out
                                 </button>
                             </a>
-                            <p>Totale ordine: ${totalCart.toLocaleString("it-IT")}</p>
+                            <p class="ml-auto text-[16px] font-bold text-gray-700">Totale ordine: ${totalCart.toLocaleString("it-IT")}</p>
                         </div>
                     )}
                 </div>

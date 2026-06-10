@@ -17,6 +17,8 @@ type CheckoutProps = {
   user?: { name: string; lastName: string } | null
 }
 
+
+
 export default function Checkout({ session, cart, user }: CheckoutProps) {
 
 
@@ -76,47 +78,64 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
           </div>
 
           {/* Colonna destra - Form + totale */}
+          
           <div class="lg:w-96 flex flex-col gap-6">
 
             {/* Indirizzo di spedizione */}
-            <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 flex flex-col gap-4">
+            <div id="checkout-section" class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 flex flex-col gap-4">
               <h2 class="text-lg font-bold text-gray-700">Indirizzo di spedizione</h2>
 
               <div class="flex flex-col gap-1">
-                <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Nome completo</label>
+                <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Nome completo *</label>
                 <input
                     type="text"
                     value={user ? `${user.name} ${user.lastName}` : ""}
                     class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    required
+                    name = "fullName"
+                    oninput="this.style.borderColor=''"
                 />
+                <div id="error-fullName"></div>
               </div>
 
               <div class="flex flex-col gap-1">
-                <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Indirizzo</label>
+                <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Indirizzo *</label>
                 <input
                   type="text"
                   placeholder="Via Roma 1"
                   class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  required
+                  name = "address"
+                  oninput="this.style.borderColor=''"
                 />
+                <div id="error-address"></div>
               </div>
 
               <div class="flex gap-3">
                 <div class="flex flex-col gap-1 flex-1">
-                  <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Città</label>
+                  <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Città *</label>
                   <input
                     type="text"
                     placeholder="Milano"
                     class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    required
+                    name = "city"
+                    oninput="this.style.borderColor=''"
                   />
+                  <div id="error-city"></div>
                 </div>
                 <div class="flex flex-col gap-1 w-24">
-                  <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">CAP</label>
+                  <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">CAP *</label>
                   <input
                     type="text"
                     placeholder="20100"
                     maxlength={5}
                     class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    required
+                    name = "cap"
+                    oninput="this.style.borderColor=''"
                   />
+                  <div id="error-cap"></div>
                 </div>
               </div>
             </div>
@@ -139,21 +158,21 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
                 </div>
               </div>
 
-              <a href="/checkout/payment">
-
-                <button
-                    class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-3 px-6 rounded-xl shadow-sm transition-colors cursor-pointer text-sm">
-                    Conferma ordine
-                </button>
-
-              </a>
+              <button
+                hx-get="/checkout/validate"
+                hx-include="#checkout-section [name]"
+                hx-swap="none"
+                class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-3 px-6 rounded-xl shadow-sm transition-colors cursor-pointer text-sm"
+              >
+                Conferma ordine
+              </button>
 
               <a href="/cart" class="text-center text-xs text-gray-400 hover:text-indigo-500 hover:underline transition-colors">
                 ← Torna al carrello
               </a>
             </div>
-
           </div>
+
         </div>
       </div>
 

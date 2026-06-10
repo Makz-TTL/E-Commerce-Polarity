@@ -420,6 +420,40 @@ export default (server: ZodFastifyInstance) => {
     }
   });
 
+
+type checkOutBody = {
+      fullName : string
+      city : string
+      cap : string
+      address : string
+  }
+
+server.get("/checkout/validate", async (req, res) => {
+  const { fullName, city, cap, address } = req.query as checkOutBody
+
+  const errors: Record<string, string> = {}
+  if (!fullName?.trim()) errors.fullName = "Nome obbligatorio"
+  if (!address?.trim()) errors.address = "Indirizzo obbligatorio"
+  if (!city?.trim()) errors.city = "Città obbligatoria"
+  if (!cap?.trim()) errors.cap = "CAP obbligatorio"
+
+  if (Object.keys(errors).length > 0) {
+    return res.html(
+      Object.entries(errors).map(([field, msg]) => `
+        <style hx-swap-oob="beforeend:head">
+          [name='${field}'] { border-color: rgb(239 68 68) !important; }
+        </style>
+        <div hx-swap-oob="innerHTML:#error-${field}">
+          <p class="text-red-500 text-xs mt-1">${msg}</p>
+        </div>
+      `).join('')
+    )
+  }
+
+  return res.header('HX-Redirect', '/checkout/payment').send()
+})
+
+
 server.post("/sell-product", async (req, res) => {
   if (!req.session.username) {
     return res.status(401).send("Non autorizzato")
