@@ -111,15 +111,40 @@ export default function ProductInfoPage({ product, session }: Props) {
       <div class="max-w-5xl mx-auto px-6 mt-4">
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden grid grid-cols-1 md:grid-cols-2 gap-8 p-6 md:p-8 items-start">
           
-          {/* CAROSELLO IMMAGINI (Reso Sticky su Desktop per bilanciare i testi lunghi) */}
+          {/* CAROSELLO IMMAGINI */}
           <div class="relative w-full h-80 md:h-[400px] rounded-xl overflow-hidden bg-gray-100 shadow-inner group flex items-center justify-center md:sticky md:top-24">
             {images.map((url, index) => (
               <img 
                 src={url} 
                 alt={`${product.productName} - Immagine ${index + 1}`} 
                 data-carousel-item
-                class={`absolute inset-0 w-full h-full object-cover transition-all duration-300 ${index === 0 ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}
+                /* Aggiunto il cursore zoom-in e l'evento onclick per aprire il lightbox sull'indice corrente */
+                class={`absolute inset-0 w-full h-full object-cover transition-all duration-300 cursor-zoom-in ${index === 0 ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}
                 loading={index === 0 ? "eager" : "lazy"}
+                onclick={`(() => {
+                  const lightbox = document.getElementById('lightbox-modal');
+                  lightbox.classList.remove('hidden');
+                  const lbImgs = lightbox.querySelectorAll('[data-lightbox-item]');
+                  const lbDots = lightbox.querySelectorAll('[data-lightbox-dot]');
+                  
+                  lbImgs.forEach((img, i) => {
+                    if(i === ${index}) {
+                      img.classList.replace('opacity-0', 'opacity-100');
+                      img.classList.remove('pointer-events-none');
+                      img.classList.replace('z-0', 'z-10');
+                    } else {
+                      img.classList.replace('opacity-100', 'opacity-0');
+                      img.classList.add('pointer-events-none');
+                      img.classList.replace('z-10', 'z-0');
+                    }
+                  });
+                  if(lbDots.length > 0) {
+                    lbDots.forEach((dot, i) => {
+                      if(i === ${index}) dot.classList.replace('bg-white/40', 'bg-white');
+                      else dot.classList.replace('bg-white', 'bg-white/40');
+                    });
+                  }
+                })()`}
               />
             ))}
 
@@ -195,7 +220,6 @@ export default function ProductInfoPage({ product, session }: Props) {
                 ${product.price.toLocaleString("it-IT")}
               </div>
 
-              {/* Sezione descrizione ottimizzata per testi corposi */}
               <div class="pt-4 border-t border-gray-100">
                 <h3 class="text-sm font-semibold text-gray-700 mb-2">Descrizione</h3>
                 <p class="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap break-words max-w-none">
@@ -336,6 +360,105 @@ export default function ProductInfoPage({ product, session }: Props) {
           </div>
         </div>
 
+      </div>
+
+      {/* LIGHTBOX MODAL (Ingrandimento Immagine a Schermo Intero) */}
+      <div 
+        id="lightbox-modal" 
+        class="hidden fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 select-none"
+        onclick="this.classList.add('hidden')"
+      >
+        {/* Pulsante di chiusura */}
+        <button 
+          type="button" 
+          class="absolute top-4 right-4 text-white/70 hover:text-white p-2.5 rounded-full hover:bg-white/10 transition-colors z-50 cursor-pointer"
+          onclick="document.getElementById('lightbox-modal').classList.add('hidden')"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        {/* Contenitore Immagine Principale */}
+        <div class="relative w-full max-w-5xl h-[80vh] flex items-center justify-center" onclick="event.stopPropagation()">
+          {images.map((url, index) => (
+            <img 
+              src={url} 
+              alt={`Ingrandimento ${index + 1}`} 
+              data-lightbox-item
+              class="absolute max-w-full max-h-full object-contain transition-all duration-300 opacity-0 z-0 pointer-events-none"
+            />
+          ))}
+
+          {images.length > 1 && (
+            <>
+              {/* Freccia Sinistra / Precedente */}
+              <button 
+                type="button"
+                onclick={`(() => {
+                  const container = this.parentElement;
+                  const imgs = container.querySelectorAll('[data-lightbox-item]');
+                  const dots = document.querySelectorAll('[data-lightbox-dot]');
+                  let idx = Array.from(imgs).findIndex(i => i.classList.contains('opacity-100'));
+                  
+                  imgs[idx].classList.replace('opacity-100', 'opacity-0');
+                  imgs[idx].classList.add('pointer-events-none');
+                  imgs[idx].classList.replace('z-10', 'z-0');
+                  if(dots.length) dots[idx].classList.replace('bg-white', 'bg-white/40');
+                  
+                  idx = (idx - 1 + imgs.length) % imgs.length;
+                  
+                  imgs[idx].classList.replace('opacity-0', 'opacity-100');
+                  imgs[idx].classList.remove('pointer-events-none');
+                  imgs[idx].classList.replace('z-0', 'z-10');
+                  if(dots.length) dots[idx].classList.replace('bg-white/40', 'bg-white');
+                })()`}
+                class="absolute left-4 top-1/2 -translate-y-1/2 z-30 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-all flex items-center justify-center cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                </svg>
+              </button>
+
+              {/* Freccia Destra / Successiva */}
+              <button 
+                type="button"
+                onclick={`(() => {
+                  const container = this.parentElement;
+                  const imgs = container.querySelectorAll('[data-lightbox-item]');
+                  const dots = document.querySelectorAll('[data-lightbox-dot]');
+                  let idx = Array.from(imgs).findIndex(i => i.classList.contains('opacity-100'));
+                  
+                  imgs[idx].classList.replace('opacity-100', 'opacity-0');
+                  imgs[idx].classList.add('pointer-events-none');
+                  imgs[idx].classList.replace('z-10', 'z-0');
+                  if(dots.length) dots[idx].classList.replace('bg-white', 'bg-white/40');
+                  
+                  idx = (idx + 1) % imgs.length;
+                  
+                  imgs[idx].classList.replace('opacity-0', 'opacity-100');
+                  imgs[idx].classList.remove('pointer-events-none');
+                  imgs[idx].classList.replace('z-0', 'z-10');
+                  if(dots.length) dots[idx].classList.replace('bg-white/40', 'bg-white');
+                })()`}
+                class="absolute right-4 top-1/2 -translate-y-1/2 z-30 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-all flex items-center justify-center cursor-pointer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                </svg>
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Indicatori a pallino (Dots) in fondo al Lightbox */}
+        {images.length > 1 && (
+          <div class="mt-4 z-30 flex gap-2 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full" onclick="event.stopPropagation()">
+            {images.map((_, index) => (
+              <span data-lightbox-dot class="w-2 h-2 rounded-full transition-all bg-white/40"></span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div id="modal"></div>
