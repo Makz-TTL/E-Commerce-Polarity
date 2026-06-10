@@ -393,9 +393,23 @@ export default (server: ZodFastifyInstance) => {
                 .where(eq(products.id, order.productId))
             }
           }
+          
+          const total = userOrders
+          .reduce((sum, order) => sum + order.totalPrice, 0)
+          .toFixed(2)
 
           // Svuota il carrello
           await db.delete(orders).where(eq(orders.userId, user.id))
+
+          await sendTemplateEmail({
+            to: user.eMail,
+            subject: "Conferma del tuo ordine TechStore",
+            template: "OrderConfirmEmail",
+            payload: {
+              name: user.name,
+              total
+            }
+          })
         }
 
         return res.header("HX-Redirect", "/payment/accepted").send();
