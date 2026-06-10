@@ -402,101 +402,101 @@ export default (server: ZodFastifyInstance) => {
       }
   })
 
-  server.post("/sell-product", async (req, res) => {
-    if (!req.session.username) {
-      return res.status(401).send("Non autorizzato")
-    }
+server.post("/sell-product", async (req, res) => {
+  if (!req.session.username) {
+    return res.status(401).send("Non autorizzato")
+  }
 
-    const uploadDir = path.join(process.cwd(), "public", "images")
+  const uploadDir = path.join(process.cwd(), "public", "images")
+  
+  try {
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true })
+    }
+  } catch (dirError: any) {
+    console.error("Errore creazione cartella 'images':", dirError.message)
+  }
+
+  try {
+    const parts = req.parts()
+    let productName = ""
+    let price = 0
+    let stock = 0
+    let category = ""
+    let description = ""
     
-    try {
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true })
-      }
-    } catch (dirError: any) {
-      console.error("Errore creazione cartella 'images':", dirError.message)
+    const imageUrls: string[] = []
+    let coverIndex = 0 
+
+    const userRows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+    const user = userRows[0]
+
+    if (!user) {
+      return res.status(404).send("Utente non trovato")
     }
 
-    try {
-      const parts = req.parts()
-      let productName = ""
-      let price = 0
-      let stock = 0
-      let category = ""
-      let description = ""
-      
-      const imageUrls: string[] = []
-      let coverIndex = 0 
+    for await (const part of parts) {
+      if (part.type === "file" && part.fieldname === "images" && part.filename) {
+        const ext = path.extname(part.filename).toLowerCase()
+        const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"]
+        
+        if (!allowedExtensions.includes(ext)) {
+          part.file.resume() 
+          continue
+        }
 
-      const userRows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-      const user = userRows[0]
+        const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`
+        const uploadPath = path.join(uploadDir, uniqueFilename)
+        
+        await pipeline(part.file, fs.createWriteStream(uploadPath))
+        imageUrls.push(`/images/${uniqueFilename}`)
 
-      if (!user) {
-        return res.status(404).send("Utente non trovato")
-      }
-
-      for await (const part of parts) {
-        if (part.type === "file" && part.fieldname === "images" && part.filename) {
-          const ext = path.extname(part.filename).toLowerCase()
-          const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"]
-          
-          if (!allowedExtensions.includes(ext)) {
-            part.file.resume() 
-            continue
-          }
-
-          const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`
-          const uploadPath = path.join(uploadDir, uniqueFilename)
-          
-          await pipeline(part.file, fs.createWriteStream(uploadPath))
-          imageUrls.push(`/images/${uniqueFilename}`)
-
-        } else if (part.type === "field") {
-          if (part.fieldname === "productName") productName = part.value as string
-          if (part.fieldname === "price") price = parseFloat(part.value as string) || 0
-          if (part.fieldname === "stock") stock = parseInt(part.value as string, 10) || 0
-          if (part.fieldname === "category") category = part.value as string
-          if (part.fieldname === "description") description = part.value as string
-       
-          if (part.fieldname === "coverIndex") {
-            coverIndex = parseInt(part.value as string, 10) || 0
-          }
+      } else if (part.type === "field") {
+        if (part.fieldname === "productName") productName = part.value as string
+        if (part.fieldname === "price") price = parseFloat(part.value as string) || 0
+        if (part.fieldname === "stock") stock = parseInt(part.value as string, 10) || 0
+        if (part.fieldname === "category") category = part.value as string
+        if (part.fieldname === "description") description = part.value as string
+     
+        if (part.fieldname === "coverIndex") {
+          coverIndex = parseInt(part.value as string, 10) || 0
         }
       }
-
-      if (!productName || price <= 0 || stock < 1) {
-         return res
-           .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Errore: Campi non compilati correttamente." } }))
-           .send()
-      }
-
-      if (imageUrls.length > 0 && coverIndex >= 0 && coverIndex < imageUrls.length) {
-        const coverImage = imageUrls.splice(coverIndex, 1)[0]
-        imageUrls.unshift(coverImage)
-      }
-
-      await db.insert(products).values({
-        productName,
-        price, 
-        stock,
-        category,
-        description,
-        imageUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : undefined, 
-        userId: user.id
-      })
-
-      return res
-        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Prodotto inserito nel marketplace!" } }))
-        .header("HX-Redirect", `/profile?username=${user.userName}`)
-        .send()
-
-    } catch (error: any) {
-      console.error("ERRORE INTERNO:", error)
-      return res
-        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Errore interno durante il salvataggio." } }))
-        .send()
     }
-  })
+
+    if (!productName || price <= 0 || stock < 1) {
+       return res
+         .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Errore: Campi non compilati correttamente." } }))
+         .send()
+    }
+
+    if (imageUrls.length > 0 && coverIndex >= 0 && coverIndex < imageUrls.length) {
+      const coverImage = imageUrls.splice(coverIndex, 1)[0]
+      imageUrls.unshift(coverImage)
+    }
+
+    await db.insert(products).values({
+      productName,
+      price, 
+      stock,
+      category,
+      description,
+      imageUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : undefined, 
+      userId: user.id
+    })
+
+    return res
+      .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Prodotto inserito nel marketplace!" } }))
+      .header("HX-Redirect", `/profile?username=${user.userName}`)
+      .send()
+
+  } catch (error: any) {
+    console.error("ERRORE INTERNO:", error)
+    return res
+      .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Errore interno durante il salvataggio." } }))
+      .send()
+  }
+})
 
 
 server.delete("/product/:id", async (req, res) => {

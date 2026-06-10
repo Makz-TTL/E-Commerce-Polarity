@@ -18,10 +18,8 @@ type Props = {
 export default function ProductInfoPage({ product, session }: Props) {
   const currentPath = `/product/${product.id}`
   
-  // Controllo di proprietà basato sullo username in sessione
   const isOwnProduct = session?.username && session.username === product.seller?.userName
 
-  // Parsing sicuro delle immagini
   const getImages = (): string[] => {
     if (!product.imageUrl) {
       return ['https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80']
@@ -111,10 +109,10 @@ export default function ProductInfoPage({ product, session }: Props) {
 
       {/* Box Principale Prodotto */}
       <div class="max-w-5xl mx-auto px-6 mt-4">
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden grid grid-cols-1 md:grid-cols-2 gap-8 p-6 md:p-8">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden grid grid-cols-1 md:grid-cols-2 gap-8 p-6 md:p-8 items-start">
           
-          {/* CAROSELLO IMMAGINI */}
-          <div class="relative w-full h-80 md:h-[400px] rounded-xl overflow-hidden bg-gray-100 shadow-inner group flex items-center justify-center">
+          {/* CAROSELLO IMMAGINI (Reso Sticky su Desktop per bilanciare i testi lunghi) */}
+          <div class="relative w-full h-80 md:h-[400px] rounded-xl overflow-hidden bg-gray-100 shadow-inner group flex items-center justify-center md:sticky md:top-24">
             {images.map((url, index) => (
               <img 
                 src={url} 
@@ -185,28 +183,29 @@ export default function ProductInfoPage({ product, session }: Props) {
           </div>
 
           {/* DETTAGLI PRODOTTO */}
-          <div class="flex flex-col justify-between">
+          <div class="flex flex-col justify-between self-stretch">
             <div class="space-y-4">
               <span class="inline-block px-3 py-1 bg-indigo-50 text-indigo-600 text-xs font-semibold rounded-full uppercase tracking-wider">
                 {product.category}
               </span>
 
-              <h1 class="text-3xl font-bold text-gray-900">{product.productName}</h1>
+              <h1 class="text-3xl font-bold text-gray-900 break-words">{product.productName}</h1>
               
               <div class="text-2xl font-extrabold text-indigo-600">
                 ${product.price.toLocaleString("it-IT")}
               </div>
 
-              <div class="pt-2 border-t border-gray-100">
-                <h3 class="text-sm font-semibold text-gray-700 mb-1">Descrizione</h3>
-                <p class="text-gray-600 text-sm leading-relaxed">
+              {/* Sezione descrizione ottimizzata per testi corposi */}
+              <div class="pt-4 border-t border-gray-100">
+                <h3 class="text-sm font-semibold text-gray-700 mb-2">Descrizione</h3>
+                <p class="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap break-words max-w-none">
                   {product.description || "Nessuna descrizione fornita per questo prodotto."}
                 </p>
               </div>
             </div>
 
             {/* SEZIONE AMMINISTRAZIONE / ACQUISTO / STOCK */}
-            <div class="pt-6 mt-6 border-t border-gray-100 flex items-center justify-between">
+            <div class="pt-6 mt-8 border-t border-gray-100 flex items-center justify-between">
               <div>
                 <p class="text-xs text-gray-400 uppercase tracking-wider font-medium">Disponibilità</p>
                 <p id={`stock-status-${product.id}`} class="text-sm font-semibold text-gray-800 mt-0.5">
@@ -219,8 +218,6 @@ export default function ProductInfoPage({ product, session }: Props) {
               </div>
               
               <div class="flex gap-3">
-                
-                {/* Se l'utente corrente è il venditore dell'oggetto */}
                 {isOwnProduct ? (
                   <button
                     hx-delete={`/product/${product.id}`}
@@ -234,10 +231,7 @@ export default function ProductInfoPage({ product, session }: Props) {
                     Elimina Annuncio
                   </button>
                 ) : (
-                  /* Flusso Acquirente (Nascosto se lo stock è esaurito) */
                   <div id={`purchase-actions-${product.id}`} class={product.stock > 0 ? "flex gap-3" : "hidden"}>
-                    
-                    {/* MODALE AGGIUNGI AL CARRELLO */}
                     <div
                       id={`modal-${product.id}`}
                       class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center cursor-default"
@@ -318,9 +312,9 @@ export default function ProductInfoPage({ product, session }: Props) {
                     </button>
                   </div>
                 )}
-
               </div>
             </div>
+
           </div>
         </div>
 
