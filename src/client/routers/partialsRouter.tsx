@@ -15,6 +15,7 @@ import ForgotPasswordForm from "../components/ForgotPasswordForm"
 import ResetPasswordForm from "../components/ResetPasswordForm"
 import * as crypto from "crypto"
 import SellProductModal from "../components/SellProductModal"
+import { z } from "zod"
 
 export default (server: ZodFastifyInstance) => {
 
@@ -162,15 +163,26 @@ export default (server: ZodFastifyInstance) => {
     return res.status(200).html(<EditPasswordForm />)
   })
 
+  const editPasswordSchema = z.object ({
+      oldPassword: z.string().min(1, "Inserisci la vecchia password"),
+      newPassword: z.string().trim().min(8, "La nuova password deve essere di almeno 8 caratteri"),
+      confirmPassword: z.string().trim().min(1),
+    })  
+
   server.post("/editPassword", async (req, res) => {
     if (!req.session.username) return res.status(401).send("Non autorizzato")
+    
+    const result = editPasswordSchema.safeParse(req.body)
 
-    const { oldPassword, newPassword, confirmPassword } = req.body as {
-      oldPassword: string
-      newPassword: string
-      confirmPassword: string
+    if (!result.success) {
+        const error = result.error.flatten().fieldErrors
+        const message = error.oldPassword?.[0] || error.newPassword?.[0] || "Dati non validi."
+        return res.status(200).html(<EditPasswordForm error={message} />)
     }
 
+
+    const { oldPassword, newPassword, confirmPassword } = result.data
+    
     if (newPassword !== confirmPassword) {
       return res.status(200).html(<EditPasswordForm error="Le password non coincidono." />)
     }
@@ -215,7 +227,7 @@ server.post("/forgot-password", async (req, res) => {
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString()
 
     // Scadenza di 15 minuti
-    const expiry = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+    const expiry = new Date(Date.now() + 1 * 60 * 1000).toISOString()
 
     await db.update(users)
         .set({ resetToken: resetCode, resetTokenExpiry: expiry })
@@ -234,14 +246,25 @@ server.post("/forgot-password", async (req, res) => {
     return res.status(200).html(<ResetPasswordForm email={email} />)
 })
 
+const resetPasswordSchema  = z.object ({
+        email: z.string().trim().email("Email non valida"),
+        otp: z.string().trim().length(6, "Il codice deve essere di 6 caratteri"),
+        newPassword: z.string().trim().min(8, "La password deve essere di almeno 8 caratteri"),
+        confirmPassword: z.string().trim().min(1),
+    })
+
 // Verifica il codice e salva la nuova password
 server.post("/reset-password", async (req, res) => {
-    const { email, otp, newPassword, confirmPassword } = req.body as {
-        email: string
-        otp: string
-        newPassword: string
-        confirmPassword: string
+    const result = resetPasswordSchema.safeParse(req.body)
+
+    if (!result.success) {
+        const error = result.error.flatten().fieldErrors
+        const message = error.newPassword?.[0] || error.otp?.[0] || "Dati non validi."
+        const email = (req.body as any).email || ""
+        return res.status(200).html(<ResetPasswordForm email={email} error={message} />)
     }
+
+    const { email, otp, newPassword, confirmPassword } = result.data
 
     if (newPassword !== confirmPassword) {
         return res.status(200).html(<ResetPasswordForm email={email} error="Le password non coincidono." />)

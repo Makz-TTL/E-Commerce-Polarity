@@ -27,7 +27,7 @@ export default function LoginForm({ values = {}, error, redirectTo = "/" }: Prop
           Username
         </label>
         <div class="relative">
-          <input pattern="[^\s]+"
+          <input
             class={`w-full px-4 py-3 bg-gray-50/50 border rounded-xl text-sm transition-all duration-200 outline-none focus:bg-white focus:ring-4 ${
               error?.username 
                 ? "border-red-300 focus:border-red-500 focus:ring-red-500/10" 

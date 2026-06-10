@@ -24,7 +24,7 @@ export default (server: ZodFastifyInstance) => {
 
   const loginSchema = z.object({
     username: z.string().trim().min(1, "Il nome utente è obbligatorio"),
-    password: z.string().min(1, "La password è obbligatoria"),
+    password: z.string().trim().min(1, "La password è obbligatoria"),
   })
 
   //Log In back-end.
@@ -85,11 +85,11 @@ export default (server: ZodFastifyInstance) => {
   })
 
   const signUpSchema = z.object({
-    nome: z.string().min(1, "Il nome è obbligatorio"),
-    cognome: z.string().min(1, "Il cognome è obbligatorio"),
-    username: z.string().min(4, "Username deve essere di almeno 4 caratteri"),
-    email: z.string().email("Email non valida"),
-    password: z.string().min(8, "La password deve essere lunga almeno 8 caratteri"),
+    nome: z.string().trim().min(1, "Il nome è obbligatorio"),
+    cognome: z.string().trim().min(1, "Il cognome è obbligatorio"),
+    username: z.string().trim().min(4, "Username deve essere di almeno 4 caratteri"),
+    email: z.string().trim().email("Email non valida"),
+    password: z.string().trim().min(8, "La password deve essere lunga almeno 8 caratteri"),
   })
 
   //Sign Up back-end.
