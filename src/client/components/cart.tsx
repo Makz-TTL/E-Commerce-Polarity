@@ -129,7 +129,7 @@ export default async function Cart({ session } : cartProps) {
                                     <input
                                         type="number"
                                         name="quantity"
-                                        value={order.quantity}
+                                        value={order.quantity.toString()}
                                         min="1"
                                         max={order.product?.stock || 99}
                                         hx-post={`/updateCartQuantity/${order.id}`}
