@@ -5,8 +5,9 @@ import { productUsefulness } from "./productUsefulness"
 import { orders } from "./orders"
 import { wishlist } from "./wishlist"
 import { defineRelations } from "drizzle-orm/relations";
+import { cart } from "./cart"
 
-export default defineRelations({ users, products, reviews, productUsefulness, orders, wishlist }, (r) => ({
+export default defineRelations({ users, products, reviews, productUsefulness, orders, wishlist, cart }, (r) => ({
   users: {
     reviews: r.many.reviews(),
     orders: r.many.orders(),
@@ -23,6 +24,24 @@ export default defineRelations({ users, products, reviews, productUsefulness, or
     reviews: r.many.reviews(),
     productUsefulness: r.many.productUsefulness(),
     orders: r.many.orders(), 
+  },
+
+
+  cart:{
+
+    cartOwner: r.one.users({
+
+      from: r.cart.userId,      // Assicurati che questi campi riflettano lo schema del tuo DB
+      to: r.users.id,
+
+    }),
+    cartItem: r.one.products({
+
+      from: r.cart.productId,   // Assicurati che il tuo schema cart abbia productId
+      to: r.products.id,
+
+    })
+
   },
 
   reviews: {

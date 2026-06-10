@@ -1,5 +1,6 @@
 import { db } from "../../db"
 import { Session } from "fastify"
+import { products } from "../../db/schema"
 
 type cartProps = {
   session?: Session
@@ -11,12 +12,25 @@ export default async function Cart({ session } : cartProps) {
         where: { userName: session?.username }
     })
 
-    const orders = await db.query.orders.findMany({
+    const cartProducts = await db.query.cart.findMany({
         where: user ? { userId: user.id } : undefined,
         with: {
-            product: true,
+            cartItem: true,
         }
     })
+
+
+    // FUNZIONE PER IL CALCOLO DEL TOTALE
+    const totalCart = cartProducts.reduce((sum, item) => {
+    // 1. Estrai il prezzo del prodotto (fallo diventare un numero per sicurezza)
+    const price = item.cartItem?.price ? Number(item.cartItem.price) : 0;
+    
+    // 2. Estrai la quantità dal carrello (se non esiste, di base è 1)
+    const quantity = item.quantity ? Number(item.quantity) : 1;
+    
+    // 3. Moltiplica prezzo per quantità e aggiungilo al totale parziale
+    return sum + (price * quantity);
+    }, 0);
 
     return (
         <div class="bg-gray-50/50 min-h-screen pb-12">
@@ -80,17 +94,17 @@ export default async function Cart({ session } : cartProps) {
             
             <div class="max-w-7xl mx-auto px-6 flex flex-col gap-4">
                 <div class="flex flex-col gap-4 mt-3">
-                    {orders.map((order) => {
+                    {cartProducts.map((order) => {
                         // Estrazione sicura della prima immagine del prodotto
                         let productCover = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80';
-                        if (order.product?.imageUrl) {
+                        if (order.cartItem?.imageUrl) {
                             try {
-                                const images = JSON.parse(order.product.imageUrl);
+                                const images = JSON.parse(order.cartItem.imageUrl);
                                 if (Array.isArray(images) && images.length > 0) {
                                     productCover = images[0];
                                 }
                             } catch (e) {
-                                productCover = order.product.imageUrl;
+                                productCover = order.cartItem.imageUrl;
                             }
                         }
 
@@ -99,12 +113,12 @@ export default async function Cart({ session } : cartProps) {
 
                                 {/* IMMAGINE PRODOTTO: Cliccabile, reindirizza alle info del prodotto */}
                                 <div 
-                                    onclick={`window.location.href='/product/${order.product?.id}'`}
+                                    onclick={`window.location.href='/product/${order.cartItem?.id}'`}
                                     class="w-20 h-20 bg-gray-50 overflow-hidden rounded-xl cursor-pointer shrink-0 group border border-gray-100"
                                 >
                                     <img 
                                         src={productCover} 
-                                        alt={order.product?.productName} 
+                                        alt={order.cartItem?.productName} 
                                         class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                                         loading="lazy"
                                     />
@@ -113,13 +127,13 @@ export default async function Cart({ session } : cartProps) {
                                 {/* INFO PRODOTTO: Titolo cliccabile, descrizione rimossa */}
                                 <div class="flex-1 min-w-0">
                                     <h2 
-                                        onclick={`window.location.href='/product/${order.product?.id}'`}
+                                        onclick={`window.location.href='/product/${order.cartItem?.id}'`}
                                         class="text-lg font-bold text-gray-900 truncate hover:text-indigo-600 cursor-pointer transition-colors"
                                     >
-                                        {order.product?.productName}
+                                        {order.cartItem?.productName}
                                     </h2>
                                     <span class="inline-block mt-1 bg-indigo-50 text-indigo-600 text-xs font-semibold px-2.5 py-1 rounded-full">
-                                        {order.product?.category}
+                                        {order.cartItem?.category}
                                     </span>
                                 </div>
 
@@ -129,9 +143,9 @@ export default async function Cart({ session } : cartProps) {
                                     <input
                                         type="number"
                                         name="quantity"
-                                        value={order.quantity}
+                                        value={order.quantity.toString()}
                                         min="1"
-                                        max={order.product?.stock || 99}
+                                        max={order.cartItem?.stock || 99}
                                         hx-post={`/updateCartQuantity/${order.id}`}
                                         hx-trigger="change, keyup delay:500ms changed"
                                         hx-target="closest .order-item-card"
@@ -142,7 +156,7 @@ export default async function Cart({ session } : cartProps) {
 
                                 <div class="flex flex-col items-end gap-1 min-w-[80px]">
                                     <span class="text-xs text-gray-400 font-medium">Totale</span>
-                                    <span class="text-xl font-extrabold text-indigo-600">${order.totalPrice.toLocaleString("it-IT")}</span>
+                                    <span class="text-xl font-extrabold text-indigo-600">${((Number(order.cartItem?.price) || 0) * (Number(order.quantity) || 1)).toLocaleString("it-IT")}</span>
                                 </div>
 
                                 <button
@@ -159,7 +173,7 @@ export default async function Cart({ session } : cartProps) {
                         )
                     })}
 
-                    {orders.length === 0 && (
+                    {cartProducts.length === 0 && (
                         <div class="text-center py-20 text-gray-400">
                             <p class="text-xl font-semibold">Il carrello è vuoto</p>
                             <a href="/" class="mt-4 inline-block text-indigo-600 hover:underline text-sm font-medium">
@@ -168,13 +182,14 @@ export default async function Cart({ session } : cartProps) {
                         </div>
                     )}
 
-                    {orders.length > 0 && (
-                        <div class="flex justify-start mt-2">
+                    {cartProducts.length > 0 && (
+                        <div class="block justify-start mt-2">
                             <a href="/checkout" class="block w-fit">
                                 <button class="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 px-6 rounded-xl shadow-sm transition-colors cursor-pointer">
                                     Check Out
                                 </button>
                             </a>
+                            <p>Totale ordine: ${totalCart.toLocaleString("it-IT")}</p>
                         </div>
                     )}
                 </div>

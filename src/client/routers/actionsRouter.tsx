@@ -6,7 +6,7 @@ import * as argon2 from "argon2"
 import { z } from "zod"
 import fs from "fs"
 
-import { orders, users, products } from "../../db/schema"
+import { orders, users, products, cart } from "../../db/schema"
 import LoginForm from "../components/LoginForm"
 import Marketplace from "../components/marketplace"   
 import OtpForm from "../components/OtpForm"
@@ -158,9 +158,9 @@ export default (server: ZodFastifyInstance) => {
   //Delete form card back-end.
   server.post("/deleteFromCart/:id", async (req, res) => {
     const { id } = req.params as { id: string }
-    const orderId = parseInt(id, 10)
+    const cartID = parseInt(id, 10)
 
-    if (isNaN(orderId)) {
+    if (isNaN(cartID)) {
       return res.status(400).send("ID non valido")
     }
 
@@ -169,28 +169,13 @@ export default (server: ZodFastifyInstance) => {
     }
 
     try {
-      const deletedOrder = await db.delete(orders)
-        .where(eq(orders.id, orderId))
-        .returning()
+      // 1. Elimina l'elemento dal carrello e ritorna i dati eliminati
+      const deletedOrder = await db.delete(cart)
+        .where(eq(cart.id, cartID))
+        .returning();
 
-      const order = deletedOrder[0]
-
-      if (order) {
-        const product = await db.query.products.findFirst({
-          where: { id: order.productId }
-        })
-
-        if (product) {
-          await db.update(products)
-            .set({ stock: product.stock + order.quantity })
-            .where(eq(products.id, order.productId))
-        }
-      }
-
-      return res.send("")
     } catch (error) {
-      console.error("ERRORE ELIMINAZIONE:", error)
-      return res.status(500).send("Errore durante l'eliminazione")
+      console.error("Errore durante l'eliminazione dal carrello:", error);
     }
   })
 
@@ -252,11 +237,10 @@ export default (server: ZodFastifyInstance) => {
 
       const totalPrice = product.price * quantity
 
-      await db.insert(orders).values({
+      await db.insert(cart).values({
         userId: user.id,             
         productId: productId, 
-        quantity: quantity,     
-        totalPrice: totalPrice  
+        quantity: quantity,
       })  
       const triggerEvents = {
         showSuccessToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` }

@@ -89,14 +89,14 @@ export default (server: ZodFastifyInstance) => {
       where: { userName: req.session.username }
     })
 
-    const orders = await db.query.orders.findMany({
+    const cart = await db.query.cart.findMany({
       where: user ? { userId: user.id } : undefined,
-      with: { product: true }
+      with: { cartItem: true }
     })
 
     return res.html(
       <MainLayout>
-        <Checkout session={req.session} orders={orders} user={user}/>
+        <Checkout session={req.session} cart={cart} user={user}/>
       </MainLayout>
     )
   })

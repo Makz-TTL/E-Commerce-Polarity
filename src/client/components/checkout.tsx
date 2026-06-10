@@ -2,29 +2,30 @@ import { Session } from "fastify"
 
 type CheckoutProps = {
   session?: Session
-  orders: {
+  cart: {
     id: number
     userId: number
     productId: number
     quantity: number
-    totalPrice: number
-    product?: {
-      id: number
-      userId: number
+    cartItem?: {          // <--- Aggiunto questo blocco relazionato
       productName: string
-      description: string | null
       category: string
-      imageUrl: string | null
-      price: number
-      stock: number
+      price: number | string
+      imageUrl?: string | null
     } | null
   }[]
   user?: { name: string; lastName: string } | null
 }
 
-export default function Checkout({ session, orders, user }: CheckoutProps) {
+export default function Checkout({ session, cart, user }: CheckoutProps) {
 
-  const grandTotal = orders.reduce((sum, o) => sum + o.totalPrice, 0)
+
+  const totalPrice = cart.reduce((sum, item) => {
+    const price = item.cartItem?.price ? Number(item.cartItem?.price) : 0;
+    const quantity = item.quantity ? Number(item.quantity) : 1;
+    return sum + (price * quantity);
+  }, 0);
+
 
   return (
     <div class="bg-gray-50 min-h-screen">
@@ -50,17 +51,17 @@ export default function Checkout({ session, orders, user }: CheckoutProps) {
           <div class="flex-1 flex flex-col gap-4">
             <h2 class="text-lg font-bold text-gray-700">Riepilogo ordine</h2>
 
-            {orders.map((order) => (
+            {cart.map((order) => (
               <div class="flex items-center gap-4 bg-white border border-gray-200 rounded-2xl shadow-sm p-4">
                 <img
-                  src={order.product?.imageUrl || "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80"}
-                  alt={order.product?.productName}
+                  src={order.cartItem?.imageUrl || "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80"}
+                  alt={order.cartItem?.productName}
                   class="w-16 h-16 object-cover rounded-xl flex-shrink-0"
                 />
                 <div class="flex-1 min-w-0">
-                  <h3 class="text-sm font-bold text-gray-900 truncate">{order.product?.productName}</h3>
+                  <h3 class="text-sm font-bold text-gray-900 truncate">{order.cartItem?.productName}</h3>
                   <span class="inline-block mt-1 bg-indigo-50 text-indigo-600 text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {order.product?.category}
+                    {order.cartItem?.category}
                   </span>
                 </div>
                 <div class="flex flex-col items-center gap-0.5">
@@ -69,7 +70,7 @@ export default function Checkout({ session, orders, user }: CheckoutProps) {
                 </div>
                 <div class="flex flex-col items-end gap-0.5 min-w-[70px]">
                   <span class="text-xs text-gray-400">Totale</span>
-                  <span class="text-base font-extrabold text-indigo-600">${order.totalPrice}</span>
+                  <span class="text-base font-extrabold text-indigo-600">€{((Number(order.cartItem?.price) || 0) * (Number(order.quantity) || 1)).toLocaleString("it-IT")}</span>
                 </div>
               </div>
             ))}
@@ -127,8 +128,8 @@ export default function Checkout({ session, orders, user }: CheckoutProps) {
 
               <div class="flex flex-col gap-2 text-sm text-gray-600">
                 <div class="flex justify-between">
-                  <span>Prodotti ({orders.reduce((sum, o) => sum + o.quantity, 0)})</span>
-                  <span class="font-semibold">${grandTotal}</span>
+                  <span>Prodotti ({cart.reduce((sum, o) => sum + o.quantity, 0)})</span>
+                  <span class="font-semibold">€{totalPrice.toLocaleString("it-IT")}</span>
                 </div>
                 <div class="flex justify-between">
                   <span>Spedizione</span>
@@ -136,7 +137,7 @@ export default function Checkout({ session, orders, user }: CheckoutProps) {
                 </div>
                 <div class="border-t border-gray-100 pt-2 flex justify-between text-base font-extrabold text-gray-900">
                   <span>Totale</span>
-                  <span class="text-indigo-600">${grandTotal.toLocaleString("it-IT")}</span>
+                  <span class="text-indigo-600">€{totalPrice.toLocaleString("it-IT")}</span>
                 </div>
               </div>
 
