@@ -190,7 +190,7 @@ export default async function PorfilePage({ username }: Props) {
                                 <p class="font-medium text-gray-800">{order.product?.productName ?? "Prodotto eliminato"}</p>
                                 <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
                                 </div>
-                                <span class="text-indigo-600 font-bold">${order.totalPrice}</span>
+                                <span class="text-black-600 font-bold">${order.totalPrice.toLocaleString("it-IT")}</span>
                             </div>
                         )
                     })}
