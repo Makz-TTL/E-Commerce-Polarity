@@ -25,24 +25,28 @@ window.closeModal = (eventOrId, remove = true) => {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
-  // fai queste cose
   
+  // ── Toast from redirect ──────────────────────────────────────────────────
+  const params = new URLSearchParams(window.location.search)
+  const msg = params.get("toast")
+  if (msg) {
+    const url = new URL(window.location.href)
+    url.searchParams.delete("toast")
+    window.history.replaceState({}, "", url)
+    createToast(decodeURIComponent(msg), "success")
+  }
+
+  // ── Existing listeners ───────────────────────────────────────────────────
   document.body.addEventListener("showSuccessToast", (ev) => {
     const event = ev as CustomEvent<{ message: string }>
-    const { message } = event.detail
-
-    createToast(message, "success")
+    createToast(event.detail.message, "success")
   })
   document.body.addEventListener("showAddedToCartToast", (ev) => {
     const event = ev as CustomEvent<{ message: string }>
-    const { message } = event.detail
-
-    createToast(message, "cart")
+    createToast(event.detail.message, "cart")
   })
   document.body.addEventListener("showErrorToast", (ev) => {
     const event = ev as CustomEvent<{ message: string }>
-    const { message } = event.detail
-
-    createToast(message, "error")
+    createToast(event.detail.message, "error")
   })
 })

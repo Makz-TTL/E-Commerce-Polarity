@@ -612,9 +612,8 @@ export default (server: ZodFastifyInstance) => {
 
       // Respond immediately so the toast fires right away
       res
-        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Richiesta ricevuta. Il prodotto è in fase di elaborazione." } }))
-        .header("HX-Redirect", `/profile?username=${user.userName}`)
-        .send()
+        .header("HX-Redirect", `/profile?username=${user.userName}&toast=Richiesta+ricevuta.+Il+prodotto+%C3%A8+in+fase+di+elaborazione.`)
+         .send()
 
       setImmediate(async () => {
         try {
