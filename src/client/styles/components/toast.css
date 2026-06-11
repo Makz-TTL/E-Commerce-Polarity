@@ -26,6 +26,12 @@
   }
 }
 
+.toast--cart {
+  .icon-container {
+    @apply bg-purple-100 text-purple-600;
+  }
+}
+
 .toast--info, .toast--loading {
   .icon-container {
     @apply bg-blue-100 text-blue-600;

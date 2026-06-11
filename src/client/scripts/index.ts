@@ -33,4 +33,16 @@ window.addEventListener("DOMContentLoaded", () => {
 
     createToast(message, "success")
   })
+  document.body.addEventListener("showAddedToCartToast", (ev) => {
+    const event = ev as CustomEvent<{ message: string }>
+    const { message } = event.detail
+
+    createToast(message, "cart")
+  })
+  document.body.addEventListener("showErrorToast", (ev) => {
+    const event = ev as CustomEvent<{ message: string }>
+    const { message } = event.detail
+
+    createToast(message, "error")
+  })
 })

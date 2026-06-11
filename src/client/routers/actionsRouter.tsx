@@ -202,7 +202,7 @@ export default (server: ZodFastifyInstance) => {
 
     if (!req.session.username) {
       return res
-        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Devi essere loggato per aggiungere prodotti al carrello" } }))
+        .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Devi essere loggato per aggiungere prodotti al carrello" } }))
         .send() 
     }
 
@@ -229,13 +229,13 @@ export default (server: ZodFastifyInstance) => {
       // --- CONTROLLO DI SICUREZZA BLOCCANTE ---
       if (product.userId === user.id) {
         return res
-          .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Non puoi aggiungere al carrello un tuo prodotto!" } }))
+          .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Non puoi aggiungere al carrello un tuo prodotto!" } }))
           .send()
       }
 
       if (product.stock < quantity) {
         return res
-          .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: `Stock insufficiente! Disponibili solo: ${product.stock}` } }))
+          .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: `Stock insufficiente! Disponibili solo: ${product.stock}` } }))
           .send()
       }
 
@@ -259,7 +259,7 @@ export default (server: ZodFastifyInstance) => {
         // 2. Controllo di sicurezza aggiuntivo: il totale nel carrello supera lo stock?
         if (product.stock < newQuantity) {
           return res
-            .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: `Hai già questo articolo nel carrello. Non puoi superare lo stock massimo di ${product.stock}!` } }))
+            .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: `Hai già questo articolo nel carrello. Non puoi superare lo stock massimo di ${product.stock}!` } }))
             .send()
         }
 
@@ -279,7 +279,7 @@ export default (server: ZodFastifyInstance) => {
       } 
       
       const triggerEvents = {
-        showSuccessToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` }
+        showAddedToCartToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` }
       }
 
       return res
@@ -576,7 +576,7 @@ server.get("/checkout/validate", async (req, res) => {
 
       if (!productName || price <= 0 || stock < 1) {
         return res
-          .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Errore: Campi non compilati correttamente." } }))
+          .header("HX-Trigger", JSON.stringify({ ShowErrorToast: { message: "Errore: Campi non compilati correttamente." } }))
           .send()
       }
 
@@ -738,7 +738,7 @@ A single decimal number only. Nothing else.`
       server.log.error(error)
       
       return res
-        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Errore interno durante la moderazione del prodotto." } }))
+        .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Errore interno durante la moderazione del prodotto." } }))
         .send()
     }
   })
