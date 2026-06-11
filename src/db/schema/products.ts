@@ -9,6 +9,9 @@ export const products = pgTable("products", {
   stock: integer().notNull(),
   category: text().notNull(),
   imageUrl: text(),
+  status: text(),
+  reliability: doublePrecision(),
+
 })
 
 type Product = typeof products.$inferSelect

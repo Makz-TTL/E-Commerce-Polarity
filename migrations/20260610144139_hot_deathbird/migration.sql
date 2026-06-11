@@ -3,7 +3,7 @@ CREATE TABLE "orders" (
 	"userId" integer NOT NULL,
 	"productId" integer NOT NULL,
 	"quantity" integer NOT NULL,
-	"totalPrice" integer NOT NULL
+	"totalPrice" double precision NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "productUsefulness" (
@@ -18,10 +18,12 @@ CREATE TABLE "products" (
 	"userId" integer NOT NULL,
 	"productName" text NOT NULL,
 	"description" text,
-	"price" integer NOT NULL,
+	"price" double precision NOT NULL,
 	"stock" integer NOT NULL,
 	"category" text NOT NULL,
-	"imageUrl" text
+	"imageUrl" text,
+	"status" text,
+	"reliability" double precision
 );
 --> statement-breakpoint
 CREATE TABLE "reviews" (
@@ -40,5 +42,7 @@ CREATE TABLE "users" (
 	"eMail" text NOT NULL UNIQUE,
 	"userName" text NOT NULL UNIQUE,
 	"password" text NOT NULL,
-	"cookie" text NOT NULL
+	"cookie" text,
+	"resetToken" text,
+	"resetTokenExpiry" text
 );

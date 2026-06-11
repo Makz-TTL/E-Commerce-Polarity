@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm"
 import * as argon2 from "argon2"
 import { z } from "zod"
 import fs from "fs"
+import OpenAI from "openai"
 
 import { orders, users, products, cart } from "../../db/schema"
 import LoginForm from "../components/LoginForm"
@@ -16,9 +17,14 @@ import { sendTemplateEmail } from "../../emails/index"
 import path from "path"
 import { pipeline } from "stream/promises"
 import { fileURLToPath } from "url"
+import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+const bedrockClient = new BedrockRuntimeClient({
+  region: process.env.AWS_REGION || "eu-central-1",
+})
 
 export default (server: ZodFastifyInstance) => {
 
@@ -27,7 +33,6 @@ export default (server: ZodFastifyInstance) => {
     password: z.string().trim().min(1, "La password è obbligatoria"),
   })
 
-  //Log In back-end.
   server.post("/login", async (req, res) => {
     const { redirect } = req.query as { redirect?: string }
     const redirectTo = redirect || "/"
@@ -92,9 +97,7 @@ export default (server: ZodFastifyInstance) => {
     password: z.string().trim().min(8, "La password deve essere lunga almeno 8 caratteri"),
   })
 
-  //Sign Up back-end.
   server.post("/signUp", async (req, res) => {
-    console.log("signup")
     const result = signUpSchema.safeParse(req.body)
 
     if (!result.success) {
@@ -146,7 +149,6 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
-  //Log Out back-end.
   server.post("/logout", async (req, reply) => {
     await req.session.destroy()
     return reply
@@ -155,7 +157,6 @@ export default (server: ZodFastifyInstance) => {
       .send()
   })
 
-  //Delete form card back-end.
   server.post("/deleteFromCart/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const cartID = parseInt(id, 10)
@@ -176,10 +177,10 @@ export default (server: ZodFastifyInstance) => {
 
     } catch (error) {
       console.error("Errore durante l'eliminazione dal carrello:", error);
+      return res.status(500).send("Errore durante l'eliminazione")
     }
   })
 
-  //Add to cart back-end.
   server.get("/addToCart/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
@@ -221,8 +222,6 @@ export default (server: ZodFastifyInstance) => {
         return res.status(404).send("Prodotto non trovato")
       }
 
-      // --- CONTROLLO DI SICUREZZA BLOCCANTE ---
-      // Impedisce la richiesta diretta HTMX se l'utente tenta di comprare un proprio articolo
       if (product.userId === user.id) {
         return res
           .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Non puoi aggiungere al carrello un tuo prodotto!" } }))
@@ -242,6 +241,7 @@ export default (server: ZodFastifyInstance) => {
         productId: productId, 
         quantity: quantity,
       })  
+      
       const triggerEvents = {
         showSuccessToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` }
       }
@@ -251,7 +251,6 @@ export default (server: ZodFastifyInstance) => {
         .send() 
 
     } catch (error) {
-      console.error("ERRORE DB AGGIUNTA CARRELLO/UPDATE STOCK:", error)
       return res.status(500).send("Errore durante l'aggiunta al carrello")
     }
   })
@@ -262,7 +261,6 @@ export default (server: ZodFastifyInstance) => {
     username: z.string().min(4, "Username deve essere di almeno 4 caratteri"),
   })
 
-  //Edit profile back-end.
   server.post("/editProfile", async (req, res) => {
     if (!req.session.username) {
       return res.status(401).send("Non autorizzato")
@@ -306,6 +304,7 @@ export default (server: ZodFastifyInstance) => {
           )
         }
       }
+
       await db.update(users)
         .set({
           name: nome,
@@ -334,8 +333,8 @@ export default (server: ZodFastifyInstance) => {
   })
 
   type PaymentBody = {
-      cardNumber : string
-      expiry : string
+    cardNumber: string
+    expiry: string
   }
   
   server.post("/payment/confirm", async (req, res) => {
@@ -454,108 +453,235 @@ server.get("/checkout/validate", async (req, res) => {
 })
 
 
-server.post("/sell-product", async (req, res) => {
-  if (!req.session.username) {
-    return res.status(401).send("Non autorizzato")
-  }
-
-  const uploadDir = path.join(process.cwd(), "public", "images")
-  
-  try {
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true })
+  server.post("/sell-product", async (req, res) => {
+    if (!req.session.username) {
+      return res.status(401).send("Non autorizzato")
     }
-  } catch (dirError: any) {
-    console.error("Errore creazione cartella 'images':", dirError.message)
-  }
 
-  try {
-    const parts = req.parts()
-    let productName = ""
-    let price = 0
-    let stock = 0
-    let category = ""
-    let description = ""
+    const uploadDir = path.join(process.cwd(), "public", "images")
     
-    const imageUrls: string[] = []
-    let coverIndex = 0 
+    try {
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true })
+      }
+    } catch (dirError: any) {}
 
-    const userRows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-    const user = userRows[0]
+    try {
+      const parts = req.parts()
+      let productName = ""
+      let price = 0
+      let stock = 0
+      let category = ""
+      let description = ""
+      const imageUrls: string[] = []
+      let coverIndex = 0
 
-    if (!user) {
-      return res.status(404).send("Utente non trovato")
-    }
+      const userRows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+      const user = userRows[0]
 
-    for await (const part of parts) {
-      if (part.type === "file" && part.fieldname === "images" && part.filename) {
-        const ext = path.extname(part.filename).toLowerCase()
-        const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"]
-        
-        if (!allowedExtensions.includes(ext)) {
-          part.file.resume() 
-          continue
-        }
+      if (!user) {
+        return res.status(404).send("Utente non trovato")
+      }
 
-        const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`
-        const uploadPath = path.join(uploadDir, uniqueFilename)
-        
-        await pipeline(part.file, fs.createWriteStream(uploadPath))
-        imageUrls.push(`/images/${uniqueFilename}`)
+      for await (const part of parts) {
+        if (part.type === "file" && part.fieldname === "images" && part.filename) {
+          const ext = path.extname(part.filename).toLowerCase()
+          const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"]
+          
+          if (!allowedExtensions.includes(ext)) {
+            part.file.resume()
+            continue
+          }
 
-      } else if (part.type === "field") {
-        if (part.fieldname === "productName") productName = part.value as string
-        if (part.fieldname === "price") price = parseFloat(part.value as string) || 0
-        if (part.fieldname === "stock") stock = parseInt(part.value as string, 10) || 0
-        if (part.fieldname === "category") category = part.value as string
-        if (part.fieldname === "description") description = part.value as string
-     
-        if (part.fieldname === "coverIndex") {
-          coverIndex = parseInt(part.value as string, 10) || 0
+          const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`
+          const uploadPath = path.join(uploadDir, uniqueFilename)
+          
+          await pipeline(part.file, fs.createWriteStream(uploadPath))
+          imageUrls.push(`/images/${uniqueFilename}`)
+
+        } else if (part.type === "field") {
+          if (part.fieldname === "productName") productName = part.value as string
+          if (part.fieldname === "price") price = parseFloat(part.value as string) || 0
+          if (part.fieldname === "stock") stock = parseInt(part.value as string, 10) || 0
+          if (part.fieldname === "category") category = part.value as string
+          if (part.fieldname === "description") description = part.value as string
+          if (part.fieldname === "coverIndex") coverIndex = parseInt(part.value as string, 10) || 0
         }
       }
+
+      if (!productName || price <= 0 || stock < 1) {
+        return res
+          .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Errore: Campi non compilati correttamente." } }))
+          .send()
+      }
+
+      res
+        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Richiesta ricevuta. Il prodotto è in fase di elaborazione." } }))
+        .header("HX-Redirect", `/profile?username=${user.userName}`)
+        .send()
+
+      setImmediate(async () => {
+        try {
+          const messageContent: any[] = [
+            {
+              text: `Analizza questo prodotto in vendita:\n${JSON.stringify({ productName, category, description, price })}`
+            }
+          ]
+
+          for (const url of imageUrls) {
+            const absolutePath = path.join(process.cwd(), "public", url)
+            
+            if (fs.existsSync(absolutePath)) {
+              const ext = path.extname(absolutePath).toLowerCase()
+              let format: "jpeg" | "png" | "gif" | "webp" | null = null
+
+              if (ext === ".jpg" || ext === ".jpeg") format = "jpeg"
+              else if (ext === ".png") format = "png"
+              else if (ext === ".gif") format = "gif"
+              else if (ext === ".webp") format = "webp"
+
+              if (format) {
+                const imageBuffer = fs.readFileSync(absolutePath)
+                messageContent.push({
+                  image: {
+                    format: format,
+                    source: {
+                      bytes: new Uint8Array(imageBuffer)
+                    }
+                  }
+                })
+              }
+            }
+          }
+
+          const command = new ConverseCommand({
+            modelId: process.env.BEDROCK_MODEL_ID || "eu.anthropic.claude-sonnet-4-6",
+            messages: [
+              {
+                role: "user",
+                content: messageContent
+              }
+            ],
+            system: [
+              {
+                text: `You are an automated moderation agent for an e-commerce marketplace. Your sole job is to evaluate new product listings submitted by sellers and return a single decimal score between 0.00 and 1.00. You must never return anything other than this number — no explanations, no comments, no punctuation, no text.
+
+SCORING SCALE:
+0.00 - ILLEGAL ITEM
+
+0.80-1 - ITEMS WHICH ARE NOT SCUMMY OR SUSPICIOUS IN ANY WAY, OR FOR WHICH THERE IS NOT ENOUGH INFORMATION TO JUDGE (DEFAULT TO APPROVAL)
+
+YOUR DEFAULT ASSUMPTION IS APPROVAL.
+Unless you can point to a specific concrete problem, score 0.90 or above.
+Doubt = approve. Uncertainty = approve. Missing info = approve.
+Never use the manual review band as a fallback for vagueness.
+
+ELECTRONICS & BRANDED GOODS:
+Smartphones, laptops, tablets, and other consumer electronics listed under a real brand name (Apple, Samsung, Sony, etc.) are among the most commonly resold items on any marketplace. Listing an iPhone, Galaxy, MacBook, or similar at any reasonable second-hand price is completely normal. Score these 0.90–1.00 by default.
+
+WHAT "SUSPICIOUS PRICE" ACTUALLY MEANS:
+A price is only suspicious if it is more than 90% below the known retail price with zero explanation. Examples:
+- iPhone 15 Pro listed at 850€ → completely normal → 0.95
+- iPhone 15 Pro listed at 600€ → used/discounted, totally fine → 0.93
+- iPhone 15 Pro listed at 50€ → suspicious → 0.60
+- iPhone 15 Pro listed at 5€ → obvious scam → 0.10
+A price that simply seems "low" or "cheap" for a new item is NOT a flag. Second-hand electronics are routinely sold at 30–60% below retail.
+
+HARD REJECTION — 0.00 to 0.45 — only for:
+- Explicitly illegal products (controlled substances, illegal weapons, CSAM, stolen goods explicitly stated)
+- Word "replica", "fake", "clone", "copy of" in the listing
+- Price more than 90% below retail with no condition explanation
+- Product that has no legitimate civilian use
+
+MANUAL REVIEW — 0.50 to 0.79 — only for:
+- Dual-use items commonly misused (certain chemicals, surveillance devices, lock-picking sets)
+- Prescription-only or heavily regulated items
+- Images explicitly contradict the text description
+- Price is 70–90% below retail with no condition explanation
+
+APPROVE — 0.80 to 1.00 — everything else, including:
+- All standard consumer electronics, new or used
+- Branded goods at any reasonable price
+- Items with short or vague descriptions
+- Budget or low-cost items
+- Second-hand goods in any stated condition
+
+OUTPUT FORMAT:
+A single decimal number only. Nothing else.`
+              }
+            ],
+            inferenceConfig: {
+              temperature: 0.1,
+              maxTokens: 300
+            }
+          })
+
+          const bedrockResponse = await bedrockClient.send(command)
+          const responseText = bedrockResponse.output?.message?.content?.[0]?.text || "0.0"
+
+          let score = 0.0
+          try {
+            const cleanText = responseText.replace(/```json|```/g, "").trim()
+            const parsed = JSON.parse(cleanText)
+            if (typeof parsed === "number") {
+              score = parsed
+            } else if (parsed && typeof parsed.score === "number") {
+              score = parsed.score
+            } else {
+              score = parseFloat(cleanText) || 0.0
+            }
+          } catch (parseError) {
+            score = parseFloat(responseText.trim()) || 0.0
+          }
+
+          let status: string
+          if (score < 0.50) {
+            status = "rejected"
+          } else if (score < 0.80) {
+            status = "pending"
+          } else {
+            status = "approved"
+          }
+
+
+          if (imageUrls.length > 0 && coverIndex >= 0 && coverIndex < imageUrls.length) {
+            const coverImage = imageUrls.splice(coverIndex, 1)[0]
+            imageUrls.unshift(coverImage)
+          }
+
+          await db.insert(products).values({
+            productName,
+            price,
+            stock,
+            category,
+            description,
+            imageUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : undefined,
+            userId: user.id,
+            status,
+            reliability: score
+          })
+
+          server.log.info(`Prodotto salvato con successo via background worker. Status: ${status}`)
+
+        } catch (bgError) {
+          server.log.error(bgError)
+        }
+      })
+
+    } catch (error: any) {
+      console.error(error)
+      server.log.error(error)
+      
+      return res
+        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Errore interno durante la moderazione del prodotto." } }))
+        .send()
     }
+  })
 
-    if (!productName || price <= 0 || stock < 1) {
-       return res
-         .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Errore: Campi non compilati correttamente." } }))
-         .send()
-    }
-
-    if (imageUrls.length > 0 && coverIndex >= 0 && coverIndex < imageUrls.length) {
-      const coverImage = imageUrls.splice(coverIndex, 1)[0]
-      imageUrls.unshift(coverImage)
-    }
-
-    await db.insert(products).values({
-      productName,
-      price, 
-      stock,
-      category,
-      description,
-      imageUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : undefined, 
-      userId: user.id
-    })
-
-    return res
-      .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Prodotto inserito nel marketplace!" } }))
-      .header("HX-Redirect", `/profile?username=${user.userName}`)
-      .send()
-
-  } catch (error: any) {
-    console.error("ERRORE INTERNO:", error)
-    return res
-      .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Errore interno durante il salvataggio." } }))
-      .send()
-  }
-})
-
-
-server.delete("/product/:id", async (req, res) => {
+  server.delete("/product/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
     const sessionUsername = req.session?.username
-
     const currentUrl = req.headers["hx-current-url"] as string || ""
 
     if (isNaN(productId)) {
@@ -570,14 +696,13 @@ server.delete("/product/:id", async (req, res) => {
       const [user] = await db
         .select()
         .from(users)
-        .where(eq(users.userName, sessionUsername)) 
+        .where(eq(users.userName, sessionUsername))
         .limit(1)
 
       if (!user) {
         return res.status(404).send("Utente non trovato")
       }
 
-     
       await db
         .delete(products)
         .where(
@@ -587,17 +712,14 @@ server.delete("/product/:id", async (req, res) => {
           )
         )
 
-      
       if (currentUrl.includes(`/product/${productId}`)) {
         res.header("HX-Redirect", "/")
         return res.status(200).send()
       }
 
-      
       return res.status(200).send()
 
     } catch (error) {
-      console.error("Errore durante l'eliminazione:", error)
       return res.status(500).send("Impossibile eliminare il prodotto")
     }
   })

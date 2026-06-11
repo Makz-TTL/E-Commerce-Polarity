@@ -13,7 +13,10 @@ type MarketplaceProps = {
 export default async function Marketplace({ searchParams, partial, session }: MarketplaceProps) {
   const category = searchParams?.category ? searchParams.category.trim() : ""
 
-  const queryConditions = [gt(productsTable.stock, 0)]
+  const queryConditions = [
+    gt(productsTable.stock, 0),
+    eq(productsTable.status, "approved")
+  ]
 
   if (category) {
     queryConditions.push(eq(productsTable.category, category))
@@ -28,6 +31,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
       stock: productsTable.stock,
       imageUrl: productsTable.imageUrl,
       category: productsTable.category,
+      status: productsTable.status,
       seller: {
         name: usersTable.name,
         lastName: usersTable.lastName,
@@ -106,7 +110,6 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                       const badge = document.getElementById('stock-badge-${product.id}');
                       const card = document.getElementById('product-card-${product.id}');
                       
-                      // Ascolta l'evento HTMX sul bottone prima di sparare la richiesta
                       btn.addEventListener('htmx:afterRequest', function(e) {
                         if (e.detail.successful && badge) {
                           const currentStock = parseInt(badge.innerText, 10);
@@ -123,7 +126,6 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                         }
                       }, { once: true });
 
-                      // Esegue la chiamata AJAX programmatica iniettando il bottone come elemento sorgente
                       htmx.ajax('GET', '/addToCart/${product.id}?quantity=1', { swap: 'none', elt: btn });
                     `}
                     class="w-32 h-10 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2 px-2 rounded-xl transition-colors shadow-sm text-xs text-center cursor-pointer"

@@ -94,8 +94,19 @@ export default async function PorfilePage({ username }: Props) {
                             }
                         }
 
+                        // Gestione dinamica dello stato (Approvato, In attesa, Rifiutato)
+                        let statusColorClass = "bg-amber-400 ring-amber-50"
+                        let statusText = "In attesa"
+
+                        if (product.status === "approved") {
+                            statusColorClass = "bg-emerald-500 ring-emerald-50"
+                            statusText = "Approvato"
+                        } else if (product.status === "rejected") {
+                            statusColorClass = "bg-red-500 ring-red-50"
+                            statusText = "Rifiutato"
+                        }
+
                         return (
-                            /* Aggiunta classe 'product-item-row' per il target HTMX */
                             <div class="flex items-center justify-between py-3 gap-4 product-item-row">
                                 <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
                                 <img
@@ -105,8 +116,20 @@ export default async function PorfilePage({ username }: Props) {
                                 />
                                 </div>
                                 <div class="flex-1">
-                                <p class="font-medium text-gray-800">{product.productName}</p>
-                                <p class="text-xs text-gray-400">{product.category} · Stock: {product.stock}</p>
+                                    <div class="flex items-center gap-2">
+                                        <p class="font-medium text-gray-800">{product.productName}</p>
+                                        
+                                        {/* Indicatore di Stato con Tooltip su Hover */}
+                                        <div class="relative group flex items-center cursor-help select-none">
+                                            <span class={`w-2 h-2 rounded-full ${statusColorClass}`}></span>
+                                            
+                                            {/* Bolla del Tooltip */}
+                                            <span class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-gray-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-lg shadow-md whitespace-nowrap z-30 pointer-events-none transition-all">
+                                                {statusText}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-gray-400">{product.category} · Stock: {product.stock}</p>
                                 </div>
                                 
                                 {/* Container Prezzo + Azioni di eliminazione */}
