@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "3825751c-7194-4680-80e0-cc1449dd6f02",
+  "id": "bb2213dd-30a9-40f3-93a4-26799c7fbf61",
   "prevIds": [
-    "926bb3b5-9372-4d63-b2b6-c03cb77c1f47"
+    "00000000-0000-0000-0000-000000000000"
   ],
   "ddl": [
     {
@@ -89,7 +89,7 @@
       "table": "orders"
     },
     {
-      "type": "integer",
+      "type": "double precision",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
@@ -253,6 +253,32 @@
       "generated": null,
       "identity": null,
       "name": "imageUrl",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "products"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "products"
+    },
+    {
+      "type": "double precision",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reliability",
       "entityType": "columns",
       "schema": "public",
       "table": "products"

@@ -13,6 +13,7 @@
     "email": "email dev"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.1065.0",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",
     "@fastify/formbody": "^8.0.2",
@@ -35,6 +36,7 @@
     "fastify-type-provider-zod": "^6.1.0",
     "htmx.org": "=2.0.6",
     "nodemailer": "^8.0.10",
+    "openai": "^6.42.0",
     "pg": "^8.21.0",
     "postgres": "^3.4.9",
     "react": "^19.2.7",

@@ -9,7 +9,6 @@ export default function SellProductModal({ error }: Props) {
         class="bg-white w-full max-w-xl rounded-2xl shadow-xl border border-gray-100 flex flex-col max-h-[90vh] overflow-hidden"
         onclick="event.stopPropagation()"
       >
-        {/* HEADER - Fisso in alto */}
         <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center shrink-0">
           <h2 class="text-xl font-bold text-gray-900">Vendi un Prodotto</h2>
           <button 
@@ -23,16 +22,16 @@ export default function SellProductModal({ error }: Props) {
           </button>
         </div>
 
-        {/* FORM - Gestore del layout globale */}
+        {/* Validazione sicura con onsubmit */}
         <form 
           hx-post="/sell-product" 
           hx-encoding="multipart/form-data" 
           hx-target="#modal" 
           hx-swap="innerHTML"
+          onsubmit="if(document.querySelectorAll('.preview-card').length === 0) { alert('Carica almeno un\'immagine del prodotto!'); return false; }"
           class="flex-1 flex flex-col overflow-hidden"
         >
           
-          {/* BODY SCROLLABILE - I campi scorrono qui dentro */}
           <div class="flex-1 overflow-y-auto p-6 space-y-4">
             {error && (
               <div class="p-3 bg-red-50 border border-red-100 text-red-600 text-sm font-medium rounded-xl">
@@ -112,7 +111,6 @@ export default function SellProductModal({ error }: Props) {
               ></textarea>
             </div>
 
-            {/* SEZIONE IMMAGINI INCREMENTALI */}
             <div class="space-y-3 pt-2">
               <label class="block text-sm font-semibold text-gray-700 mb-1">
                 Immagini Prodotto
@@ -122,10 +120,8 @@ export default function SellProductModal({ error }: Props) {
                 <p class="text-xs font-medium text-gray-500">Aggiungi i file uno alla volta. Clicca sulla card per decidere la copertina principale:</p>
                 
                 <div class="grid grid-cols-3 gap-3">
-                  {/* Contenitore trasparente iniettato via JS per le anteprime */}
                   <div id="image-previews" class="contents"></div>
                   
-                  {/* Slot cliccabile fisso per aggiungere una nuova immagine */}
                   <button 
                     type="button"
                     onclick="triggerImageUpload()"
@@ -138,16 +134,11 @@ export default function SellProductModal({ error }: Props) {
                   </button>
                 </div>
               </div>
-
-              {/* Input html invisibile nativo usato per validare l'obbligatorietà di almeno un'immagine al submit */}
-              <input type="checkbox" id="image-validation-trigger" required class="absolute opacity-0 pointer-events-none w-0 h-0" />
               
-              {/* Contenitore tecnico per collezionare gli input file generati dinamicamente */}
               <div id="hidden-inputs-container" class="hidden"></div>
             </div>
           </div>
 
-          {/* FOOTER - Fisso in basso all'interno del form, non si sovrappone mai */}
           <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-white shrink-0">
             <button 
               type="button" 
@@ -174,7 +165,6 @@ export default function SellProductModal({ error }: Props) {
             const hiddenContainer = document.getElementById('hidden-inputs-container');
             const previewsContainer = document.getElementById('image-previews');
             
-            // Crea un input file temporaneo singolo
             const input = document.createElement('input');
             input.type = 'file';
             input.name = 'images';
@@ -191,13 +181,11 @@ export default function SellProductModal({ error }: Props) {
                 return;
               }
               
-              // Sposta l'input popolato nel form per abilitare la trasmissione dati
               hiddenContainer.appendChild(input);
               
               const file = input.files[0];
               const reader = new FileReader();
               reader.onload = function(e) {
-                // Costruisce la card di anteprima
                 const card = document.createElement('div');
                 card.id = 'preview-card-' + currentId;
                 card.className = 'preview-card relative border-3 rounded-xl overflow-hidden aspect-square bg-gray-50 flex flex-col justify-end p-2 cursor-pointer transition-all shadow-xs transform active:scale-95 group border-transparent';
@@ -211,7 +199,6 @@ export default function SellProductModal({ error }: Props) {
                 overlay.className = 'absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent z-10 pointer-events-none';
                 card.appendChild(overlay);
                 
-                // Bottone di eliminazione rapida singola
                 const delBtn = document.createElement('button');
                 delBtn.type = 'button';
                 delBtn.className = 'absolute top-1.5 right-1.5 z-30 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 shadow-md transition-all opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer';
@@ -224,7 +211,6 @@ export default function SellProductModal({ error }: Props) {
                 };
                 card.appendChild(delBtn);
                 
-                // Selettore Radio integrato
                 const label = document.createElement('label');
                 label.className = 'relative z-20 bg-white/95 px-2 py-1 rounded-md text-[10px] font-bold text-gray-700 flex items-center gap-1.5 cursor-pointer shadow-xs mx-auto';
                 
@@ -264,15 +250,9 @@ export default function SellProductModal({ error }: Props) {
 
           window.updateCoverIndices = function() {
             const container = document.getElementById('image-previews');
-            const validationTrigger = document.getElementById('image-validation-trigger');
             const cards = container.querySelectorAll('.preview-card');
             
-            if (cards.length === 0) {
-              validationTrigger.checked = false; // Blocca invio se vuoto
-              return;
-            }
-            
-            validationTrigger.checked = true; // Sblocca invio form
+            if (cards.length === 0) return;
             
             let hasChecked = false;
             cards.forEach((card, idx) => {
@@ -285,7 +265,6 @@ export default function SellProductModal({ error }: Props) {
               }
             });
             
-            // Imposta la prima immagine caricata come copertina di default
             if (!hasChecked && cards.length > 0) {
               const firstRadio = cards[0].querySelector('input[type="radio"]');
               firstRadio.checked = true;
