@@ -282,7 +282,7 @@ export default (server: ZodFastifyInstance) => {
       })  
       
       const triggerEvents = {
-        showSuccessToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` }
+        showAddedToCartToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` }
       }
 
       return res
