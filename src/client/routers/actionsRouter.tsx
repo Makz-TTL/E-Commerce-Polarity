@@ -171,10 +171,13 @@ export default (server: ZodFastifyInstance) => {
     }
 
     try {
-      // 1. Elimina l'elemento dal carrello e ritorna i dati eliminati
-      const deletedOrder = await db.delete(cart)
-        .where(eq(cart.id, cartID))
-        .returning();
+      // 1. Elimina l'elemento dal carrello
+      await db.delete(cart).where(eq(cart.id, cartID))
+
+      // 2. Forza HTMX a ricaricare la pagina del carrello
+      return res
+        .header("HX-Redirect", "/cart")
+        .send()
 
     } catch (error) {
       console.error("Errore durante l'eliminazione dal carrello:", error);
@@ -273,13 +276,7 @@ export default (server: ZodFastifyInstance) => {
           productId: productId, 
           quantity: quantity,
         })  
-      }
-
-      await db.insert(cart).values({
-        userId: user.id,             
-        productId: productId, 
-        quantity: quantity,
-      })  
+      } 
       
       const triggerEvents = {
         showAddedToCartToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` }

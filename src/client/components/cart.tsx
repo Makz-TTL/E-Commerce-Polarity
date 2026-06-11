@@ -162,8 +162,6 @@ export default async function Cart({ session } : cartProps) {
 
                                 <button
                                     hx-post={`/deleteFromCart/${order.id}`}
-                                    hx-swap="outerHTML"
-                                    hx-target="closest .order-item-card"
                                     class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors flex-shrink-0 cursor-pointer"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
