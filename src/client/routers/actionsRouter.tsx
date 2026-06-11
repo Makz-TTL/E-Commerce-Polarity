@@ -16,6 +16,7 @@ import { sendTemplateEmail } from "../../emails/index"
 import path from "path"
 import { pipeline } from "stream/promises"
 import { fileURLToPath } from "url"
+import Cart from "../components/cart"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -220,9 +221,8 @@ export default (server: ZodFastifyInstance) => {
       if (!product) {
         return res.status(404).send("Prodotto non trovato")
       }
-
+      
       // --- CONTROLLO DI SICUREZZA BLOCCANTE ---
-      // Impedisce la richiesta diretta HTMX se l'utente tenta di comprare un proprio articolo
       if (product.userId === user.id) {
         return res
           .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Non puoi aggiungere al carrello un tuo prodotto!" } }))
@@ -235,13 +235,45 @@ export default (server: ZodFastifyInstance) => {
           .send()
       }
 
-      const totalPrice = product.price * quantity
+      // 1. CONTROLLO SE IL PRODOTTO È GIÀ NEL CARRELLO DELL'UTENTE
+      const existingCartRows = await db
+        .select()
+        .from(cart)
+        .where(
+          and(
+            eq(cart.userId, user.id),
+            eq(cart.productId, productId)
+          )
+        )
+        .limit(1)
+      
+      const existingCartItem = existingCartRows[0]
 
-      await db.insert(cart).values({
-        userId: user.id,             
-        productId: productId, 
-        quantity: quantity,
-      })  
+      if (existingCartItem) {
+        const newQuantity = existingCartItem.quantity + quantity
+
+        // 2. Controllo di sicurezza aggiuntivo: il totale nel carrello supera lo stock?
+        if (product.stock < newQuantity) {
+          return res
+            .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: `Hai già questo articolo nel carrello. Non puoi superare lo stock massimo di ${product.stock}!` } }))
+            .send()
+        }
+
+        // 3. AGGIORNAMENTO: Incrementa la quantità della riga esistente
+        await db
+          .update(cart)
+          .set({ quantity: newQuantity })
+          .where(eq(cart.id, existingCartItem.id))
+
+      } else {
+        // 4. INSERIMENTO: Il prodotto non c'era, crea una nuova riga
+        await db.insert(cart).values({
+          userId: user.id,             
+          productId: productId, 
+          quantity: quantity,
+        })  
+      }
+
       const triggerEvents = {
         showSuccessToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` }
       }
@@ -338,6 +370,35 @@ export default (server: ZodFastifyInstance) => {
       expiry : string
   }
   
+
+  server.post("/updateCartQuantity/:cartId", async (req, res) => {
+    const { cartId } = req.params as { cartId: string }
+    const { quantity } = req.body as { quantity: string }
+    
+    const newQty = parseInt(quantity, 10)
+    if (isNaN(newQty) || newQty < 1) return res.status(400).send("Quantità non valida")
+
+    try {
+        // 1. Aggiorna la quantità nel DB
+        await db.update(cart)
+          .set({ quantity: newQty })
+          .where(eq(cart.id, parseInt(cartId, 10)))
+
+        // 2. Prendi la sessione corrente
+        const session = req.session
+
+        // 3. Renderizza di nuovo l'intera View del carrello passandogli la sessione.
+        // HTMX riceverà questo HTML e sostituirà il vecchio body con questo aggiornato.
+        return res.status(200).html(<Cart session={session} />)
+
+    } catch (error) {
+        console.error("Errore durante l'aggiornamento della quantità:", error)
+        return res.status(500).send("Errore interno del server")
+    }
+  })
+
+
+
   server.post("/payment/confirm", async (req, res) => {
     const { cardNumber, expiry } = req.body as PaymentBody;
 

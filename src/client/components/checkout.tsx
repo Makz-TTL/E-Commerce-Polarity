@@ -7,7 +7,7 @@ type CheckoutProps = {
     userId: number
     productId: number
     quantity: number
-    cartItem?: {          // <--- Aggiunto questo blocco relazionato
+    cartItem?: {         
       productName: string
       category: string
       price: number | string
@@ -17,17 +17,13 @@ type CheckoutProps = {
   user?: { name: string; lastName: string } | null
 }
 
-
-
 export default function Checkout({ session, cart, user }: CheckoutProps) {
-
 
   const totalPrice = cart.reduce((sum, item) => {
     const price = item.cartItem?.price ? Number(item.cartItem?.price) : 0;
     const quantity = item.quantity ? Number(item.quantity) : 1;
     return sum + (price * quantity);
   }, 0);
-
 
   return (
     <div class="bg-gray-50 min-h-screen">
@@ -52,33 +48,52 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
           <div class="flex-1 flex flex-col gap-4">
             <h2 class="text-[28px] font-bold text-gray-700">Riepilogo ordine</h2>
 
-            {cart.map((order) => (
-              <div class="flex items-center gap-4 bg-white border border-gray-200 rounded-2xl shadow-sm p-4">
-                <img
-                  src={order.cartItem?.imageUrl || "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80"}
-                  alt={order.cartItem?.productName}
-                  class="w-16 h-16 object-cover rounded-xl flex-shrink-0"
-                />
-                <div class="flex-1 min-w-0">
-                  <h3 class="text-sm font-bold text-gray-900 truncate">{order.cartItem?.productName}</h3>
-                  <span class="inline-block mt-1 bg-indigo-50 text-indigo-600 text-xs font-semibold px-2 py-0.5 rounded-full">
-                    {order.cartItem?.category}
-                  </span>
+            {cart.map((order) => {
+              // --- LOGICA DI PARSING PER L'IMMAGINE ---
+              let productCover = "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80";
+              const rawImageUrl = order.cartItem?.imageUrl;
+
+              if (rawImageUrl) {
+                try {
+                  const images = JSON.parse(rawImageUrl);
+                  if (Array.isArray(images) && images.length > 0) {
+                    productCover = images[0];
+                  }
+                } catch (e) {
+                  // Fallback se la stringa contiene apici spuri o non è un JSON valido
+                  productCover = rawImageUrl.replace(/^['"]|['"]$/g, '');
+                }
+              }
+
+              return (
+                <div class="flex items-center gap-4 bg-white border border-gray-200 rounded-2xl shadow-sm p-4">
+                  <img
+                    src={productCover} // <-- Ora usa la stringa pulita estratta dal JSON
+                    alt={order.cartItem?.productName}
+                    class="w-16 h-16 object-cover rounded-xl flex-shrink-0"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <h3 class="text-sm font-bold text-gray-900 truncate">{order.cartItem?.productName}</h3>
+                    <span class="inline-block mt-1 bg-indigo-50 text-indigo-600 text-xs font-semibold px-2 py-0.5 rounded-full">
+                      {order.cartItem?.category}
+                    </span>
+                  </div>
+                  <div class="flex flex-col items-center gap-0.5">
+                    <span class="text-xs text-gray-400">Qtà</span>
+                    <span class="text-sm font-bold text-gray-800">{order.quantity}</span>
+                  </div>
+                  <div class="flex flex-col items-end gap-0.5 min-w-[70px]">
+                    <span class="text-xs text-gray-400">Totale</span>
+                    <span class="text-[16px] font-bold text-black-600">
+                      €{((Number(order.cartItem?.price) || 0) * (Number(order.quantity) || 1)).toLocaleString("it-IT")}
+                    </span>
+                  </div>
                 </div>
-                <div class="flex flex-col items-center gap-0.5">
-                  <span class="text-xs text-gray-400">Qtà</span>
-                  <span class="text-sm font-bold text-gray-800">{order.quantity}</span>
-                </div>
-                <div class="flex flex-col items-end gap-0.5 min-w-[70px]">
-                  <span class="text-xs text-gray-400">Totale</span>
-                  <span class="text-[16px] font-bold text-balck-600">€{((Number(order.cartItem?.price) || 0) * (Number(order.quantity) || 1)).toLocaleString("it-IT")}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Colonna destra - Form + totale */}
-          
           <div class="lg:w-96 flex flex-col gap-6">
 
             {/* Indirizzo di spedizione */}
@@ -92,7 +107,7 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
                     value={user ? `${user.name} ${user.lastName}` : ""}
                     class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     required
-                    name = "fullName"
+                    name="fullName"
                     oninput="this.style.borderColor=''"
                 />
                 <div id="error-fullName"></div>
@@ -105,7 +120,7 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
                   placeholder="Via Roma 1"
                   class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                   required
-                  name = "address"
+                  name="address"
                   oninput="this.style.borderColor=''"
                 />
                 <div id="error-address"></div>
@@ -119,7 +134,7 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
                     placeholder="Milano"
                     class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     required
-                    name = "city"
+                    name="city"
                     oninput="this.style.borderColor=''"
                   />
                   <div id="error-city"></div>
@@ -132,7 +147,7 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
                     maxlength={5}
                     class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     required
-                    name = "cap"
+                    name="cap"
                     oninput="this.style.borderColor=''"
                   />
                   <div id="error-cap"></div>

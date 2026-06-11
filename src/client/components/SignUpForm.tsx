@@ -21,7 +21,7 @@ export default function SignUpForm({ values = {}, errors, isEdit = false, onEdit
     return (
        <div id="registerDiv" class="p-6">
             <p class="text-gray-500 text-sm mb-6">
-                {isEdit ? "Modifica i tuoi dati personali" : "Compila i campi per registrarti"}
+                {isEdit ? "Clicca per modificare i campi" : "Compila i campi per registrarti"}
             </p>
 
             <form 
