@@ -35,16 +35,19 @@ export default function Payment({session, cart, totalPrice} : paymentProps){
                     oninput="this.value = this.value.replace(/[^0-9]/g,'').replace(/(.{4})/g,'$1 ').trim()"
                     class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 />
+                <div id="error-cardNumber"></div>
                 </div>
 
                 {/* Nome sulla carta */}
                 <div class="flex flex-col gap-1">
                 <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Nome sulla carta</label>
                 <input
+                    name = "nameOnTheCart"
                     type="text"
                     placeholder="Mario Rossi"
                     class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                 />
+                <div id="error-nameOnTheCart"></div>
                 </div>
 
                 {/* Scadenza e CVV */}
@@ -52,23 +55,26 @@ export default function Payment({session, cart, totalPrice} : paymentProps){
                 <div class="flex flex-col gap-1 flex-1">
                     <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Scadenza</label>
                     <input
-                    type="text"
                     name = "expiry"
+                    type="text"
                     placeholder="MM/AA"
                     maxlength="5"
                     oninput="this.value = this.value.replace(/[^0-9]/g,'').replace(/^(.{2})(.+)$/,'$1/$2')"
                     class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     />
+                    <div id="error-expiry"></div>
                 </div>
                 <div class="flex flex-col gap-1 w-24">
                     <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">CVV</label>
                     <input
+                    name = "cvv"
                     type="password"
                     placeholder="•••"
                     maxlength="3"
                     oninput="this.value = this.value.replace(/[^0-9]/g,'')"
                     class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
                     />
+                    <div id="error-cvv"></div>
                 </div>
                 </div>
 
@@ -90,7 +96,7 @@ export default function Payment({session, cart, totalPrice} : paymentProps){
                 <button
                     hx-post="/payment/confirm"
                     hx-swap="none"
-                    hx-include="#formData"
+                    hx-include="#formData [name]"
                     class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold py-2.5 rounded-xl text-sm shadow-sm transition-colors cursor-pointer"
                 >
                     Paga

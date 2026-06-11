@@ -367,11 +367,6 @@ export default (server: ZodFastifyInstance) => {
       )
     }
   })
-
-  type PaymentBody = {
-    cardNumber: string
-    expiry: string
-  }
   
 
   server.post("/updateCartQuantity/:cartId", async (req, res) => {
@@ -402,85 +397,117 @@ export default (server: ZodFastifyInstance) => {
 
 
 
+
+  type PaymentBody = {
+    cardNumber: string
+    expiry: string
+    cvv: string
+    nameOnTheCart: string
+  }
+
   server.post("/payment/confirm", async (req, res) => {
-    const { cardNumber, expiry } = req.body as PaymentBody;
+    const { cardNumber, expiry, cvv, nameOnTheCart } = req.body as PaymentBody;
 
-    const [month, year] = expiry.split("/");
-    const expiryMonth = parseInt(month);
-    const expiryYear = parseInt("20" + year);
 
-    const now = new Date();
-    const currentMonth = now.getMonth() + 1;
-    const currentYear = now.getFullYear();
+    const errors: Record<string, string> = {}
+    if (!cardNumber?.trim()) errors.cardNumber = "Dati della carta obbligatori"
+    if (!expiry?.trim()) errors.expiry = "Data di scadenza obbligatoria"
+    if (!cvv?.trim()) errors.cvv = "CVV obbligatorio"
+    if (!nameOnTheCart?.trim()) errors.nameOnTheCart = "Nome sulla carta obbligatorio"
 
-    const isValidExpiryDate =
-      expiryMonth >= 1 && expiryMonth <= 12 &&
-      (expiryYear > currentYear || (expiryYear === currentYear && expiryMonth >= currentMonth));
+    if (Object.keys(errors).length > 0) {
+      return res.html(
+        Object.entries(errors).map(([field, msg]) => `
+          <style hx-swap-oob="beforeend:head">
+            [name='${field}'] { border-color: rgb(239 68 68) !important; }
+          </style>
+          <div hx-swap-oob="innerHTML:#error-${field}">
+            <p class="text-red-500 text-xs mt-1">${msg}</p>
+          </div>
+        `).join('')
+      )
+    }
 
-    if (cardNumber == "1234 5678 1234 5678" || !isValidExpiryDate) {
-      return res.header("HX-Redirect", "/payment/declined").send();
-    } else {
+    else{
 
-      const user = await db.query.users.findFirst({
-        where: { userName: req.session.username }
-      });
+      const [month, year] = expiry.split("/");
+      const expiryMonth = parseInt(month);
+      const expiryYear = parseInt("20" + year);
 
-      if (user) {
-        // 1. Prendi gli elementi dal CARRELLO, non dagli ordini
-        const cartItems = await db.query.cart.findMany({
-          where: { userId: user.id },
-          with: { cartItem: true } // Assicurati che la relazione sia attiva nel carrello
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+
+      const isValidExpiryDate =
+        expiryMonth >= 1 && expiryMonth <= 12 &&
+        (expiryYear > currentYear || (expiryYear === currentYear && expiryMonth >= currentMonth));
+
+      if (cardNumber == "1234 5678 1234 5678" || !isValidExpiryDate) {
+        return res.header("HX-Redirect", "/payment/declined").send();
+      } else {
+
+        const user = await db.query.users.findFirst({
+          where: { userName: req.session.username }
         });
 
-        // Se il carrello è vuoto, evita di procedere
-        if (cartItems.length === 0) {
-          return res.header("HX-Redirect", "/cart").send();
+        if (user) {
+          // 1. Prendi gli elementi dal CARRELLO, non dagli ordini
+          const cartItems = await db.query.cart.findMany({
+            where: { userId: user.id },
+            with: { cartItem: true } // Assicurati che la relazione sia attiva nel carrello
+          });
+
+          // Se il carrello è vuoto, evita di procedere
+          if (cartItems.length === 0) {
+            return res.header("HX-Redirect", "/cart").send();
+          }
+
+          let totalAmount = 0;
+
+          // Usiamo un ciclo for...of per gestire le operazioni asincrone in sequenza
+          for (const item of cartItems) {
+            if (item.cartItem) {
+              // 2. Calcola il prezzo totale per questo specifico elemento
+              const itemTotal = (item.cartItem.price || 0) * item.quantity;
+              totalAmount += itemTotal;
+
+              // 3. Inserisci il record definitivo nella tabella ORDERS
+              await db.insert(orders).values({
+                userId: user.id,
+                productId: item.productId,
+                quantity: item.quantity,
+                totalPrice: itemTotal // Qui inseriamo il doublePrecision richiesto dal tuo db
+              });
+
+              // 4. Scala lo stock dal prodotto
+              await db.update(products)
+                .set({ stock: item.cartItem.stock - item.quantity })
+                .where(eq(products.id, item.productId));
+            }
+          }
+
+          // Formatta il totale complessivo per l'email
+          const totalFormatted = totalAmount.toFixed(2);
+          // const totalCart = totalFormatted.toLocaleString()
+
+          // 5. SVUOTA IL CARRELLO (e non gli ordini!)
+          await db.delete(cart).where(eq(cart.userId, user.id));
+
+          // 6. Invia l'email con il totale corretto
+          await sendTemplateEmail({
+            to: user.eMail,
+            subject: "Conferma del tuo ordine TechStore",
+            template: "OrderConfirmEmail",
+            payload: {
+              name: user.name,
+              totalPrice: totalFormatted
+            }
+          });
         }
 
-        let totalAmount = 0;
-
-        // Usiamo un ciclo for...of per gestire le operazioni asincrone in sequenza
-        for (const item of cartItems) {
-          if (item.cartItem) {
-            // 2. Calcola il prezzo totale per questo specifico elemento
-            const itemTotal = (item.cartItem.price || 0) * item.quantity;
-            totalAmount += itemTotal;
-
-            // 3. Inserisci il record definitivo nella tabella ORDERS
-            await db.insert(orders).values({
-              userId: user.id,
-              productId: item.productId,
-              quantity: item.quantity,
-              totalPrice: itemTotal // Qui inseriamo il doublePrecision richiesto dal tuo db
-            });
-
-            // 4. Scala lo stock dal prodotto
-            await db.update(products)
-              .set({ stock: item.cartItem.stock - item.quantity })
-              .where(eq(products.id, item.productId));
-          }
-        }
-
-        // Formatta il totale complessivo per l'email
-        const totalFormatted = totalAmount.toFixed(2);
-        // const totalCart = totalFormatted.toLocaleString()
-
-        // 5. SVUOTA IL CARRELLO (e non gli ordini!)
-        await db.delete(cart).where(eq(cart.userId, user.id));
-
-        // 6. Invia l'email con il totale corretto
-        await sendTemplateEmail({
-          to: user.eMail,
-          subject: "Conferma del tuo ordine TechStore",
-          template: "OrderConfirmEmail",
-          payload: {
-            name: user.name,
-            totalPrice: totalFormatted
-          }
-        });
+        return res.header("HX-Redirect", "/payment/accepted").send();
       }
 
-      return res.header("HX-Redirect", "/payment/accepted").send();
     }
   });
 
