@@ -135,7 +135,21 @@ export default async function PorfilePage({ username }: Props) {
                                 {/* Container Prezzo + Azioni di eliminazione */}
                                 <div class="flex items-center gap-4">
                                     <span class="text-indigo-600 font-bold">${product.price}</span>
+
+                                    {/* Bottone modifica */}
+                                    <button
+                                        hx-get={`/edit-product-modal/${product.id}`}
+                                        hx-target="#modal"
+                                        hx-swap="innerHTML"
+                                        class="p-2 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-xl transition-colors cursor-pointer"
+                                        title="Modifica prodotto"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+                                        </svg>
+                                    </button>
                                     
+                                    {/* Bottone elimina già esistente */}
                                     <button
                                         hx-delete={`/product/${product.id}`}
                                         hx-confirm="Sei sicuro di voler eliminare definitivamente questo annuncio?"
