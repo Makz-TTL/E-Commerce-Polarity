@@ -5,7 +5,6 @@ import { eq, and } from "drizzle-orm"
 import * as argon2 from "argon2"
 import { z } from "zod"
 import fs from "fs"
-import OpenAI from "openai"
 import sharp from "sharp"
 
 import { orders, users, products, cart } from "../../db/schema"
@@ -333,8 +332,9 @@ export default (server: ZodFastifyInstance) => {
         <SignUpForm isEdit={true} values={{ ...(req.body as any), email }} errors={errors} />
       )
     }
-    
-    let currentUser: typeof users.$inferSelect | undefined
+  
+
+    let currentUser: typeof users.$inferSelect | undefined //dichiarato fuori
 
     const { nome, cognome, username } = result.data
 
@@ -345,6 +345,7 @@ export default (server: ZodFastifyInstance) => {
       if (!currentUser) {
         return res.status(404).send("Utente non trovato")
       }
+
 
       if (username !== req.session.username) {
         const existingUser = await db.select().from(users).where(eq(users.userName, username)).limit(1)
