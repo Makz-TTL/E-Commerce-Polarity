@@ -324,6 +324,8 @@ export default (server: ZodFastifyInstance) => {
       )
     }
 
+    let currentUser: typeof users.$inferSelect | undefined //dichiarato fuori
+
     const { nome, cognome, username } = result.data
 
     try {
@@ -333,6 +335,7 @@ export default (server: ZodFastifyInstance) => {
       if (!currentUser) {
         return res.status(404).send("Utente non trovato")
       }
+
 
       if (username !== req.session.username) {
         const existingUser = await db.select().from(users).where(eq(users.userName, username)).limit(1)
@@ -367,7 +370,7 @@ export default (server: ZodFastifyInstance) => {
       return res.status(200).html(
         <SignUpForm 
           isEdit={true} 
-          values={{ ...(req.body as any), email: currentUser.eMail }} 
+          values={{ ...(req.body as any), email: currentUser?.eMail }} 
           errors={{ email: "Si è verificato un errore interno durante il salvataggio." }} 
         />
       )

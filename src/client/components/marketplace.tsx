@@ -232,27 +232,80 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
       {/* 👇 NUOVA BARRA: filtri categoria + search bar affiancati */}
       <div class="flex flex-col sm:flex-row gap-3 mt-4 mb-2 max-w-7xl mx-auto px-6">
         
-        {/* Filtri categoria */}
-        <div class="flex gap-2 overflow-x-auto pb-1 shrink-0">
-          <label for="category-filter" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Filtri:
-          </label>
-          <select
-            id="category-filter"
-            name="category"
-            hx-get="/marketplace"
-            hx-target="#products-grid"
-            hx-swap="outerHTML"
-            class="bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl px-4 py-2.5 pr-8 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-sm cursor-pointer transition-colors"
-          >
-            {AVAILABLE_CATEGORIES.map((cat) => (
-              // 3. Il confronto dell'attributo 'selected' ora è coerente con la logica case-insensitive
-              <option value={cat.value} selected={category.toLowerCase() === cat.value.toLowerCase()}>
-                {cat.label}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Filtri categoria - dropdown custom */}
+<div class="relative shrink-0" id="category-dropdown">
+  
+  {/* Bottone trigger */}
+  <button
+    type="button"
+    onclick="
+      const menu = document.getElementById('category-menu');
+      const arrow = document.getElementById('dropdown-arrow');
+      const isOpen = !menu.classList.contains('hidden');
+      if (isOpen) {
+        menu.classList.add('opacity-0', 'scale-95');
+        menu.classList.remove('opacity-100', 'scale-100');
+        setTimeout(() => menu.classList.add('hidden'), 150);
+        arrow.classList.remove('rotate-180');
+      } else {
+        menu.classList.remove('hidden');
+        setTimeout(() => {
+          menu.classList.remove('opacity-0', 'scale-95');
+          menu.classList.add('opacity-100', 'scale-100');
+        }, 10);
+        arrow.classList.add('rotate-180');
+      }
+    "
+    class="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl px-4 py-2.5 shadow-sm hover:border-indigo-400 transition-colors cursor-pointer min-w-[180px] justify-between"
+  >
+    <span id="category-label">Tutte le categorie</span>
+    <svg id="dropdown-arrow" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+    </svg>
+  </button>
+
+  {/* Menu dropdown */}
+  <div
+    id="category-menu"
+    class="hidden absolute z-50 mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden opacity-0 scale-95 transition-all duration-150 origin-top"
+    >
+      {AVAILABLE_CATEGORIES.map((cat) => (
+        <button
+          type="button"
+          onclick={`
+            // aggiorna label
+            document.getElementById('category-label').innerText = '${cat.label}';
+            // chiudi menu
+            const menu = document.getElementById('category-menu');
+            const arrow = document.getElementById('dropdown-arrow');
+            menu.classList.add('opacity-0', 'scale-95');
+            menu.classList.remove('opacity-100', 'scale-100');
+            setTimeout(() => menu.classList.add('hidden'), 150);
+            arrow.classList.remove('rotate-180');
+            // aggiorna input hidden e triggera htmx
+            document.getElementById('category-value').value = '${cat.value}';
+            htmx.trigger(document.getElementById('category-value'), 'change');
+          `}
+          class="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors cursor-pointer"
+        >
+          {cat.label}
+        </button>
+      ))}
+    </div>
+
+    {/* Input hidden per HTMX */}
+    <input
+      id="category-value"
+      type="hidden"
+      name="category"
+      value=""
+      hx-get="/marketplace"
+      hx-target="#products-grid"
+      hx-swap="outerHTML"
+      hx-trigger="change"
+      hx-include="#search-input"
+    />
+  </div>
 
         {/* Search bar */}
         <div class="flex-1 relative">
@@ -270,7 +323,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
             hx-target="#products-grid"
             hx-swap="outerHTML"
             hx-trigger="input changed delay:400ms, search"
-            hx-include="[name='search']" // si include da solo
+            hx-include="#category-value"
             class="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition"
           />
         </div>
