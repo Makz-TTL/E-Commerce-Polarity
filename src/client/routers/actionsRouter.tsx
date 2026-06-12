@@ -319,10 +319,14 @@ export default (server: ZodFastifyInstance) => {
       const rows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
       const email = rows[0]?.eMail || ""
 
+
+
       return res.status(200).html(
         <SignUpForm isEdit={true} values={{ ...(req.body as any), email }} errors={errors} />
       )
     }
+    
+    let currentUser: typeof users.$inferSelect | undefined
 
     const { nome, cognome, username } = result.data
 
@@ -367,7 +371,7 @@ export default (server: ZodFastifyInstance) => {
       return res.status(200).html(
         <SignUpForm 
           isEdit={true} 
-          values={{ ...(req.body as any), email: currentUser.eMail }} 
+          values={{ ...(req.body as any), email: currentUser?.eMail }} 
           errors={{ email: "Si è verificato un errore interno durante il salvataggio." }} 
         />
       )
@@ -468,14 +472,7 @@ export default (server: ZodFastifyInstance) => {
       return res.header("HX-Redirect", "/payment/accepted").send();
     }
   });
-
-  type checkOutBody = {
-      fullName : string
-      city : string
-      cap : string
-      address : string
-  }
-
+  
   server.get("/checkout/validate", async (req, res) => {
     const { fullName, city, cap, address } = req.query as checkOutBody
 
