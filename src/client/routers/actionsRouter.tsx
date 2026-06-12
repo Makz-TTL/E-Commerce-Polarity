@@ -469,6 +469,13 @@ export default (server: ZodFastifyInstance) => {
     }
   });
 
+  type checkOutBody = {
+      fullName : string
+      city : string
+      cap : string
+      address : string
+  }
+
   server.get("/checkout/validate", async (req, res) => {
     const { fullName, city, cap, address } = req.query as checkOutBody
 
