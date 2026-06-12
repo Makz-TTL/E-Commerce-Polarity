@@ -588,10 +588,12 @@ A single decimal number only. Nothing else.` }],
     }
   })
   server.get("/edit-product-modal/:id", async (req, res) => {
-      if (!req.session.username) return res.status(401).send("Non autorizzato")
+      if (!req.session.username) return res.status(401).send("Non autorizzato, devi essere loggato per modificare un prodotto")
 
       const { id } = req.params as { id: string }
       const productId = parseInt(id, 10)
+
+      if (req.session.userId !== Number(id)) return res.status(403).send("Non autorizzato, non puoi modificare un prodotto che non ti appartiene")
 
       const product = await db.query.products.findFirst({
           where: { id: productId }
