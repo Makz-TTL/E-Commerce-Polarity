@@ -466,9 +466,16 @@ export default (server: ZodFastifyInstance) => {
           .send()
       }
 
+      const [product] = await db.insert(products).values({
+        productName, price, stock, category, description,
+        imageUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : undefined,
+        userId: user.id,
+        status: "pending",
+        reliability: null,
+      }).returning()
+
       res
-        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Richiesta ricevuta. Il prodotto è in fase di elaborazione." } }))
-        .header("HX-Redirect", `/profile?username=${user.userName}`)
+        .header("HX-Redirect", `/profile?username=${user.userName}&toast=Richiesta ricevuta. Il prodotto è in fase di elaborazione.`)
         .send()
 
       setImmediate(async () => {
@@ -541,13 +548,7 @@ A single decimal number only. Nothing else.` }],
             imageUrls.unshift(...imageUrls.splice(coverIndex, 1))
           }
 
-          await db.insert(products).values({
-            productName, price, stock, category, description,
-            imageUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : undefined,
-            userId: user.id,
-            status,
-            reliability: score,
-          })
+          await db.update(products).set({ status, reliability: score }).where(eq(products.id, product.id))
 
           server.log.info(`Product saved. Status: ${status}`)
         } catch (bgError) {

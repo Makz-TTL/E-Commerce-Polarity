@@ -1,0 +1,1 @@
+ALTER TABLE "cart" ADD CONSTRAINT "cart_productId_products_id_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE CASCADE;
