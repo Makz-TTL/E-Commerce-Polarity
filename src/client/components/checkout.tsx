@@ -177,9 +177,12 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
                 hx-get="/checkout/validate"
                 hx-include="#checkout-section [name]"
                 hx-swap="none"
-                class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-3 px-6 rounded-xl shadow-sm transition-colors cursor-pointer text-sm"
+                class="inline-flex items-center gap-2 justify-center w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold py-3 px-6 rounded-xl shadow-sm transition-colors cursor-pointer text-sm"
               >
-                Conferma ordine
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 shrink-0">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+                </svg>
+                Checkout
               </button>
 
               <a href="/cart" class="text-center text-xs text-gray-400 hover:text-indigo-500 hover:underline transition-colors">

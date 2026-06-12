@@ -109,11 +109,14 @@ export default async function PorfilePage({ username }: Props) {
                             }
                         }
 
-                        // Gestione dinamica dello stato (Approvato, In attesa, Rifiutato)
+                        // Gestione dinamica dello stato (Approvato, In revisione, In attesa, Rifiutato)
                         let statusColorClass = "bg-amber-400 ring-amber-50"
                         let statusText = "In attesa"
 
-                        if (product.status === "approved") {
+                        if (product.status === "reviewing") {
+                            statusColorClass = "bg-blue-500 ring-blue-50 animate-pulse"
+                            statusText = "In revisione"
+                        } else if (product.status === "approved") {
                             statusColorClass = "bg-emerald-500 ring-emerald-50"
                             statusText = "Approvato"
                         } else if (product.status === "rejected") {
@@ -239,7 +242,7 @@ export default async function PorfilePage({ username }: Props) {
                                         </span>
                                     </div>
                                 </div>
-                                <span class="text-black-600 font-bold">${order.totalPrice.toLocaleString("it-IT")}</span>
+                                <span class="text-[#000000] font-bold">${order.totalPrice.toLocaleString("it-IT")}</span>
                             </div>
                         )
                     })}
