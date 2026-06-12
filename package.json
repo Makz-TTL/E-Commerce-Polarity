@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^4.0.114",
-    "@aws-sdk/client-bedrock-runtime": "^3.1065.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1066.0",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",
     "@fastify/formbody": "^8.0.2",
@@ -24,7 +24,6 @@
     "@kitajs/fastify-html-plugin": "^4.1.0",
     "@kitajs/html": "^4.2.0",
     "@libsql/client": "^0.17.3",
-    "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.0.8",
     "@tailwindcss/cli": "^4.3.0",
     "argon": "^2.0.21",
@@ -32,7 +31,7 @@
     "better-sqlite3": "^12.10.0",
     "classnames": "^2.5.1",
     "dotenv": "^17.4.2",
-    "drizzle-orm": "^1.0.0-beta.22",
+    "drizzle-orm": "1.0.0-beta.22",
     "fastify": "^5.3.0",
     "fastify-type-provider-zod": "^6.1.0",
     "htmx.org": "=2.0.6",
@@ -42,7 +41,7 @@
     "postgres": "^3.4.9",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "react-mail": "^0.0.1",
+    "sharp": "^0.35.1",
     "tailwindcss": "^4.3.0",
     "sharp": "^0.33.5",
     "zod": "^4.4.3"
@@ -55,9 +54,9 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^19.2.16",
     "@types/react-dom": "^19.2.3",
-    "drizzle-kit": "^1.0.0-beta.22",
+    "drizzle-kit": "1.0.0-beta.22",
     "esbuild": "^0.28.0",
-    "react-email": "^6.5.0",
+    "react-email": "^6.6.0",
     "tsx": "^4.19.0",
     "typescript": "^5.9.3"
   }
