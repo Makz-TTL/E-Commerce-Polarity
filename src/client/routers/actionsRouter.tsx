@@ -20,6 +20,7 @@ import { pipeline } from "stream/promises"
 import { fileURLToPath } from "url"
 import Cart from "../components/cart"
 import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime"
+import EditProductModal from "../components/EditProductModal"
 
 type PaymentBody = {
   cardNumber: string
@@ -35,6 +36,13 @@ type checkOutBody = {
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+// adatta il path alla tua struttura
+const uploadDir = path.join(__dirname, "../../public/images")
+
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true })
+}
 
 const bedrockClient = new BedrockRuntimeClient({
   region: process.env.AWS_REGION || "eu-central-1",
@@ -472,7 +480,7 @@ export default (server: ZodFastifyInstance) => {
       return res.header("HX-Redirect", "/payment/accepted").send();
     }
   });
-  
+
   server.get("/checkout/validate", async (req, res) => {
     const { fullName, city, cap, address } = req.query as checkOutBody
 
@@ -870,6 +878,202 @@ A single decimal number only. Nothing else.`
 
     } catch (error) {
       return res.status(500).send("Impossibile eliminare il prodotto")
+    }
+  })
+
+  // Carica il modal con i dati precompilati
+  server.get("/edit-product-modal/:id", async (req, res) => {
+      if (!req.session.username) return res.status(401).send("Non autorizzato")
+
+      const { id } = req.params as { id: string }
+      const productId = parseInt(id, 10)
+
+      const product = await db.query.products.findFirst({
+          where: { id: productId }
+      })
+
+      if (!product) return res.status(404).send("Prodotto non trovato")
+
+      return res.status(200).html(<EditProductModal product={product} />)
+  })
+
+  server.post("/edit-product/:id", async (req, res) => {
+    if (!req.session.username) return res.status(401).send("Non autorizzato")
+
+    const { id } = req.params as { id: string }
+    const productId = parseInt(id, 10)
+
+    try {
+      const parts = req.parts()
+      let productName = ""
+      let price = 0
+      let stock = 0
+      let category = ""
+      let description = ""
+      const imageUrls: string[] = []
+      let coverIndex = 0
+
+      for await (const part of parts) {
+        if (part.type === "file" && part.fieldname === "images" && part.filename) {
+          const ext = path.extname(part.filename).toLowerCase()
+          const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"]
+          if (!allowedExtensions.includes(ext)) {
+            part.file.resume()
+            continue
+          }
+          const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`
+          const uploadPath = path.join(uploadDir, uniqueFilename)
+          await pipeline(part.file, fs.createWriteStream(uploadPath))
+          imageUrls.push(`/images/${uniqueFilename}`)
+        } else if (part.type === "field") {
+          if (part.fieldname === "productName") productName = part.value as string
+          if (part.fieldname === "price") price = parseFloat(part.value as string) || 0
+          if (part.fieldname === "stock") stock = parseInt(part.value as string, 10) || 0
+          if (part.fieldname === "category") category = part.value as string
+          if (part.fieldname === "description") description = part.value as string
+          if (part.fieldname === "coverIndex") coverIndex = parseInt(part.value as string, 10) || 0
+        }
+      }
+
+      if (!productName || price <= 0 || stock < 1) {
+        const product = await db.query.products.findFirst({ where: { id: productId } })
+        return res.status(200).html(<EditProductModal product={product!} error="Campi non compilati correttamente." />)
+      }
+
+      const userRows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+      const user = userRows[0]
+
+      // Rispondi subito al client
+      res
+        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Modifiche ricevute. Il prodotto è in fase di revisione." } }))
+        .header("HX-Redirect", `/profile?username=${user.userName}`)
+        .send()
+
+      // Moderazione in background
+      setImmediate(async () => {
+        try {
+          const messageContent: any[] = [
+            {
+              text: `Analizza questo prodotto modificato:\n${JSON.stringify({ productName, category, description, price })}`
+            }
+          ]
+
+          for (const url of imageUrls) {
+            const absolutePath = path.join(process.cwd(), "public", url)
+            if (fs.existsSync(absolutePath)) {
+              const ext = path.extname(absolutePath).toLowerCase()
+              let format: "jpeg" | "png" | "gif" | "webp" | null = null
+              if (ext === ".jpg" || ext === ".jpeg") format = "jpeg"
+              else if (ext === ".png") format = "png"
+              else if (ext === ".gif") format = "gif"
+              else if (ext === ".webp") format = "webp"
+
+              if (format) {
+                const imageBuffer = fs.readFileSync(absolutePath)
+                messageContent.push({
+                  image: {
+                    format,
+                    source: { bytes: new Uint8Array(imageBuffer) }
+                  }
+                })
+              }
+            }
+          }
+
+          const command = new ConverseCommand({
+            modelId: process.env.BEDROCK_MODEL_ID || "eu.anthropic.claude-sonnet-4-6",
+            messages: [{ role: "user", content: messageContent }],
+            system: [
+              {
+                text: `You are an automated moderation agent for an e-commerce marketplace. Your sole job is to evaluate new product listings submitted by sellers and return a single decimal score between 0.00 and 1.00. You must never return anything other than this number — no explanations, no comments, no punctuation, no text.
+
+  SCORING SCALE:
+  0.00 - ILLEGAL ITEM
+
+  0.80-1 - ITEMS WHICH ARE NOT SCUMMY OR SUSPICIOUS IN ANY WAY, OR FOR WHICH THERE IS NOT ENOUGH INFORMATION TO JUDGE (DEFAULT TO APPROVAL)
+
+  YOUR DEFAULT ASSUMPTION IS APPROVAL.
+  Unless you can point to a specific concrete problem, score 0.90 or above.
+  Doubt = approve. Uncertainty = approve. Missing info = approve.
+  Never use the manual review band as a fallback for vagueness.
+
+  ELECTRONICS & BRANDED GOODS:
+  Smartphones, laptops, tablets, and other consumer electronics listed under a real brand name (Apple, Samsung, Sony, etc.) are among the most commonly resold items on any marketplace. Listing an iPhone, Galaxy, MacBook, or similar at any reasonable second-hand price is completely normal. Score these 0.90–1.00 by default.
+
+  WHAT "SUSPICIOUS PRICE" ACTUALLY MEANS:
+  A price is only suspicious if it is more than 90% below the known retail price with zero explanation. Examples:
+  - iPhone 15 Pro listed at 850€ → completely normal → 0.95
+  - iPhone 15 Pro listed at 600€ → used/discounted, totally fine → 0.93
+  - iPhone 15 Pro listed at 50€ → suspicious → 0.60
+  - iPhone 15 Pro listed at 5€ → obvious scam → 0.10
+  A price that simply seems "low" or "cheap" for a new item is NOT a flag. Second-hand electronics are routinely sold at 30–60% below retail.
+
+  HARD REJECTION — 0.00 to 0.45 — only for:
+  - Explicitly illegal products (controlled substances, illegal weapons, CSAM, stolen goods explicitly stated)
+  - Word "replica", "fake", "clone", "copy of" in the listing
+  - Price more than 90% below retail with no condition explanation
+  - Product that has no legitimate civilian use
+
+  MANUAL REVIEW — 0.50 to 0.79 — only for:
+  - Dual-use items commonly misused (certain chemicals, surveillance devices, lock-picking sets)
+  - Prescription-only or heavily regulated items
+  - Images explicitly contradict the text description
+  - Price is 70–90% below retail with no condition explanation
+
+  APPROVE — 0.80 to 1.00 — everything else, including:
+  - All standard consumer electronics, new or used
+  - Branded goods at any reasonable price
+  - Items with short or vague descriptions
+  - Budget or low-cost items
+  - Second-hand goods in any stated condition
+
+  OUTPUT FORMAT:
+  A single decimal number only. Nothing else.`
+              }
+            ],
+            inferenceConfig: { temperature: 0.1, maxTokens: 300 }
+          })
+
+          const bedrockResponse = await bedrockClient.send(command)
+          const responseText = bedrockResponse.output?.message?.content?.[0]?.text || "0.0"
+
+          let score = 0.0
+          try {
+            const cleanText = responseText.replace(/```json|```/g, "").trim()
+            const parsed = JSON.parse(cleanText)
+            if (typeof parsed === "number") score = parsed
+            else if (parsed && typeof parsed.score === "number") score = parsed.score
+            else score = parseFloat(cleanText) || 0.0
+          } catch {
+            score = parseFloat(responseText.trim()) || 0.0
+          }
+
+          let status: string
+          if (score < 0.50) status = "rejected"
+          else if (score < 0.80) status = "pending"
+          else status = "approved"
+
+          const updateData: any = { productName, price, stock, category, description, status, reliability: score }
+
+          if (imageUrls.length > 0) {
+            if (coverIndex >= 0 && coverIndex < imageUrls.length) {
+              const coverImage = imageUrls.splice(coverIndex, 1)[0]
+              imageUrls.unshift(coverImage)
+            }
+            updateData.imageUrl = JSON.stringify(imageUrls)
+          }
+
+          await db.update(products).set(updateData).where(eq(products.id, productId))
+          server.log.info(`Prodotto ${productId} aggiornato. Status: ${status}, Score: ${score}`)
+
+        } catch (bgError) {
+          server.log.error(bgError)
+        }
+      })
+
+    } catch (error) {
+      console.error("ERRORE MODIFICA PRODOTTO:", error)
+      return res.status(500).send("Errore durante la modifica del prodotto")
     }
   })
 }
