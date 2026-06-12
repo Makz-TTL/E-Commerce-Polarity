@@ -19,18 +19,20 @@ import PaymentDeclined from "../components/paymentDeclined"
 
 export default (server: ZodFastifyInstance) => {
   const renderMarketplace = async (
-    req: FastifyRequest<{ Querystring: { category?: string } }>,
+    req: FastifyRequest<{ Querystring: { category?: string; search?: string } }>,
     reply: FastifyReply
   ) => {
     const query = req.query
-    
+
     const searchParams = {
       category: typeof query.category === "string" ? query.category : undefined,
+      search: typeof query.search === "string" ? query.search : undefined,
     }
+
     const isHtmx = req.headers["hx-request"] === "true"
 
     if (isHtmx) {
-      const htmlContent = await Marketplace({ searchParams, partial: true })
+      const htmlContent = await Marketplace({ searchParams, partial: true, session: req.session }) //aggiunta session anche qui
       return reply.html(htmlContent)
     }
 
