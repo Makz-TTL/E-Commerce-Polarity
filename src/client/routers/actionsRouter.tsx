@@ -21,6 +21,18 @@ import { fileURLToPath } from "url"
 import Cart from "../components/cart"
 import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime"
 
+type PaymentBody = {
+  cardNumber: string
+  expiry: string
+}
+
+type checkOutBody = {
+  fullName?: string
+  city?: string
+  cap?: string
+  address?: string
+}
+
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
@@ -355,7 +367,7 @@ export default (server: ZodFastifyInstance) => {
       return res.status(200).html(
         <SignUpForm 
           isEdit={true} 
-          values={{ ...(req.body as any), email: users?.eMail }} 
+          values={{ ...(req.body as any), email: currentUser.eMail }} 
           errors={{ email: "Si è verificato un errore interno durante il salvataggio." }} 
         />
       )
@@ -423,11 +435,13 @@ export default (server: ZodFastifyInstance) => {
             const itemTotal = (item.cartItem.price || 0) * item.quantity;
             totalAmount += itemTotal;
 
+            // Modificato qui: aggiunto lo stato dell'ordine "not yet sent"
             await db.insert(orders).values({
               userId: user.id,
               productId: item.productId,
               quantity: item.quantity,
-              totalPrice: itemTotal
+              totalPrice: itemTotal,
+              status: "not yet sent"
             });
 
             await db.update(products)
@@ -543,7 +557,7 @@ export default (server: ZodFastifyInstance) => {
         ],
         system: [
           {
-            text: "Sei un copywriter esperto di e-commerce. Il tuo unico compito è scrivere una descrizione di prodotto accattivante, professionale e persuasiva in lingua italiana basandoti sui dati e sulle immagini fornite. Mantieni il testo sotto i 1000 caratteri. Restituisci ESCLUSIVAMENTE la descrizione finale come testo puro. Non includere saluti, introduzioni, titoli, virgolette o formattazioni markdown, il sito punta alle nuove generazioni, quindi matieni un tono fresco, diretto e coinvolgente, rendi anche il testo bello visivamente usando emoji pertinenti al prodotto, ma senza esagerare. Se le immagini fornite mostrano un prodotto danneggiato o di bassa qualità, evidenzialo nella descrizione in modo sottile ma chiaro, in modo da evitare aspettative errate nei clienti."
+            text: "Sei un copywriter esperto di e-commerce. Il tuo unico compito è scrivere una descrizione di prodotto accattivante, professionale e persuasiva in lingua italiana basandoti sui dati e sulle immagini fornite. Mantieni il testo sotto i 1000 caratteri. Restituisci ESCLUSIVAMENTE la descrizione finale come testo puro. Non includere saluti, introduzioni, titoli, virgolette o formattazioni markdown, il sito punta alle nuove generazioni, quindi matieni un tono fresco, directo e coinvolgente, rendi anche il testo bello visivamente usando emoji pertinenti al prodotto, ma senza esagerare. Se le immagini fornite mostrano un prodotto danneggiato o di bassa qualità, evidenzialo nella descrizione in modo sottile ma chiaro, in modo da evitare aspettative errate nei clienti."
           }
         ],
         inferenceConfig: {
@@ -855,4 +869,3 @@ A single decimal number only. Nothing else.`
     }
   })
 }
-

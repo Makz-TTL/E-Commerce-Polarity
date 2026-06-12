@@ -191,6 +191,21 @@ export default async function PorfilePage({ username }: Props) {
                             }
                         }
 
+                        // Gestione grafica del badge di stato dell'ordine
+                        let orderStatusText = "In lavorazione"
+                        let orderStatusClass = "bg-gray-100 text-gray-600 border-gray-200"
+
+                        if (order.status === "not yet sent") {
+                            orderStatusText = "Non ancora spedito"
+                            orderStatusClass = "bg-amber-50 text-amber-700 border-amber-200"
+                        } else if (order.status === "sent") {
+                            orderStatusText = "Spedito"
+                            orderStatusClass = "bg-blue-50 text-blue-700 border-blue-200"
+                        } else if (order.status === "delivered") {
+                            orderStatusText = "Consegnato"
+                            orderStatusClass = "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        }
+
                         return (
                             <div class="flex items-center justify-between py-3 gap-4">
                                 <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
@@ -201,8 +216,13 @@ export default async function PorfilePage({ username }: Props) {
                                 />
                                 </div>
                                 <div class="flex-1">
-                                <p class="font-medium text-gray-800">{order.product?.productName ?? "Prodotto eliminato"}</p>
-                                <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
+                                    <p class="font-medium text-gray-800">{order.product?.productName ?? "Prodotto eliminato"}</p>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
+                                        <span class={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${orderStatusClass}`}>
+                                            {orderStatusText}
+                                        </span>
+                                    </div>
                                 </div>
                                 <span class="text-black-600 font-bold">${order.totalPrice.toLocaleString("it-IT")}</span>
                             </div>
