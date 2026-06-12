@@ -5,6 +5,11 @@ type Props = {
 export default function SellProductModal({ error }: Props) {
   return (
     <div id="modal-sell" class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-opacity animate-fade-in">
+      <style>{`
+        .loading-spinner { display: none; }
+        .htmx-request .loading-spinner { display: inline; }
+        .htmx-request .default-text { display: none; }
+      `}</style>
       <div 
         class="bg-white w-full max-w-xl rounded-2xl shadow-xl border border-gray-100 flex flex-col max-h-[90vh] overflow-hidden"
         onclick="event.stopPropagation()"
@@ -22,7 +27,6 @@ export default function SellProductModal({ error }: Props) {
           </button>
         </div>
 
-        {/* Validazione sicura con onsubmit */}
         <form 
           hx-post="/sell-product" 
           hx-encoding="multipart/form-data" 
@@ -48,7 +52,7 @@ export default function SellProductModal({ error }: Props) {
                 required 
                 maxlength="80"
                 pattern=".*\S.*"
-                title="Il nome del prodotto non può essere vuoto o composto da soli spazi"
+                title="Il nome del prodotto non può essere vuoto o composto da soli spasi"
                 placeholder="es. iPhone 15 Pro Max"
                 class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
               />
@@ -56,7 +60,7 @@ export default function SellProductModal({ error }: Props) {
 
             <div class="grid grid-cols-2 gap-4">
               <div class="flex flex-col gap-1">
-                <label class="text-sm font-semibold text-gray-700" for="price">Prezzo ($)</label>
+                <label class="text-sm font-semibold text-gray-700" for="price">Prezzo (€)</label>
                 <input 
                   type="number" 
                   id="price" 
@@ -100,7 +104,21 @@ export default function SellProductModal({ error }: Props) {
             </div>
 
             <div class="flex flex-col gap-1">
-              <label class="text-sm font-semibold text-gray-700" for="description">Descrizione</label>
+              <div class="flex justify-between items-center mb-0.5">
+                <label class="text-sm font-semibold text-gray-700" for="description">Descrizione</label>
+                <button 
+                  type="button"
+                  hx-post="/magic-description"
+                  hx-include="closest form"
+                  hx-encoding="multipart/form-data"
+                  hx-target="#description"
+                  hx-swap="outerHTML"
+                  class="text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <span class="default-text">✨ Scrittura Magica</span>
+                  <span class="loading-spinner animate-pulse">🪄 Generando...</span>
+                </button>
+              </div>
               <textarea 
                 id="description" 
                 name="description" 
@@ -155,7 +173,7 @@ export default function SellProductModal({ error }: Props) {
             </button>
           </div>
         </form>
-      </div>
+
 
       <script type="text/javascript">
         {`
@@ -273,6 +291,8 @@ export default function SellProductModal({ error }: Props) {
           };
         `}
       </script>
+    
+        </div>
     </div>
   )
 }
