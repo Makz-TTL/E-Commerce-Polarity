@@ -2,13 +2,26 @@ import { db } from "../../db"
 import { Session } from "fastify"
 import ConfirmLogoutModal from "./ConfirmLogoutModal"
 import { products as productsTable, users as usersTable, reviews as reviewsTable } from "../../db/schema" 
-import { eq, gt, and, sql } from "drizzle-orm"
+// 1. Importiamo 'ilike' insieme agli altri operatori
+import { eq, gt, and, sql, ilike } from "drizzle-orm"
 
 type MarketplaceProps = {
   searchParams?: { category?: string }
   partial?: boolean
   session?: Session
 }
+
+// Spostiamo la mappa fuori dal componente così viene istanziata una sola volta
+const AVAILABLE_CATEGORIES = [
+  { value: "", label: "Tutte le categorie" },
+  { value: "Tech", label: "Tech" },
+  { value: "Toys", label: "Toys" },
+  { value: "Cars", label: "Cars" },
+  { value: "Sport&Outdoor", label: "Sport & Outdoor" },
+  { value: "Hobby", label: "Hobby" },
+  { value: "Collectibles", label: "Collectibles" },
+  { value: "Other", label: "Altro" }
+]
 
 export default async function Marketplace({ searchParams, partial, session }: MarketplaceProps) {
   const category = searchParams?.category ? searchParams.category.trim() : ""
@@ -18,8 +31,11 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
     eq(productsTable.status, "approved")
   ]
 
+  // 2. Logica di filtro ottimizzata per le nuove categorie
   if (category) {
-    queryConditions.push(eq(productsTable.category, category))
+    // Usiamo ilike per un match case-insensitive (es. "tech" troverà anche "Tech")
+    // Inoltre gestisce in modo più sicuro stringhe complesse come "Sport&Outdoor"
+    queryConditions.push(ilike(productsTable.category, category))
   }
 
   const rows = await db
@@ -199,22 +215,31 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
         </div>
       </nav>
 
-      <h1 class="text-3xl font-extrabold tracking-tight text-gray-900 px-6 pt-8 max-w-7xl mx-auto">
-        Marketplace
-      </h1>
-
-      <div class="flex gap-2 mt-4 mb-2 max-w-7xl mx-auto px-6 overflow-x-auto pb-2">
-        {["", "Tech", "Toys", "Cars", "Sport&Outdoor", "Hobby", "Collectibles", "Other"].map((cat) => (
-          <button
-            hx-get={cat === "" ? "/marketplace" : `/marketplace?category=${cat}`}
+      <div class="max-w-7xl mx-auto px-6 pt-8 flex flex-col gap-3">
+        <h1 class="text-3xl font-extrabold tracking-tight text-gray-900">
+          Marketplace
+        </h1>
+        
+        <div class="flex items-center gap-2 self-start">
+          <label for="category-filter" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            Filtri:
+          </label>
+          <select
+            id="category-filter"
+            name="category"
+            hx-get="/marketplace"
             hx-target="#products-grid"
             hx-swap="outerHTML"
-            onclick="document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('bg-indigo-400','text-white','shadow-md','hover:bg-indigo-800','shadow-indigo-100')); document.querySelectorAll('.cat-btn').forEach(b => b.classList.add('bg-white','border','border-gray-200','text-gray-600')); this.classList.remove('bg-white','border','border-gray-200','text-gray-600'); this.classList.add('bg-indigo-600','text-white','shadow-md','hover:bg-indigo-800','shadow-indigo-100');"
-            class="cat-btn px-5 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer bg-blue border border-gray-200 text-gray-600 hover:border-gray-300"
+            class="bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl px-4 py-2.5 pr-8 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-sm cursor-pointer transition-colors"
           >
-            {cat === "" ? "Tutti" : cat}
-          </button>
-        ))}
+            {AVAILABLE_CATEGORIES.map((cat) => (
+              // 3. Il confronto dell'attributo 'selected' ora è coerente con la logica case-insensitive
+              <option value={cat.value} selected={category.toLowerCase() === cat.value.toLowerCase()}>
+                {cat.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {productsGrid}
