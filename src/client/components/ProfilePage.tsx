@@ -224,7 +224,7 @@ export default async function PorfilePage({ username }: Props) {
                                         </span>
                                     </div>
                                 </div>
-                                <span class="text-black-600 font-bold">${order.totalPrice.toLocaleString("it-IT")}</span>
+                                <span class="text-[#000000] font-bold">${order.totalPrice.toLocaleString("it-IT")}</span>
                             </div>
                         )
                     })}
