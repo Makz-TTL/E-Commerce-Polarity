@@ -5,7 +5,6 @@ import { eq, and } from "drizzle-orm"
 import * as argon2 from "argon2"
 import { z } from "zod"
 import fs from "fs"
-import OpenAI from "openai"
 import sharp from "sharp"
 
 import { orders, users, products, cart } from "../../db/schema"
