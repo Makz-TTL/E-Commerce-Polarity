@@ -43,6 +43,7 @@ server.register(fastifyFormbody)
 await server.register(import('@fastify/static'), {
   root: path.join(process.cwd(), "public"),
   prefix: "/",
+  
 })
 
 

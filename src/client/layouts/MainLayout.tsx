@@ -20,13 +20,13 @@ export default (props: LayoutProps) => {
 
       <body class="bg-gray-50 text-gray-900 leading-relaxed">
         {children}
-        
-        <div id={"toast"} />
-        <div id={"modal"} />
+
+        <div id="toast" />
+        <div id="modal" />
         <script src="/live-script"></script>
-      </body>
+
       
+      </body>
     </html>
-    
   )
 }

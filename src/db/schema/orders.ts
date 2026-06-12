@@ -1,4 +1,5 @@
-import { pgTable, integer, serial, doublePrecision } from "drizzle-orm/pg-core"
+import { pgTable, integer,text, serial, doublePrecision } from "drizzle-orm/pg-core"
+
 
 export const orders = pgTable("orders", {
   id: serial().primaryKey(),
@@ -6,6 +7,7 @@ export const orders = pgTable("orders", {
   productId: integer().notNull(),
   quantity: integer().notNull(),
   totalPrice: doublePrecision().notNull(),
+  status: text()
 })
 
 type Order = typeof orders.$inferSelect

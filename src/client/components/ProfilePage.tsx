@@ -135,7 +135,21 @@ export default async function PorfilePage({ username }: Props) {
                                 {/* Container Prezzo + Azioni di eliminazione */}
                                 <div class="flex items-center gap-4">
                                     <span class="text-indigo-600 font-bold">${product.price}</span>
+
+                                    {/* Bottone modifica */}
+                                    <button
+                                        hx-get={`/edit-product-modal/${product.id}`}
+                                        hx-target="#modal"
+                                        hx-swap="innerHTML"
+                                        class="p-2 text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-xl transition-colors cursor-pointer"
+                                        title="Modifica prodotto"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" />
+                                        </svg>
+                                    </button>
                                     
+                                    {/* Bottone elimina già esistente */}
                                     <button
                                         hx-delete={`/product/${product.id}`}
                                         hx-confirm="Sei sicuro di voler eliminare definitivamente questo annuncio?"
@@ -177,6 +191,21 @@ export default async function PorfilePage({ username }: Props) {
                             }
                         }
 
+                        // Gestione grafica del badge di stato dell'ordine
+                        let orderStatusText = "In lavorazione"
+                        let orderStatusClass = "bg-gray-100 text-gray-600 border-gray-200"
+
+                        if (order.status === "not yet sent") {
+                            orderStatusText = "Non ancora spedito"
+                            orderStatusClass = "bg-amber-50 text-amber-700 border-amber-200"
+                        } else if (order.status === "sent") {
+                            orderStatusText = "Spedito"
+                            orderStatusClass = "bg-blue-50 text-blue-700 border-blue-200"
+                        } else if (order.status === "delivered") {
+                            orderStatusText = "Consegnato"
+                            orderStatusClass = "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        }
+
                         return (
                             <div class="flex items-center justify-between py-3 gap-4">
                                 <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
@@ -187,8 +216,13 @@ export default async function PorfilePage({ username }: Props) {
                                 />
                                 </div>
                                 <div class="flex-1">
-                                <p class="font-medium text-gray-800">{order.product?.productName ?? "Prodotto eliminato"}</p>
-                                <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
+                                    <p class="font-medium text-gray-800">{order.product?.productName ?? "Prodotto eliminato"}</p>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
+                                        <span class={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${orderStatusClass}`}>
+                                            {orderStatusText}
+                                        </span>
+                                    </div>
                                 </div>
                                 <span class="text-black-600 font-bold">${order.totalPrice.toLocaleString("it-IT")}</span>
                             </div>

@@ -10,6 +10,18 @@ type MarketplaceProps = {
   session?: Session
 }
 
+// Spostiamo la mappa fuori dal componente così viene istanziata una sola volta
+const AVAILABLE_CATEGORIES = [
+  { value: "", label: "Tutte le categorie" },
+  { value: "Tech", label: "Tech" },
+  { value: "Toys", label: "Toys" },
+  { value: "Cars", label: "Cars" },
+  { value: "Sport&Outdoor", label: "Sport & Outdoor" },
+  { value: "Hobby", label: "Hobby" },
+  { value: "Collectibles", label: "Collectibles" },
+  { value: "Other", label: "Altro" }
+]
+
 export default async function Marketplace({ searchParams, partial, session }: MarketplaceProps) {
   const category = searchParams?.category ? searchParams.category.trim() : ""
   const search = searchParams?.search ? searchParams.search.trim() : "" // 👈 nuovo
@@ -19,8 +31,11 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
     eq(productsTable.status, "approved")
   ]
 
+  // 2. Logica di filtro ottimizzata per le nuove categorie
   if (category) {
-    queryConditions.push(eq(productsTable.category, category))
+    // Usiamo ilike per un match case-insensitive (es. "tech" troverà anche "Tech")
+    // Inoltre gestisce in modo più sicuro stringhe complesse come "Sport&Outdoor"
+    queryConditions.push(like(productsTable.category, category))
   }
 
   //filtra per nome prodotto (case-insensitive)
@@ -219,18 +234,24 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
         
         {/* Filtri categoria */}
         <div class="flex gap-2 overflow-x-auto pb-1 shrink-0">
-          {["", "Tech", "Toy", "Auto"].map((cat) => (
-            <button
-              hx-get={cat === "" ? "/marketplace" : `/marketplace?category=${cat}`}
-              hx-target="#products-grid"
-              hx-swap="outerHTML"
-              hx-include="#search-input" //include il valore della search nella richiesta categoria
-              onclick="document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('bg-indigo-600','text-white','shadow-md','hover:bg-indigo-800','shadow-indigo-100')); document.querySelectorAll('.cat-btn').forEach(b => b.classList.add('bg-white','border','border-gray-200','text-gray-600')); this.classList.remove('bg-white','border','border-gray-200','text-gray-600'); this.classList.add('bg-indigo-600','text-white','shadow-md','hover:bg-indigo-800','shadow-indigo-100');"
-              class="cat-btn px-5 py-2 rounded-xl text-sm font-semibold transition-all shrink-0 cursor-pointer bg-white border border-gray-200 text-gray-600 hover:border-gray-300"
-            >
-              {cat === "" ? "Tutti" : cat}
-            </button>
-          ))}
+          <label for="category-filter" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            Filtri:
+          </label>
+          <select
+            id="category-filter"
+            name="category"
+            hx-get="/marketplace"
+            hx-target="#products-grid"
+            hx-swap="outerHTML"
+            class="bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl px-4 py-2.5 pr-8 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-sm cursor-pointer transition-colors"
+          >
+            {AVAILABLE_CATEGORIES.map((cat) => (
+              // 3. Il confronto dell'attributo 'selected' ora è coerente con la logica case-insensitive
+              <option value={cat.value} selected={category.toLowerCase() === cat.value.toLowerCase()}>
+                {cat.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Search bar */}

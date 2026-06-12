@@ -6,6 +6,7 @@ import * as argon2 from "argon2"
 import { z } from "zod"
 import fs from "fs"
 import OpenAI from "openai"
+import sharp from "sharp"
 
 import { orders, users, products, cart } from "../../db/schema"
 import LoginForm from "../components/LoginForm"
@@ -19,6 +20,18 @@ import { pipeline } from "stream/promises"
 import { fileURLToPath } from "url"
 import Cart from "../components/cart"
 import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime"
+
+type PaymentBody = {
+  cardNumber: string
+  expiry: string
+}
+
+type checkOutBody = {
+  fullName?: string
+  city?: string
+  cap?: string
+  address?: string
+}
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -171,10 +184,8 @@ export default (server: ZodFastifyInstance) => {
     }
 
     try {
-      // 1. Elimina l'elemento dal carrello
       await db.delete(cart).where(eq(cart.id, cartID))
 
-      // 2. Forza HTMX a ricaricare la pagina del carrello
       return res
         .header("HX-Redirect", "/cart")
         .send()
@@ -226,7 +237,6 @@ export default (server: ZodFastifyInstance) => {
         return res.status(404).send("Prodotto non trovato")
       }
       
-      // --- CONTROLLO DI SICUREZZA BLOCCANTE ---
       if (product.userId === user.id) {
         return res
           .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Non puoi aggiungere al carrello un tuo prodotto!" } }))
@@ -239,7 +249,6 @@ export default (server: ZodFastifyInstance) => {
           .send()
       }
 
-      // 1. CONTROLLO SE IL PRODOTTO È GIÀ NEL CARRELLO DELL'UTENTE
       const existingCartRows = await db
         .select()
         .from(cart)
@@ -256,21 +265,18 @@ export default (server: ZodFastifyInstance) => {
       if (existingCartItem) {
         const newQuantity = existingCartItem.quantity + quantity
 
-        // 2. Controllo di sicurezza aggiuntivo: il totale nel carrello supera lo stock?
         if (product.stock < newQuantity) {
           return res
             .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: `Hai già questo articolo nel carrello. Non puoi superare lo stock massimo di ${product.stock}!` } }))
             .send()
         }
 
-        // 3. AGGIORNAMENTO: Incrementa la quantità della riga esistente
         await db
           .update(cart)
           .set({ quantity: newQuantity })
           .where(eq(cart.id, existingCartItem.id))
 
       } else {
-        // 4. INSERIMENTO: Il prodotto non c'era, crea una nuova riga
         await db.insert(cart).values({
           userId: user.id,             
           productId: productId, 
@@ -361,13 +367,12 @@ export default (server: ZodFastifyInstance) => {
       return res.status(200).html(
         <SignUpForm 
           isEdit={true} 
-          values={{ ...(req.body as any), email: users?.eMail }} 
+          values={{ ...(req.body as any), email: currentUser.eMail }} 
           errors={{ email: "Si è verificato un errore interno durante il salvataggio." }} 
         />
       )
     }
   })
-  
 
   server.post("/updateCartQuantity/:cartId", async (req, res) => {
     const { cartId } = req.params as { cartId: string }
@@ -377,16 +382,11 @@ export default (server: ZodFastifyInstance) => {
     if (isNaN(newQty) || newQty < 1) return res.status(400).send("Quantità non valida")
 
     try {
-        // 1. Aggiorna la quantità nel DB
         await db.update(cart)
           .set({ quantity: newQty })
           .where(eq(cart.id, parseInt(cartId, 10)))
 
-        // 2. Prendi la sessione corrente
         const session = req.session
-
-        // 3. Renderizza di nuovo l'intera View del carrello passandogli la sessione.
-        // HTMX riceverà questo HTML e sostituirà il vecchio body con questo aggiornato.
         return res.status(200).html(<Cart session={session} />)
 
     } catch (error) {
@@ -395,25 +395,88 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
-
-
-
-  type PaymentBody = {
-    cardNumber: string
-    expiry: string
-    cvv: string
-    nameOnTheCart: string
-  }
-
   server.post("/payment/confirm", async (req, res) => {
-    const { cardNumber, expiry, cvv, nameOnTheCart } = req.body as PaymentBody;
+    const { cardNumber, expiry } = req.body as PaymentBody;
 
+    const [month, year] = expiry.split("/");
+    const expiryMonth = parseInt(month);
+    const expiryYear = parseInt("20" + year);
+
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+
+    const isValidExpiryDate =
+      expiryMonth >= 1 && expiryMonth <= 12 &&
+      (expiryYear > currentYear || (expiryYear === currentYear && expiryMonth >= currentMonth));
+
+    if (cardNumber == "1234 5678 1234 5678" || !isValidExpiryDate) {
+      return res.header("HX-Redirect", "/payment/declined").send();
+    } else {
+
+      const user = await db.query.users.findFirst({
+        where: { userName: req.session.username }
+      });
+
+      if (user) {
+        const cartItems = await db.query.cart.findMany({
+          where: { userId: user.id },
+          with: { cartItem: true }
+        });
+
+        if (cartItems.length === 0) {
+          return res.header("HX-Redirect", "/cart").send();
+        }
+
+        let totalAmount = 0;
+
+        for (const item of cartItems) {
+          if (item.cartItem) {
+            const itemTotal = (item.cartItem.price || 0) * item.quantity;
+            totalAmount += itemTotal;
+
+            // Modificato qui: aggiunto lo stato dell'ordine "not yet sent"
+            await db.insert(orders).values({
+              userId: user.id,
+              productId: item.productId,
+              quantity: item.quantity,
+              totalPrice: itemTotal,
+              status: "not yet sent"
+            });
+
+            await db.update(products)
+              .set({ stock: item.cartItem.stock - item.quantity })
+              .where(eq(products.id, item.productId));
+          }
+        }
+
+        const totalFormatted = totalAmount.toFixed(2);
+
+        await db.delete(cart).where(eq(cart.userId, user.id));
+
+        await sendTemplateEmail({
+          to: user.eMail,
+          subject: "Conferma del tuo ordine TechStore",
+          template: "OrderConfirmEmail",
+          payload: {
+            name: user.name,
+            totalPrice: totalFormatted
+          }
+        });
+      }
+
+      return res.header("HX-Redirect", "/payment/accepted").send();
+    }
+  });
+
+  server.get("/checkout/validate", async (req, res) => {
+    const { fullName, city, cap, address } = req.query as checkOutBody
 
     const errors: Record<string, string> = {}
-    if (!cardNumber?.trim()) errors.cardNumber = "Dati della carta obbligatori"
-    if (!expiry?.trim()) errors.expiry = "Data di scadenza obbligatoria"
-    if (!cvv?.trim()) errors.cvv = "CVV obbligatorio"
-    if (!nameOnTheCart?.trim()) errors.nameOnTheCart = "Nome sulla carta obbligatorio"
+    if (!fullName?.trim()) errors.fullName = "Nome obbligatorio"
+    if (!address?.trim()) errors.address = "Indirizzo obbligatorio"
+    if (!city?.trim()) errors.city = "Città obbligatoria"
+    if (!cap?.trim()) errors.cap = "CAP obbligatorio"
 
     if (Object.keys(errors).length > 0) {
       return res.html(
@@ -428,122 +491,109 @@ export default (server: ZodFastifyInstance) => {
       )
     }
 
-    else{
+    return res.header('HX-Redirect', '/checkout/payment').send()
+  })
 
-      const [month, year] = expiry.split("/");
-      const expiryMonth = parseInt(month);
-      const expiryYear = parseInt("20" + year);
+  server.post("/magic-description", async (req, res) => {
+    if (!req.session.username) {
+      return res.status(401).send("Non autorizzato")
+    }
 
-      const now = new Date();
-      const currentMonth = now.getMonth() + 1;
-      const currentYear = now.getFullYear();
+    try {
+      const parts = req.parts()
+      let productName = ""
+      let price = ""
+      let category = ""
+      const messageContent: any[] = []
 
-      const isValidExpiryDate =
-        expiryMonth >= 1 && expiryMonth <= 12 &&
-        (expiryYear > currentYear || (expiryYear === currentYear && expiryMonth >= currentMonth));
+      for await (const part of parts) {
+        if (part.type === "file" && part.fieldname === "images" && part.filename) {
+          const ext = path.extname(part.filename).toLowerCase()
+          let format: "jpeg" | "png" | "gif" | "webp" | null = null
 
-      if (cardNumber == "1234 5678 1234 5678" || !isValidExpiryDate) {
-        return res.header("HX-Redirect", "/payment/declined").send();
-      } else {
+          if (ext === ".jpg" || ext === ".jpeg") format = "jpeg"
+          else if (ext === ".png") format = "png"
+          else if (ext === ".gif") format = "gif"
+          else if (ext === ".webp") format = "webp"
 
-        const user = await db.query.users.findFirst({
-          where: { userName: req.session.username }
-        });
-
-        if (user) {
-          // 1. Prendi gli elementi dal CARRELLO, non dagli ordini
-          const cartItems = await db.query.cart.findMany({
-            where: { userId: user.id },
-            with: { cartItem: true } // Assicurati che la relazione sia attiva nel carrello
-          });
-
-          // Se il carrello è vuoto, evita di procedere
-          if (cartItems.length === 0) {
-            return res.header("HX-Redirect", "/cart").send();
-          }
-
-          let totalAmount = 0;
-
-          // Usiamo un ciclo for...of per gestire le operazioni asincrone in sequenza
-          for (const item of cartItems) {
-            if (item.cartItem) {
-              // 2. Calcola il prezzo totale per questo specifico elemento
-              const itemTotal = (item.cartItem.price || 0) * item.quantity;
-              totalAmount += itemTotal;
-
-              // 3. Inserisci il record definitivo nella tabella ORDERS
-              await db.insert(orders).values({
-                userId: user.id,
-                productId: item.productId,
-                quantity: item.quantity,
-                totalPrice: itemTotal // Qui inseriamo il doublePrecision richiesto dal tuo db
-              });
-
-              // 4. Scala lo stock dal prodotto
-              await db.update(products)
-                .set({ stock: item.cartItem.stock - item.quantity })
-                .where(eq(products.id, item.productId));
+          if (format) {
+            const chunks = []
+            for await (const chunk of part.file) {
+              chunks.push(chunk)
             }
+            const buffer = Buffer.concat(chunks)
+            const optimized = await sharp(buffer, { failOn: "none" })
+              .resize({ width: 800, height: 800, fit: "inside", withoutEnlargement: true })
+              .jpeg({ quality: 75 })
+              .toBuffer()
+
+            messageContent.push({
+              image: {
+                format: "jpeg",
+                source: { bytes: new Uint8Array(optimized) }
+              }
+            })
+          } else {
+            part.file.resume()
           }
-
-          // Formatta il totale complessivo per l'email
-          const totalFormatted = totalAmount.toFixed(2);
-          // const totalCart = totalFormatted.toLocaleString()
-
-          // 5. SVUOTA IL CARRELLO (e non gli ordini!)
-          await db.delete(cart).where(eq(cart.userId, user.id));
-
-          // 6. Invia l'email con il totale corretto
-          await sendTemplateEmail({
-            to: user.eMail,
-            subject: "Conferma del tuo ordine TechStore",
-            template: "OrderConfirmEmail",
-            payload: {
-              name: user.name,
-              totalPrice: totalFormatted
-            }
-          });
+        } else if (part.type === "field") {
+          if (part.fieldname === "productName") productName = part.value as string
+          if (part.fieldname === "price") price = part.value as string
+          if (part.fieldname === "category") category = part.value as string
         }
-
-        return res.header("HX-Redirect", "/payment/accepted").send();
       }
 
+      messageContent.unshift({
+        text: `Genera una descrizione per questo prodotto:\n${JSON.stringify({ productName, category, price })}`
+      })
+
+      const command = new ConverseCommand({
+        modelId: process.env.BEDROCK_MODEL_ID || "eu.anthropic.claude-sonnet-4-6",
+        messages: [
+          {
+            role: "user",
+            content: messageContent
+          }
+        ],
+        system: [
+          {
+            text: "Sei un copywriter esperto di e-commerce. Il tuo unico compito è scrivere una descrizione di prodotto accattivante, professionale e persuasiva in lingua italiana basandoti sui dati e sulle immagini fornite. Mantieni il testo sotto i 1000 caratteri. Restituisci ESCLUSIVAMENTE la descrizione finale come testo puro. Non includere saluti, introduzioni, titoli, virgolette o formattazioni markdown, il sito punta alle nuove generazioni, quindi matieni un tono fresco, directo e coinvolgente, rendi anche il testo bello visivamente usando emoji pertinenti al prodotto, ma senza esagerare. Se le immagini fornite mostrano un prodotto danneggiato o di bassa qualità, evidenzialo nella descrizione in modo sottile ma chiaro, in modo da evitare aspettative errate nei clienti."
+          }
+        ],
+        inferenceConfig: {
+          temperature: 0.7,
+          maxTokens: 400
+        }
+      })
+
+      const bedrockResponse = await bedrockClient.send(command)
+      const generatedText = bedrockResponse.output?.message?.content?.[0]?.text || ""
+
+      return res.status(200).html(
+        <textarea 
+          id="description" 
+          name="description" 
+          rows="3"
+          maxlength="1000"
+          placeholder="Descrivi brevemente le caratteristiche del prodotto (max 1000 caratteri)..."
+          class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white resize-none"
+        >{generatedText.trim()}</textarea>
+      )
+
+    } catch (error) {
+      server.log.error(error)
+      return res.status(200).html(
+        <textarea 
+          id="description" 
+          name="description" 
+          rows="3"
+          maxlength="1000"
+          placeholder="Descrivi brevemente le caratteristiche del prodotto (max 1000 caratteri)..."
+          class="w-full border border-red-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-900 bg-white resize-none"
+        >Si è verificato un errore durante la generazione automatica. Riprova.</textarea>
+      )
     }
-  });
-
-
-type checkOutBody = {
-      fullName : string
-      city : string
-      cap : string
-      address : string
-  }
-
-server.get("/checkout/validate", async (req, res) => {
-  const { fullName, city, cap, address } = req.query as checkOutBody
-
-  const errors: Record<string, string> = {}
-  if (!fullName?.trim()) errors.fullName = "Nome obbligatorio"
-  if (!address?.trim()) errors.address = "Indirizzo obbligatorio"
-  if (!city?.trim()) errors.city = "Città obbligatoria"
-  if (!cap?.trim()) errors.cap = "CAP obbligatorio"
-
-  if (Object.keys(errors).length > 0) {
-    return res.html(
-      Object.entries(errors).map(([field, msg]) => `
-        <style hx-swap-oob="beforeend:head">
-          [name='${field}'] { border-color: rgb(239 68 68) !important; }
-        </style>
-        <div hx-swap-oob="innerHTML:#error-${field}">
-          <p class="text-red-500 text-xs mt-1">${msg}</p>
-        </div>
-      `).join('')
-    )
-  }
-
-  return res.header('HX-Redirect', '/checkout/payment').send()
-})
-
+  })
 
   server.post("/sell-product", async (req, res) => {
     if (!req.session.username) {
@@ -585,10 +635,14 @@ server.get("/checkout/validate", async (req, res) => {
             continue
           }
 
-          const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`
+          const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.jpg`
           const uploadPath = path.join(uploadDir, uniqueFilename)
           
-          await pipeline(part.file, fs.createWriteStream(uploadPath))
+          const optimizer = sharp({ failOn: "none" })
+            .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
+            .jpeg({ quality: 80, progressive: true })
+
+          await pipeline(part.file, optimizer, fs.createWriteStream(uploadPath))
           imageUrls.push(`/images/${uniqueFilename}`)
 
         } else if (part.type === "field") {
@@ -734,7 +788,6 @@ A single decimal number only. Nothing else.`
           } else {
             status = "approved"
           }
-
 
           if (imageUrls.length > 0 && coverIndex >= 0 && coverIndex < imageUrls.length) {
             const coverImage = imageUrls.splice(coverIndex, 1)[0]
