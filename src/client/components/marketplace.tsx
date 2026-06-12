@@ -1,12 +1,11 @@
 import { db } from "../../db"
 import { Session } from "fastify"
 import ConfirmLogoutModal from "./ConfirmLogoutModal"
-import { products as productsTable, users as usersTable, reviews as reviewsTable } from "../../db/schema" 
-// 1. Importiamo 'ilike' insieme agli altri operatori
-import { eq, gt, and, sql, ilike } from "drizzle-orm"
+import { products as productsTable, users as usersTable } from "../../db/schema"
+import { eq, gt, and, sql, like } from "drizzle-orm" // 👈 aggiunto "like"
 
 type MarketplaceProps = {
-  searchParams?: { category?: string }
+  searchParams?: { category?: string; search?: string } // 👈 aggiunto search
   partial?: boolean
   session?: Session
 }
@@ -25,6 +24,7 @@ const AVAILABLE_CATEGORIES = [
 
 export default async function Marketplace({ searchParams, partial, session }: MarketplaceProps) {
   const category = searchParams?.category ? searchParams.category.trim() : ""
+  const search = searchParams?.search ? searchParams.search.trim() : "" // 👈 nuovo
 
   const queryConditions = [
     gt(productsTable.stock, 0),
@@ -35,7 +35,12 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
   if (category) {
     // Usiamo ilike per un match case-insensitive (es. "tech" troverà anche "Tech")
     // Inoltre gestisce in modo più sicuro stringhe complesse come "Sport&Outdoor"
-    queryConditions.push(ilike(productsTable.category, category))
+    queryConditions.push(like(productsTable.category, category))
+  }
+
+  //filtra per nome prodotto (case-insensitive)
+  if (search) {
+    queryConditions.push(like(productsTable.productName, `%${search}%`))
   }
 
   const rows = await db
@@ -65,96 +70,103 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
 
   const productsGrid = (
     <div id="products-grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 p-6 max-w-7xl mx-auto">
-      {products.map((product: any) => {
-        const isOwnProduct = session?.username && session.username === product.seller?.userName;
+      {products.length === 0 ? ( // 👈 nuovo: empty state
+        <div class="col-span-full flex flex-col items-center justify-center py-20 text-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-14 h-14 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 15.803a7.5 7.5 0 0 0 10.607 0Z" />
+          </svg>
+          <p class="text-gray-500 font-medium text-lg">Nessun prodotto trovato</p>
+          <p class="text-gray-400 text-sm mt-1">Prova con un altro termine o categoria</p>
+        </div>
+      ) : (
+        products.map((product: any) => {
+          const isOwnProduct = session?.username && session.username === product.seller?.userName;
 
-        let productCover = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80';
-        if (product.imageUrl) {
+          let productCover = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80';
+          if (product.imageUrl) {
             try {
-                const images = JSON.parse(product.imageUrl);
-                if (Array.isArray(images) && images.length > 0) {
-                    productCover = images[0];
-                }
+              const images = JSON.parse(product.imageUrl);
+              if (Array.isArray(images) && images.length > 0) {
+                productCover = images[0];
+              }
             } catch (e) {
-                productCover = product.imageUrl;
+              productCover = product.imageUrl;
             }
-        }
+          }
 
-        return (
-          <div id={`product-card-${product.id}`} class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl flex flex-col justify-between">
-            
-            <div class="w-full aspect-[4/3] bg-gray-50 overflow-hidden rounded-t-xl hover:cursor-pointer group" onclick={`window.location.href='/product/${product.id}'`}>
-              <img
-                src={productCover}
-                alt={product.productName}
-                class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                loading="lazy"
-              />
-            </div>
+          return (
+            <div id={`product-card-${product.id}`} class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl flex flex-col justify-between">
+              <div class="w-full aspect-[4/3] bg-gray-50 overflow-hidden rounded-t-xl hover:cursor-pointer group" onclick={`window.location.href='/product/${product.id}'`}>
+                <img
+                  src={productCover}
+                  alt={product.productName}
+                  class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  loading="lazy"
+                />
+              </div>
 
-            <div class="flex-1 flex flex-col justify-between p-4 min-w-0">
-              <div class="min-w-0">
+              <div class="flex-1 flex flex-col justify-between p-4 min-w-0">
+                <div class="min-w-0">
                   <h2 class="text-xl font-bold text-gray-900 tracking-tight truncate mb-0.5" title={product.productName}>
                     {product.productName}
                   </h2>
-                  
                   <div class="my-1.5 flex items-center gap-1.5">
                     <label class="text-xs font-medium text-gray-400">Stock disponibile:</label>
                     <span id={`stock-badge-${product.id}`} class="inline-block bg-gray-100 text-gray-800 text-[11px] font-semibold px-2 py-0.5 rounded-full">
                       {product.stock}
                     </span>
                   </div>
-              </div>
-
-              <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                <div class="pr-3">
-                  <span class="text-2xl font-extrabold text-gray-900">${product.price.toLocaleString("it-IT")}</span>
                 </div>
 
-                {isOwnProduct ? (
-                  <button
-                    disabled
-                    class="w-32 bg-gray-100 text-gray-400 font-medium py-2 px-3 rounded-xl text-xs text-center cursor-not-allowed border border-gray-200"
-                  >
-                    Tuo prodotto
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onclick={`
-                      const btn = this;
-                      const badge = document.getElementById('stock-badge-${product.id}');
-                      const card = document.getElementById('product-card-${product.id}');
-                      
-                      btn.addEventListener('htmx:afterRequest', function(e) {
-                        if (e.detail.successful && badge) {
-                          const currentStock = parseInt(badge.innerText, 10);
-                          const newStock = Math.max(0, currentStock - 1);
-                          
-                          if (newStock <= 0 && card) {
-                            card.style.transition = 'all 0.3s ease';
-                            card.style.opacity = '0';
-                            card.style.transform = 'scale(0.95)';
-                            setTimeout(() => card.remove(), 300);
-                          } else {
-                            badge.innerText = newStock;
+                <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                  <div class="pr-3">
+                    <span class="text-2xl font-extrabold text-gray-900">${product.price.toLocaleString("it-IT")}</span>
+                  </div>
+
+                  {isOwnProduct ? (
+                    <button
+                      disabled
+                      class="w-32 bg-gray-100 text-gray-400 font-medium py-2 px-3 rounded-xl text-xs text-center cursor-not-allowed border border-gray-200"
+                    >
+                      Tuo prodotto
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onclick={`
+                        const btn = this;
+                        const badge = document.getElementById('stock-badge-${product.id}');
+                        const card = document.getElementById('product-card-${product.id}');
+                        
+                        btn.addEventListener('htmx:afterRequest', function(e) {
+                          if (e.detail.successful && badge) {
+                            const currentStock = parseInt(badge.innerText, 10);
+                            const newStock = Math.max(0, currentStock - 1);
+                            
+                            if (newStock <= 0 && card) {
+                              card.style.transition = 'all 0.3s ease';
+                              card.style.opacity = '0';
+                              card.style.transform = 'scale(0.95)';
+                              setTimeout(() => card.remove(), 300);
+                            } else {
+                              badge.innerText = newStock;
+                            }
                           }
-                        }
-                      }, { once: true });
+                        }, { once: true });
 
-                      htmx.ajax('GET', '/addToCart/${product.id}?quantity=1', { swap: 'none', elt: btn });
-                    `}
-                    class="w-32 h-10 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2 px-2 rounded-xl transition-colors shadow-sm text-xs text-center cursor-pointer"
-                  >
-                    Aggiungi
-                  </button>
-                )}
+                        htmx.ajax('GET', '/addToCart/${product.id}?quantity=1', { swap: 'none', elt: btn });
+                      `}
+                      class="w-32 h-10 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2 px-2 rounded-xl transition-colors shadow-sm text-xs text-center cursor-pointer"
+                    >
+                      Aggiungi
+                    </button>
+                  )}
+                </div>
               </div>
-
             </div>
-          </div>
-        )
-      })}
+          )
+        })
+      )}
     </div>
   )
 
@@ -167,7 +179,6 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
       <nav class="w-full bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex justify-between h-16 items-center">
-
             <div class="flex-shrink-0 flex items-center">
               <a href="/" class="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
                 TechStore
@@ -210,36 +221,113 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                 </button>
               )}
             </div>
-
           </div>
         </div>
       </nav>
 
-      <div class="max-w-7xl mx-auto px-6 pt-8 flex flex-col gap-3">
-        <h1 class="text-3xl font-extrabold tracking-tight text-gray-900">
-          Marketplace
-        </h1>
+      <h1 class="text-3xl font-extrabold tracking-tight text-gray-900 px-6 pt-8 max-w-7xl mx-auto">
+        Marketplace
+      </h1>
+
+      {/* 👇 NUOVA BARRA: filtri categoria + search bar affiancati */}
+      <div class="flex flex-col sm:flex-row gap-3 mt-4 mb-2 max-w-7xl mx-auto px-6">
         
-        <div class="flex items-center gap-2 self-start">
-          <label for="category-filter" class="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Filtri:
-          </label>
-          <select
-            id="category-filter"
-            name="category"
+        {/* Filtri categoria - dropdown custom */}
+<div class="relative shrink-0" id="category-dropdown">
+  
+  {/* Bottone trigger */}
+  <button
+    type="button"
+    onclick="
+      const menu = document.getElementById('category-menu');
+      const arrow = document.getElementById('dropdown-arrow');
+      const isOpen = !menu.classList.contains('hidden');
+      if (isOpen) {
+        menu.classList.add('opacity-0', 'scale-95');
+        menu.classList.remove('opacity-100', 'scale-100');
+        setTimeout(() => menu.classList.add('hidden'), 150);
+        arrow.classList.remove('rotate-180');
+      } else {
+        menu.classList.remove('hidden');
+        setTimeout(() => {
+          menu.classList.remove('opacity-0', 'scale-95');
+          menu.classList.add('opacity-100', 'scale-100');
+        }, 10);
+        arrow.classList.add('rotate-180');
+      }
+    "
+    class="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl px-4 py-2.5 shadow-sm hover:border-indigo-400 transition-colors cursor-pointer min-w-[180px] justify-between"
+  >
+    <span id="category-label">Tutte le categorie</span>
+    <svg id="dropdown-arrow" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+    </svg>
+  </button>
+
+  {/* Menu dropdown */}
+  <div
+    id="category-menu"
+    class="hidden absolute z-50 mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden opacity-0 scale-95 transition-all duration-150 origin-top"
+    >
+      {AVAILABLE_CATEGORIES.map((cat) => (
+        <button
+          type="button"
+          onclick={`
+            // aggiorna label
+            document.getElementById('category-label').innerText = '${cat.label}';
+            // chiudi menu
+            const menu = document.getElementById('category-menu');
+            const arrow = document.getElementById('dropdown-arrow');
+            menu.classList.add('opacity-0', 'scale-95');
+            menu.classList.remove('opacity-100', 'scale-100');
+            setTimeout(() => menu.classList.add('hidden'), 150);
+            arrow.classList.remove('rotate-180');
+            // aggiorna input hidden e triggera htmx
+            document.getElementById('category-value').value = '${cat.value}';
+            htmx.trigger(document.getElementById('category-value'), 'change');
+          `}
+          class="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors cursor-pointer"
+        >
+          {cat.label}
+        </button>
+      ))}
+    </div>
+
+    {/* Input hidden per HTMX */}
+    <input
+      id="category-value"
+      type="hidden"
+      name="category"
+      value=""
+      hx-get="/marketplace"
+      hx-target="#products-grid"
+      hx-swap="outerHTML"
+      hx-trigger="change"
+      hx-include="#search-input"
+    />
+  </div>
+
+        {/* Search bar */}
+        <div class="flex-1 relative">
+          <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 15.803a7.5 7.5 0 0 0 10.607 0Z" />
+            </svg>
+          </div>
+          <input
+            id="search-input"
+            type="text"
+            name="search"
+            placeholder="Cerca prodotti..."
             hx-get="/marketplace"
             hx-target="#products-grid"
             hx-swap="outerHTML"
-            class="bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl px-4 py-2.5 pr-8 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-sm cursor-pointer transition-colors"
-          >
-            {AVAILABLE_CATEGORIES.map((cat) => (
-              // 3. Il confronto dell'attributo 'selected' ora è coerente con la logica case-insensitive
-              <option value={cat.value} selected={category.toLowerCase() === cat.value.toLowerCase()}>
-                {cat.label}
-              </option>
-            ))}
-          </select>
+            hx-trigger="input changed delay:400ms, search"
+            hx-include="#category-value"
+            class="w-full pl-9 pr-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400 transition"
+          />
         </div>
+
       </div>
 
       {productsGrid}
