@@ -204,7 +204,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
       </h1>
 
       <div class="flex gap-2 mt-4 mb-2 max-w-7xl mx-auto px-6 overflow-x-auto pb-2">
-        {["", "Tech", "Toy", "Auto"].map((cat) => (
+        {["", "Tech", "Toys", "Cars", "Sport&Outdoor", "Hobby", "Collectibles", "Other"].map((cat) => (
           <button
             hx-get={cat === "" ? "/marketplace" : `/marketplace?category=${cat}`}
             hx-target="#products-grid"

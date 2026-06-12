@@ -101,7 +101,12 @@ export default function EditProductModal({product , error}: Props){
                 <option value="" disabled>Seleziona una categoria</option>
                 <option value="Toy" selected={product.category === "Toy"}>Toy</option>
                 <option value="Tech" selected={product.category === "Tech"}>Tech</option>
-                <option value="Auto" selected={product.category === "Auto"}>Auto</option>
+                <option value="Cars" selected={product.category === "Cars"}>Cars</option>
+                <option value="Sport&Outdoor" selected={product.category === "Sport&Outdoor"}>Sport & Outdoor</option>
+                <option value="Hobby" selected={product.category === "Hobby"}>Hobby</option>
+                <option value="Collectibles" selected={product.category === "Collectibles"}>Collectibles</option>
+                <option value="Other" selected={product.category === "Other"}>Other</option>
+
               </select>
             </div>
 

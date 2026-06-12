@@ -97,9 +97,13 @@ export default function SellProductModal({ error }: Props) {
                 class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
               >
                 <option value="" disabled selected>Seleziona una categoria</option>
-                <option value="Toy">Toy</option>
+                <option value="Toys">Toy</option>
                 <option value="Tech">Tech</option>
-                <option value="Auto">Auto</option>
+                <option value="Cars">Cars</option>
+                <option value="Sport&Outdoor">Sport & Outdoor</option>
+                <option value="Hobby">Hobby</option>
+                <option value="Collectibles">Collectibles</option>
+                <option value="Other">Other</option>
               </select>
             </div>
 
