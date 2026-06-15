@@ -49,7 +49,7 @@ const pool = new pg.Pool({
   database: env.POSTGRES_DB,
   host: "localhost",
   port: 5432,
-})
+}) //redo
 
 const sessionStore = {
   get: (sid: string, cb: Function) => {
@@ -60,7 +60,7 @@ const sessionStore = {
   set: (sid: string, session: any, cb: Function) => {
     const expire = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     pool.query(
-      "INSERT INTO sessions (sid, sess, expire) VALUES ($1, $2, $3) ON CONFLICT (sid) DO UPDATE SET sess = $2, expire = $3",
+      "INSERT INTO sessions (sid, sess, expire) VALUES ($1, $2, $3) ON CONFLICT (sid) DO UPDATE SET sess = $2, expire = $3", //redo
       [sid, JSON.stringify(session), expire]
     )
       .then(() => cb(null))
