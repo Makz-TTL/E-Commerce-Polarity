@@ -8,6 +8,7 @@ const {
   POSTGRES_USER,
   POSTGRES_PASSWORD,
   POSTGRES_DB,
+  DATABASE_URL
 } = process.env
 
 if (!SESSION_SECRET) {
@@ -32,7 +33,8 @@ const env = {
   COMMON_PASSWORD,
   POSTGRES_USER,
   POSTGRES_PASSWORD,
-  POSTGRES_DB
+  POSTGRES_DB,
+  DATABASE_URL
 }
 
 export default env
