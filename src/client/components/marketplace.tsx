@@ -2,10 +2,11 @@ import { db } from "../../db"
 import { Session } from "fastify"
 import ConfirmLogoutModal from "./ConfirmLogoutModal"
 import { products as productsTable, users as usersTable } from "../../db/schema"
-import { eq, gt, and, sql, like } from "drizzle-orm" // 👈 aggiunto "like"
+import { eq, gt, and, sql, like, ilike } from "drizzle-orm" //aggiunto "like"
+import { getCartCount } from "../helpers/cartCounter"
 
 type MarketplaceProps = {
-  searchParams?: { category?: string; search?: string } // 👈 aggiunto search
+  searchParams?: { category?: string; search?: string } //aggiunto search
   partial?: boolean
   session?: Session
 }
@@ -26,6 +27,8 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
   const category = searchParams?.category ? searchParams.category.trim() : ""
   const search = searchParams?.search ? searchParams.search.trim() : "" // 👈 nuovo
 
+  const cartCount = await getCartCount(session?.username)
+
   const queryConditions = [
     gt(productsTable.stock, 0),
     eq(productsTable.status, "approved")
@@ -40,7 +43,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
 
   //filtra per nome prodotto (case-insensitive)
   if (search) {
-    queryConditions.push(like(productsTable.productName, `%${search}%`))
+    queryConditions.push(ilike(productsTable.productName, `%${search}%`))
   }
 
   const rows = await db
@@ -189,11 +192,17 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
             </div>
 
             <div class="flex items-center gap-4">
-              <button onclick="window.location.href='/cart'" class="relative p-2.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-50 rounded-xl transition-all group">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 group-hover:scale-105 transition-transform">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+              <button onclick="window.location.href='/cart'" class="relative p-2.5 text-indigo-600 bg-gray-50 rounded-xl transition-all group">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 scale-105">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
                 </svg>
-              </button>
+                <span 
+                    id="cart-count-badge" 
+                    class={`absolute -top-1 -right-1 bg-indigo-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center ${cartCount === 0 ? 'hidden' : ''}`}
+                >
+                    {cartCount}
+                </span>
+            </button>
 
               <div id="profile-section">
                 {session?.username ? (

@@ -142,13 +142,21 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
                 <div class="flex flex-col gap-1 w-24">
                   <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide">CAP *</label>
                   <input
-                    type="text"
-                    placeholder="20100"
-                    maxlength={5}
-                    class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                    required
-                    name="cap"
-                    oninput="this.style.borderColor=''"
+                      type="text"
+                      placeholder="20100"
+                      maxlength={5}
+                      inputmode="numeric"
+                      pattern="[0-9]*"
+                      class="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                      required
+                      name="cap"
+                      oninput={`
+                          this.style.borderColor='';
+                          this.value = this.value.replace(/[^0-9]/g, '');
+                      `}
+                      onkeydown={`
+                          if (['e','E','+','-','.',','].includes(event.key)) event.preventDefault();
+                      `}
                   />
                   <div id="error-cap"></div>
                 </div>

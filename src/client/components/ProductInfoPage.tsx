@@ -1,6 +1,7 @@
 import { products } from "../../db/schema"
 import { Session } from "fastify"
 import ConfirmLogoutModal from "./ConfirmLogoutModal"
+import { getCartCount } from "../helpers/cartCounter"
 
 type Product = typeof products.$inferSelect & {
   seller?: {
@@ -15,9 +16,8 @@ type Props = {
   session?: Session
 }
 
-export default function ProductInfoPage({ product, session }: Props) {
+export default async function ProductInfoPage({ product, session }: Props) {
   const currentPath = `/product/${product.id}`
-  
   const isOwnProduct = session?.username && session.username === product.seller?.userName
 
   const getImages = (): string[] => {
@@ -31,7 +31,7 @@ export default function ProductInfoPage({ product, session }: Props) {
       return [product.imageUrl]
     }
   }
-
+  const cartCount = await getCartCount(session?.username)
   const images = getImages()
 
   return (
@@ -48,11 +48,17 @@ export default function ProductInfoPage({ product, session }: Props) {
             </div>      
 
             <div class="flex items-center gap-4">
-              <button onclick="window.location.href='/cart'" class="relative p-2.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-50 rounded-xl transition-all group">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 group-hover:scale-105 transition-transform">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+              <button onclick="window.location.href='/cart'" class="relative p-2.5 text-indigo-600 bg-gray-50 rounded-xl transition-all group">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 scale-105">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
                 </svg>
-              </button>
+                <span 
+                    id="cart-count-badge" 
+                    class={`absolute -top-1 -right-1 bg-indigo-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center ${cartCount === 0 ? 'hidden' : ''}`}
+                >
+                    {cartCount}
+                </span>
+            </button>
 
               <div id="profile-section">
                 {session?.username ? (
@@ -276,10 +282,12 @@ export default function ProductInfoPage({ product, session }: Props) {
                             max={product.stock}
                             value="1"
                             class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-gray-900 bg-white"
+                            oninput={`
+                                    const max = parseInt(this.max);
+                                    if (this.value !== '' && parseInt(this.value) > max) this.value = max;
+                            `}
                             onblur={`
-                              const val = parseInt(this.value);
-                              if (isNaN(val) || val < 1) this.value = 1;
-                              if (val > parseInt(this.max)) this.value = this.max;
+                                if (this.value === '' || parseInt(this.value) < 1) this.value = '1';
                             `}
                           />
                         </div>

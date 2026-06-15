@@ -8,12 +8,12 @@ import PorfilePage from "../components/ProfilePage"
 import { products, users } from "../../db/schema"
 import { db } from "../../db"
 import LoginForm from "../components/LoginForm"
-import { eq } from "drizzle-orm"
 import Checkout from "../components/checkout"
 import Payment from "../components/payment"
 import ProductInfoPage from "../components/ProductInfoPage"
 import PaymentAccepted from "../components/paymentAccepted"
 import PaymentDeclined from "../components/paymentDeclined"
+import { eq, gt, and, sql, like, ilike } from "drizzle-orm"
 
 
 
@@ -35,7 +35,7 @@ export default (server: ZodFastifyInstance) => {
       const htmlContent = await Marketplace({ searchParams, partial: true, session: req.session }) //aggiunta session anche qui
       return reply.html(htmlContent)
     }
-
+    
     const marketplaceContent = await Marketplace({ searchParams, session: req.session })
     return reply.html(
       <MainLayout>
