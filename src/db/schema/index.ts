@@ -4,4 +4,5 @@ export { reviews } from "./reviews"
 export { productUsefulness } from "./productUsefulness"
 export { orders } from "./orders"
 export { cart } from "./cart"
+export {sessions } from "./sessions"
 
