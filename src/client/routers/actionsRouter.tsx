@@ -225,6 +225,7 @@ export default (server: ZodFastifyInstance) => {
   }
 })
   server.post("/signUp", async (req, res) => {
+    console.log("Here")
     const result = signUpSchema.safeParse(req.body)
 
     if (!result.success) {
@@ -254,6 +255,7 @@ export default (server: ZodFastifyInstance) => {
 
       if (existingUserToUpdate) {
         
+    console.log("fetching existingUserToUpdate")
         await db.update(users).set({
           name: nome,
           lastName: cognome,
@@ -262,9 +264,10 @@ export default (server: ZodFastifyInstance) => {
           password: passwordHash,
           verificationCode,
           isVerified: false,
-        }).where(eq(users.id, existingUserToUpdate.id)) 
+        }).where(eq(users.id, existingUserToUpdate.id))
+        console.log("fetching done")
       } else {
-       
+       console.log("fetching not existingUserToUpdate")
         await db.insert(users).values({
           name: nome,
           lastName: cognome,
@@ -276,12 +279,14 @@ export default (server: ZodFastifyInstance) => {
         })
       }
 
+      console.log("sendin email")
       await sendTemplateEmail({
         to: email,
         subject: "Verifica il tuo account TechStore",
         template: "WelcomeEmail",
         payload: { name: nome, code: verificationCode },
       })
+      console.log("fetching done")
 
       return res.status(200).html(<OtpForm email={email} />)
     } catch (error) {

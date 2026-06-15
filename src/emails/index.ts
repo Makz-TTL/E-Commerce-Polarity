@@ -39,7 +39,7 @@ export const sendTemplateEmail = async (
   const { template, payload, to, subject } = options
 
   let body
-  
+  console.log("getting body")
   if (template === "WelcomeEmail") {
     body = WelcomeEmail(payload)
   } else if (template === "ChangePasswordEmail") {
@@ -47,12 +47,16 @@ export const sendTemplateEmail = async (
   } else if (template == "OrderConfirmEmail") {
     body = OrderConfirmEmail(payload)
   }
+  console.log("getting body done")
 
   if (!body) throw new Error(`Template missing`)
 
 
+  console.log("rendering html")
   const html = await render(body)
+  console.log("Rendering text")
   const text = await render(body, { plainText: true })
-
+  console.log("Sending email")
   await sendLocalEmail({ html, to, text, subject })
+  console.log("send template email done")
 }
