@@ -20,25 +20,19 @@ import { z } from "zod"
 export default (server: ZodFastifyInstance) => {
 
   server.get("/confirm-logout-modal", (_req, reply) => {
-    return reply.html(
-      <ConfirmLogoutModal />
-    )
+    return reply.html(<ConfirmLogoutModal />)
   })
 
   server.get("/login-modal", async (req, res) => {
     const { redirect } = req.query as { redirect?: string }
     const currentRedirect = redirect || "/"
 
-    // Avvolgiamo il LoginForm dentro il componente Modal per centrarlo a schermo
     return res.status(200).html(
       <Modal
         id="login-modal"
         title={<h2 class="text-xl font-bold text-gray-900">Accedi</h2>}
       >
-        <LoginForm 
-          redirectTo={currentRedirect} 
-          values={{ username: "", password: "" }} 
-        />
+        <LoginForm redirectTo={currentRedirect} values={{ username: "", password: "" }} />
       </Modal>
     )
   })
@@ -77,7 +71,7 @@ export default (server: ZodFastifyInstance) => {
     }
 
     try {
-      const cookieValue = Math.random().toString(36).substring(2)
+      const sessionToken = crypto.randomBytes(32).toString("hex")
 
       await db.insert(users).values({
         name: tempUser.name,
@@ -85,18 +79,17 @@ export default (server: ZodFastifyInstance) => {
         userName: tempUser.userName,
         eMail: tempUser.eMail,
         password: tempUser.passwordHash,
-        cookie: cookieValue
+        session: sessionToken,
       })
 
       delete req.session.tempUserData
-      res.header("Set-Cookie", `sessionId=${cookieValue}; Max-Age=${60 * 60 * 24 * 7}; Path=/; HttpOnly; SameSite=Strict`)
+      req.session.sessionToken = sessionToken
       req.session.username = tempUser.userName
 
       return res
         .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Registrazione completata!" } }))
         .header("HX-Redirect", "/")
         .send()
-
     } catch (error) {
       server.log.error(error)
       return res.status(200).html(<OtpForm email={tempUser.eMail} error="Errore di sistema salvando l'utente." />)
@@ -105,7 +98,7 @@ export default (server: ZodFastifyInstance) => {
 
   server.get("/edit-profile-modal", async (req, res) => {
     if (!req.session.username) {
-      return res.status(200).html(
+      return res.status(401).html(
         <div class="p-6 text-center">
           <p class="text-gray-600 mb-4">Devi essere autenticato per modificare il profilo.</p>
         </div>
@@ -113,33 +106,26 @@ export default (server: ZodFastifyInstance) => {
     }
 
     try {
-      const rows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-      const currentUser = rows[0]
+      const [currentUser] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
 
-      if (!currentUser) {
-        return res.status(404).send("Utente non trovato")
-      }
+      if (!currentUser) return res.status(404).send("Utente non trovato")
 
       return res.status(200).html(
         <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" id="editProfileModalContainer" onclick="if(event.target === this) this.remove()">
           <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            
-            <button 
-              type="button" 
-              onclick="document.getElementById('editProfileModalContainer').remove()" 
+            <button
+              type="button"
+              onclick="document.getElementById('editProfileModalContainer').remove()"
               class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-
             <div class="p-2 pt-6">
               <h2 class="text-xl font-bold text-gray-900 px-6">Modifica Profilo</h2>
-              
               <SignUpForm
                 isEdit={true}
-                onEditPasswordClick="alert('Gestione password non configurata')"
                 values={{
                   nome: currentUser.name || "",
                   cognome: currentUser.lastName || "",
@@ -148,47 +134,44 @@ export default (server: ZodFastifyInstance) => {
                 }}
               />
             </div>
-
           </div>
         </div>
-    )
-  } catch (error) {
-    server.log.error(error)
-    return res.status(500).send("Errore nel caricamento dei dati del profilo")
-  }
-})  
+      )
+    } catch (error) {
+      server.log.error(error)
+      return res.status(500).send("Errore nel caricamento dei dati del profilo")
+    }
+  })
 
   server.get("/editPassword-modal", async (req, res) => {
     if (!req.session.username) return res.status(401).send("Non autorizzato")
     return res.status(200).html(<EditPasswordForm />)
   })
 
-  const editPasswordSchema = z.object ({
-      oldPassword: z.string().min(1, "Inserisci la vecchia password"),
-      newPassword: z.string().trim().min(8, "La nuova password deve essere di almeno 8 caratteri"),
-      confirmPassword: z.string().trim().min(1),
-    })  
+  const editPasswordSchema = z.object({
+    oldPassword: z.string().min(1, "Inserisci la vecchia password"),
+    newPassword: z.string().trim().min(8, "La nuova password deve essere di almeno 8 caratteri"),
+    confirmPassword: z.string().trim().min(1),
+  })
 
   server.post("/editPassword", async (req, res) => {
     if (!req.session.username) return res.status(401).send("Non autorizzato")
-    
+
     const result = editPasswordSchema.safeParse(req.body)
 
     if (!result.success) {
-        const error = result.error.flatten().fieldErrors
-        const message = error.oldPassword?.[0] || error.newPassword?.[0] || "Dati non validi."
-        return res.status(200).html(<EditPasswordForm error={message} />)
+      const error = result.error.flatten().fieldErrors
+      const message = error.oldPassword?.[0] || error.newPassword?.[0] || "Dati non validi."
+      return res.status(200).html(<EditPasswordForm error={message} />)
     }
 
-
     const { oldPassword, newPassword, confirmPassword } = result.data
-    
+
     if (newPassword !== confirmPassword) {
       return res.status(200).html(<EditPasswordForm error="Le password non coincidono." />)
     }
 
-    const rows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-    const user = rows[0]
+    const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
 
     if (!user || !(await argon2.verify(user.password, oldPassword))) {
       return res.status(200).html(<EditPasswordForm error="La vecchia password non è corretta." />)
@@ -204,112 +187,94 @@ export default (server: ZodFastifyInstance) => {
       .send()
   })
 
-  // Carica il form email nel modal
-server.get("/forgot-password-modal", async (req, res) => {
+  server.get("/forgot-password-modal", async (_req, res) => {
     return res.status(200).html(<ForgotPasswordForm />)
-})
+  })
 
-// Riceve l'email, genera il token e manda il codice
-server.post("/forgot-password", async (req, res) => {
+  server.post("/forgot-password", async (req, res) => {
     const { email } = req.body as { email: string }
 
-    const rows = await db.select().from(users).where(eq(users.eMail, email)).limit(1)
-    const user = rows[0]
+    const [user] = await db.select().from(users).where(eq(users.eMail, email)).limit(1)
 
-    // Rispondiamo sempre con successo per non rivelare se l'email esiste
     if (!user) {
-        return res.status(200).html(
-            <ForgotPasswordForm success="Se l'email è registrata, riceverai il codice a breve." />
-        )
+      return res.status(200).html(
+        <ForgotPasswordForm success="Se l'email è registrata, riceverai il codice a breve." />
+      )
     }
 
-    // Token univoco a 6 cifre legato all'utente
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString()
-
-    // Scadenza di 15 minuti
-    const expiry = new Date(Date.now() + 1 * 60 * 1000).toISOString()
+    const expiry = new Date(Date.now() + 15 * 60 * 1000).toISOString()
 
     await db.update(users)
-        .set({ resetToken: resetCode, resetTokenExpiry: expiry })
-        .where(eq(users.id, user.id))
+      .set({ resetToken: resetCode, resetTokenExpiry: expiry })
+      .where(eq(users.id, user.id))
 
     await sendTemplateEmail({
-        to: user.eMail,
-        subject: "Reimposta la tua password TechStore",
-        template: "ChangePasswordEmail",
-        payload: {
-            name: user.name,
-            code: resetCode
-        }
+      to: user.eMail,
+      subject: "Reimposta la tua password TechStore",
+      template: "ChangePasswordEmail",
+      payload: { name: user.name, code: resetCode },
     })
 
     return res.status(200).html(<ResetPasswordForm email={email} />)
-})
+  })
 
-const resetPasswordSchema  = z.object ({
-        email: z.string().trim().email("Email non valida"),
-        otp: z.string().trim().length(6, "Il codice deve essere di 6 caratteri"),
-        newPassword: z.string().trim().min(8, "La password deve essere di almeno 8 caratteri"),
-        confirmPassword: z.string().trim().min(1),
-    })
+  const resetPasswordSchema = z.object({
+    email: z.string().trim().email("Email non valida"),
+    otp: z.string().trim().length(6, "Il codice deve essere di 6 caratteri"),
+    newPassword: z.string().trim().min(8, "La password deve essere di almeno 8 caratteri"),
+    confirmPassword: z.string().trim().min(1),
+  })
 
-// Verifica il codice e salva la nuova password
-server.post("/reset-password", async (req, res) => {
+  server.post("/reset-password", async (req, res) => {
     const result = resetPasswordSchema.safeParse(req.body)
 
     if (!result.success) {
-        const error = result.error.flatten().fieldErrors
-        const message = error.newPassword?.[0] || error.otp?.[0] || "Dati non validi."
-        const email = (req.body as any).email || ""
-        return res.status(200).html(<ResetPasswordForm email={email} error={message} />)
+      const error = result.error.flatten().fieldErrors
+      const message = error.newPassword?.[0] || error.otp?.[0] || "Dati non validi."
+      const email = (req.body as any).email || ""
+      return res.status(200).html(<ResetPasswordForm email={email} error={message} />)
     }
 
     const { email, otp, newPassword, confirmPassword } = result.data
 
     if (newPassword !== confirmPassword) {
-        return res.status(200).html(<ResetPasswordForm email={email} error="Le password non coincidono." />)
+      return res.status(200).html(<ResetPasswordForm email={email} error="Le password non coincidono." />)
     }
 
-    const rows = await db.select().from(users).where(eq(users.eMail, email)).limit(1)
-    const user = rows[0]
+    const [user] = await db.select().from(users).where(eq(users.eMail, email)).limit(1)
 
     if (!user || !user.resetToken || !user.resetTokenExpiry) {
-        return res.status(200).html(<ResetPasswordForm email={email} error="Codice non valido. Riprova." />)
+      return res.status(200).html(<ResetPasswordForm email={email} error="Codice non valido. Riprova." />)
     }
 
-    // Controlla che il codice sia scaduto
     if (new Date() > new Date(user.resetTokenExpiry)) {
-        return res.status(200).html(<ResetPasswordForm email={email} error="Il codice è scaduto. Richiedine uno nuovo." />)
+      return res.status(200).html(<ResetPasswordForm email={email} error="Il codice è scaduto. Richiedine uno nuovo." />)
     }
 
-    // Controlla che il codice corrisponda a quello salvato per QUELL'utente
     if (otp !== user.resetToken) {
-        return res.status(200).html(<ResetPasswordForm email={email} error="Codice non corretto." />)
+      return res.status(200).html(<ResetPasswordForm email={email} error="Codice non corretto." />)
     }
 
     await db.update(users)
-        .set({
-            password: await argon2.hash(newPassword),
-            resetToken: null,
-            resetTokenExpiry: null
-        })
-        .where(eq(users.id, user.id))
+      .set({ password: await argon2.hash(newPassword), resetToken: null, resetTokenExpiry: null })
+      .where(eq(users.id, user.id))
 
     return res
-        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Password reimpostata con successo!" } }))
-        .header("HX-Redirect", "/")
-        .send()
-})
-  server.get("/sell-product-modal", async (req, res) => {
-  if (!req.session.username) {
-    return res.status(200).html(
-      <div class="p-6 text-center">
-        <p class="text-gray-600 mb-4">Devi essere autenticato per vendere un prodotto.</p>
-      </div>
-    )
-  }
+      .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Password reimpostata con successo!" } }))
+      .header("HX-Redirect", "/")
+      .send()
+  })
 
-  return res.status(200).html(<SellProductModal />)
-})
-  
+  server.get("/sell-product-modal", async (req, res) => {
+    if (!req.session.username) {
+      return res.status(401).html(
+        <div class="p-6 text-center">
+          <p class="text-gray-600 mb-4">Devi essere autenticato per vendere un prodotto.</p>
+        </div>
+      )
+    }
+
+    return res.status(200).html(<SellProductModal />)
+  })
 }

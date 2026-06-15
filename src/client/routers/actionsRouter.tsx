@@ -1,5 +1,4 @@
 import { ZodFastifyInstance } from "../../types/index"
-import ProfileSection from "../components/ProfileSection"
 import { db } from "../../db"
 import { eq, and } from "drizzle-orm"
 import * as argon2 from "argon2"
@@ -8,7 +7,6 @@ import fs from "fs"
 import sharp from "sharp"
 import { orders, users, products, cart } from "../../db/schema"
 import LoginForm from "../components/LoginForm"
-import Marketplace from "../components/marketplace"
 import OtpForm from "../components/OtpForm"
 import SignUpForm from "../components/SignUpForm"
 import { sendTemplateEmail } from "../../emails/index"
@@ -18,6 +16,7 @@ import { fileURLToPath } from "url"
 import Cart from "../components/cart"
 import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime"
 import EditProductModal from "../components/EditProductModal"
+import crypto from "crypto"
 
 type PaymentBody = { cardNumber: string; expiry: string }
 type CheckOutBody = { fullName?: string; city?: string; cap?: string; address?: string }
@@ -25,10 +24,10 @@ type CheckOutBody = { fullName?: string; city?: string; cap?: string; address?: 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const uploadDir = path.join(__dirname, "../../public/images") // adatta il path alla tua struttura
+const uploadDir = path.join(__dirname, "../../public/images")
 
 if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true })
+  fs.mkdirSync(uploadDir, { recursive: true })
 }
 
 const bedrockClient = new BedrockRuntimeClient({
@@ -56,6 +55,51 @@ const editProfileSchema = z.object({
 
 const IMAGE_FORMATS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp"])
 
+const MODERATION_SYSTEM_PROMPT = `You are an automated moderation agent for an e-commerce marketplace. Your sole job is to evaluate new product listings submitted by sellers and return a single decimal score between 0.00 and 1.00. You must never return anything other than this number — no explanations, no comments, no punctuation, no text.
+
+SCORING SCALE:
+0.00 - ILLEGAL ITEM
+
+0.80-1 - ITEMS WHICH ARE NOT SCUMMY OR SUSPICIOUS IN ANY WAY, OR FOR WHICH THERE IS NOT ENOUGH INFORMATION TO JUDGE (DEFAULT TO APPROVAL)
+
+YOUR DEFAULT ASSUMPTION IS APPROVAL.
+Unless you can point to a specific concrete problem, score 0.90 or above.
+Doubt = approve. Uncertainty = approve. Missing info = approve.
+Never use the manual review band as a fallback for vagueness.
+
+ELECTRONICS & BRANDED GOODS:
+Smartphones, laptops, tablets, and other consumer electronics listed under a real brand name (Apple, Samsung, Sony, etc.) are among the most commonly resold items on any marketplace. Listing an iPhone, Galaxy, MacBook, or similar at any reasonable second-hand price is completely normal. Score these 0.90–1.00 by default.
+
+WHAT "SUSPICIOUS PRICE" ACTUALLY MEANS:
+A price is only suspicious if it is more than 90% below the known retail price with zero explanation. Examples:
+- iPhone 15 Pro listed at 850€ → completely normal → 0.95
+- iPhone 15 Pro listed at 600€ → used/discounted, totally fine → 0.93
+- iPhone 15 Pro listed at 50€ → suspicious → 0.60
+- iPhone 15 Pro listed at 5€ → obvious scam → 0.10
+A price that simply seems "low" or "cheap" for a new item is NOT a flag. Second-hand electronics are routinely sold at 30–60% below retail.
+
+HARD REJECTION — 0.00 to 0.45 — only for:
+- Explicitly illegal products (controlled substances, illegal weapons, CSAM, stolen goods explicitly stated)
+- Word "replica", "fake", "clone", "copy of" in the listing
+- Price more than 90% below retail with no condition explanation
+- Product that has no legitimate civilian use
+
+MANUAL REVIEW — 0.50 to 0.79 — only for:
+- Dual-use items commonly misused (certain chemicals, surveillance devices, lock-picking sets)
+- Prescription-only or heavily regulated items
+- Images explicitly contradict the text description
+- Price is 70–90% below retail with no condition explanation
+
+APPROVE — 0.80 to 1.00 — everything else, including:
+- All standard consumer electronics, new or used
+- Branded goods at any reasonable price
+- Items with short or vague descriptions
+- Budget or low-cost items
+- Second-hand goods in any stated condition
+
+OUTPUT FORMAT:
+A single decimal number only. Nothing else.`
+
 function parseBedrockScore(text: string): number {
   try {
     const clean = text.replace(/```json|```/g, "").trim()
@@ -76,7 +120,67 @@ async function imageToBedrockContent(filePath: string) {
   return { image: { format, source: { bytes } } }
 }
 
+const PROTECTED_ROUTES = new Set([
+  "/editProfile",
+  "/deleteFromCart",
+  "/addToCart",
+  "/updateCartQuantity",
+  "/payment/confirm",
+  "/checkout/validate",
+  "/magic-description",
+  "/sell-product",
+  "/edit-product",
+  "/product",
+])
+
+function isProtectedRoute(url: string): boolean {
+  const pathname = url.split("?")[0]
+  return (
+    PROTECTED_ROUTES.has(pathname) ||
+    pathname.startsWith("/deleteFromCart/") ||
+    pathname.startsWith("/addToCart/") ||
+    pathname.startsWith("/updateCartQuantity/") ||
+    pathname.startsWith("/edit-product/") ||
+    pathname.startsWith("/edit-product-modal/")
+  )
+}
+
 export default (server: ZodFastifyInstance) => {
+
+  server.addHook("preHandler", async (req, res) => {
+    if (!isProtectedRoute(req.url)) return
+
+    const token = req.session.sessionToken
+    const isHtmx = req.headers["hx-request"]
+
+    if (!token) {
+      if (isHtmx) {
+        if (req.url.startsWith("/addToCart/")) {
+          return res
+            .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Devi effettuare il login per aggiungere al carrello" } }))
+            .send()
+        }
+        return res.header("HX-Redirect", "/").send()
+      }
+      return res.redirect("/")
+    }
+
+    const [user] = await db.select().from(users).where(eq(users.session, token)).limit(1)
+    if (!user) {
+      await req.session.destroy()
+      if (isHtmx) {
+        if (req.url.startsWith("/addToCart/")) {
+          return res
+            .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Sessione scaduta, effettua di nuovo il login" } }))
+            .send()
+        }
+        return res.header("HX-Redirect", "/").send()
+      }
+      return res.redirect("/")
+    }
+
+    req.currentUser = user
+  })
 
   server.post("/login", async (req, res) => {
     const { redirect } = req.query as { redirect?: string }
@@ -104,7 +208,13 @@ export default (server: ZodFastifyInstance) => {
         )
       }
 
+      const sessionToken = crypto.randomBytes(32).toString("hex")
+
+      await db.update(users).set({ session: sessionToken }).where(eq(users.id, dbUser.id))
+
+      req.session.sessionToken = sessionToken
       req.session.username = username
+
       return res
         .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Ti sei loggato con successo" } }))
         .header("HX-Redirect", redirectTo)
@@ -173,9 +283,11 @@ export default (server: ZodFastifyInstance) => {
     const cartID = parseInt(id, 10)
 
     if (isNaN(cartID)) return res.status(400).send("ID non valido")
-    if (!req.session.username) return res.status(401).send("Devi essere loggato")
 
     try {
+      const [item] = await db.select().from(cart).where(and(eq(cart.id, cartID), eq(cart.userId, req.currentUser!.id))).limit(1)
+      if (!item) return res.status(403).send("Non autorizzato")
+
       await db.delete(cart).where(eq(cart.id, cartID))
       return res.header("HX-Redirect", "/cart").send()
     } catch (error) {
@@ -192,16 +304,7 @@ export default (server: ZodFastifyInstance) => {
     if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido")
     if (isNaN(quantity) || quantity < 1) return res.status(400).send("Quantità non valida")
 
-    if (!req.session.username) {
-      return res
-        .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Devi essere loggato per aggiungere prodotti al carrello" } }))
-        .send()
-    }
-
-    const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-    if (!user) {
-      return res.status(401).html(<LoginForm values={{ username: "", password: "" }} error={{ password: "Utente non trovato. Riprova." }} />)
-    }
+    const user = req.currentUser!
 
     try {
       const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1)
@@ -236,25 +339,20 @@ export default (server: ZodFastifyInstance) => {
   })
 
   server.post("/editProfile", async (req, res) => {
-    if (!req.session.username) return res.status(401).send("Non autorizzato")
-
     const result = editProfileSchema.safeParse(req.body)
+    const currentUser = req.currentUser!
 
     if (!result.success) {
       const errors = Object.fromEntries(
         Object.entries(result.error.flatten().fieldErrors).map(([k, v]) => [k, v?.[0]])
       )
-      const [row] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-      return res.status(200).html(<SignUpForm isEdit={true} values={{ ...(req.body as any), email: row?.eMail || "" }} errors={errors} />)
+      return res.status(200).html(<SignUpForm isEdit={true} values={{ ...(req.body as any), email: currentUser.eMail }} errors={errors} />)
     }
 
     const { nome, cognome, username } = result.data
 
     try {
-      const [currentUser] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-      if (!currentUser) return res.status(404).send("Utente non trovato")
-
-      if (username !== req.session.username) {
+      if (username !== currentUser.userName) {
         const [taken] = await db.select().from(users).where(eq(users.userName, username)).limit(1)
         if (taken) {
           return res.status(200).html(
@@ -283,6 +381,9 @@ export default (server: ZodFastifyInstance) => {
     if (isNaN(newQty) || newQty < 1) return res.status(400).send("Quantità non valida")
 
     try {
+      const [item] = await db.select().from(cart).where(and(eq(cart.id, parseInt(cartId, 10)), eq(cart.userId, req.currentUser!.id))).limit(1)
+      if (!item) return res.status(403).send("Non autorizzato")
+
       await db.update(cart).set({ quantity: newQty }).where(eq(cart.id, parseInt(cartId, 10)))
       return res.status(200).html(<Cart session={req.session} />)
     } catch (error) {
@@ -308,33 +409,49 @@ export default (server: ZodFastifyInstance) => {
       return res.header("HX-Redirect", "/payment/declined").send()
     }
 
-    const user = await db.query.users.findFirst({ where: { userName: req.session.username } })
-    if (!user) return res.header("HX-Redirect", "/payment/declined").send()
-
+    const user = req.currentUser!
     const cartItems = await db.query.cart.findMany({ where: { userId: user.id }, with: { cartItem: true } })
     if (cartItems.length === 0) return res.header("HX-Redirect", "/cart").send()
 
     let totalAmount = 0
+    const ordersToInsert = []
+    const productUpdates = []
 
     for (const item of cartItems) {
       if (!item.cartItem) continue
       const itemTotal = (item.cartItem.price || 0) * item.quantity
       totalAmount += itemTotal
 
-      await Promise.all([
-        db.insert(orders).values({ userId: user.id, productId: item.productId, quantity: item.quantity, totalPrice: itemTotal, status: "not yet sent" }),
-        db.update(products).set({ stock: item.cartItem.stock - item.quantity }).where(eq(products.id, item.productId)),
-      ])
+      ordersToInsert.push({
+        userId: user.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        totalPrice: itemTotal,
+        status: "not yet sent"
+      })
+
+      productUpdates.push(
+        db.update(products)
+          .set({ stock: item.cartItem.stock - item.quantity })
+          .where(eq(products.id, item.productId))
+      )
+    }
+
+    if (ordersToInsert.length > 0) {
+      await db.insert(orders).values(ordersToInsert)
+    }
+    if (productUpdates.length > 0) {
+      await Promise.all(productUpdates)
     }
 
     await db.delete(cart).where(eq(cart.userId, user.id))
 
-    await sendTemplateEmail({
+    sendTemplateEmail({
       to: user.eMail,
       subject: "Conferma del tuo ordine TechStore",
       template: "OrderConfirmEmail",
       payload: { name: user.name, totalPrice: totalAmount.toFixed(2) },
-    })
+    }).catch(err => server.log.error(err))
 
     return res.header("HX-Redirect", "/payment/accepted").send()
   })
@@ -361,8 +478,6 @@ export default (server: ZodFastifyInstance) => {
   })
 
   server.post("/magic-description", async (req, res) => {
-    if (!req.session.username) return res.status(401).send("Non autorizzato")
-
     const textareaClass = (extra = "") =>
       `w-full border ${extra} rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 text-gray-900 bg-white resize-none`
 
@@ -424,8 +539,7 @@ export default (server: ZodFastifyInstance) => {
   })
 
   server.post("/sell-product", async (req, res) => {
-    if (!req.session.username) return res.status(401).send("Non autorizzato")
-
+    const user = req.currentUser!
     const uploadDir = path.join(process.cwd(), "public", "images")
     fs.mkdirSync(uploadDir, { recursive: true })
 
@@ -433,9 +547,6 @@ export default (server: ZodFastifyInstance) => {
       const parts = req.parts()
       let productName = "", price = 0, stock = 0, category = "", description = "", coverIndex = 0
       const imageUrls: string[] = []
-
-      const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-      if (!user) return res.status(404).send("Utente non trovato")
 
       for await (const part of parts) {
         if (part.type === "file" && part.fieldname === "images" && part.filename) {
@@ -462,7 +573,7 @@ export default (server: ZodFastifyInstance) => {
 
       if (!productName || price <= 0 || stock < 1) {
         return res
-          .header("HX-Trigger", JSON.stringify({ ShowErrorToast: { message: "Errore: Campi non compilati correttamente." } }))
+          .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Errore: Campi non compilati correttamente." } }))
           .send()
       }
 
@@ -493,50 +604,7 @@ export default (server: ZodFastifyInstance) => {
           const command = new ConverseCommand({
             modelId: process.env.BEDROCK_MODEL_ID || "eu.anthropic.claude-sonnet-4-6",
             messages: [{ role: "user", content: messageContent }],
-            system: [{ text: `You are an automated moderation agent for an e-commerce marketplace. Your sole job is to evaluate new product listings submitted by sellers and return a single decimal score between 0.00 and 1.00. You must never return anything other than this number — no explanations, no comments, no punctuation, no text.
-
-SCORING SCALE:
-0.00 - ILLEGAL ITEM
-
-0.80-1 - ITEMS WHICH ARE NOT SCUMMY OR SUSPICIOUS IN ANY WAY, OR FOR WHICH THERE IS NOT ENOUGH INFORMATION TO JUDGE (DEFAULT TO APPROVAL)
-
-YOUR DEFAULT ASSUMPTION IS APPROVAL.
-Unless you can point to a specific concrete problem, score 0.90 or above.
-Doubt = approve. Uncertainty = approve. Missing info = approve.
-Never use the manual review band as a fallback for vagueness.
-
-ELECTRONICS & BRANDED GOODS:
-Smartphones, laptops, tablets, and other consumer electronics listed under a real brand name (Apple, Samsung, Sony, etc.) are among the most commonly resold items on any marketplace. Listing an iPhone, Galaxy, MacBook, or similar at any reasonable second-hand price is completely normal. Score these 0.90–1.00 by default.
-
-WHAT "SUSPICIOUS PRICE" ACTUALLY MEANS:
-A price is only suspicious if it is more than 90% below the known retail price with zero explanation. Examples:
-- iPhone 15 Pro listed at 850€ → completely normal → 0.95
-- iPhone 15 Pro listed at 600€ → used/discounted, totally fine → 0.93
-- iPhone 15 Pro listed at 50€ → suspicious → 0.60
-- iPhone 15 Pro listed at 5€ → obvious scam → 0.10
-A price that simply seems "low" or "cheap" for a new item is NOT a flag. Second-hand electronics are routinely sold at 30–60% below retail.
-
-HARD REJECTION — 0.00 to 0.45 — only for:
-- Explicitly illegal products (controlled substances, illegal weapons, CSAM, stolen goods explicitly stated)
-- Word "replica", "fake", "clone", "copy of" in the listing
-- Price more than 90% below retail with no condition explanation
-- Product that has no legitimate civilian use
-
-MANUAL REVIEW — 0.50 to 0.79 — only for:
-- Dual-use items commonly misused (certain chemicals, surveillance devices, lock-picking sets)
-- Prescription-only or heavily regulated items
-- Images explicitly contradict the text description
-- Price is 70–90% below retail with no condition explanation
-
-APPROVE — 0.80 to 1.00 — everything else, including:
-- All standard consumer electronics, new or used
-- Branded goods at any reasonable price
-- Items with short or vague descriptions
-- Budget or low-cost items
-- Second-hand goods in any stated condition
-
-OUTPUT FORMAT:
-A single decimal number only. Nothing else.` }],
+            system: [{ text: MODERATION_SYSTEM_PROMPT }],
             inferenceConfig: { temperature: 0.1, maxTokens: 300 },
           })
 
@@ -549,7 +617,6 @@ A single decimal number only. Nothing else.` }],
           }
 
           await db.update(products).set({ status, reliability: score }).where(eq(products.id, product.id))
-
           server.log.info(`Product saved. Status: ${status}`)
         } catch (bgError) {
           server.log.error(bgError)
@@ -566,13 +633,12 @@ A single decimal number only. Nothing else.` }],
   server.delete("/product/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
-    const sessionUsername = req.session?.username
 
     if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido")
-    if (!sessionUsername) return res.status(401).send("Devi effettuare il login per completare questa azione")
+    if (!req.session.username) return res.status(401).send("Devi effettuare il login per completare questa azione")
 
     try {
-      const [user] = await db.select().from(users).where(eq(users.userName, sessionUsername)).limit(1)
+      const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
       if (!user) return res.status(404).send("Utente non trovato")
 
       await db.delete(products).where(and(eq(products.id, productId), eq(products.userId, user.id)))
@@ -587,47 +653,39 @@ A single decimal number only. Nothing else.` }],
       return res.status(500).send("Impossibile eliminare il prodotto")
     }
   })
+
   server.get("/edit-product-modal/:id", async (req, res) => {
-      if (!req.session.username) return res.status(401).send("Non autorizzato")
-
-      const { id } = req.params as { id: string }
-      const productId = parseInt(id, 10)
-
-      const product = await db.query.products.findFirst({
-          where: { id: productId }
-      })
-
-      if (!product) return res.status(404).send("Prodotto non trovato")
-
-      return res.status(200).html(<EditProductModal product={product} />)
-  })
-  server.post("/edit-product/:id", async (req, res) => {
-    if (!req.session.username) return res.status(401).send("Non autorizzato")
-
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
 
+    const product = await db.query.products.findFirst({ where: { id: productId } })
+    if (!product) return res.status(404).send("Prodotto non trovato")
+
+    return res.status(200).html(<EditProductModal product={product} />)
+  })
+
+  server.post("/edit-product/:id", async (req, res) => {
+    const { id } = req.params as { id: string }
+    const productId = parseInt(id, 10)
+    const user = req.currentUser!
+
     try {
       const parts = req.parts()
-      let productName = ""
-      let price = 0
-      let stock = 0
-      let category = ""
-      let description = ""
+      let productName = "", price = 0, stock = 0, category = "", description = "", coverIndex = 0
       const imageUrls: string[] = []
-      let coverIndex = 0
 
       for await (const part of parts) {
         if (part.type === "file" && part.fieldname === "images" && part.filename) {
           const ext = path.extname(part.filename).toLowerCase()
-          const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"]
-          if (!allowedExtensions.includes(ext)) {
-            part.file.resume()
-            continue
-          }
-          const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}${ext}`
+          if (!IMAGE_FORMATS.has(ext)) { part.file.resume(); continue }
+
+          const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.jpg`
           const uploadPath = path.join(uploadDir, uniqueFilename)
-          await pipeline(part.file, fs.createWriteStream(uploadPath))
+          const optimizer = sharp({ failOn: "none" })
+            .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
+            .jpeg({ quality: 80, progressive: true })
+
+          await pipeline(part.file, optimizer, fs.createWriteStream(uploadPath))
           imageUrls.push(`/images/${uniqueFilename}`)
         } else if (part.type === "field") {
           if (part.fieldname === "productName") productName = part.value as string
@@ -644,118 +702,33 @@ A single decimal number only. Nothing else.` }],
         return res.status(200).html(<EditProductModal product={product!} error="Campi non compilati correttamente." />)
       }
 
-      const userRows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-      const user = userRows[0]
-
-      // Rispondi subito al client
       res
         .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Modifiche ricevute. Il prodotto è in fase di revisione." } }))
         .header("HX-Redirect", `/profile?username=${user.userName}`)
         .send()
 
-      // Moderazione in background
       setImmediate(async () => {
         try {
           const messageContent: any[] = [
-            {
-              text: `Analizza questo prodotto modificato:\n${JSON.stringify({ productName, category, description, price })}`
-            }
+            { text: `Analizza questo prodotto modificato:\n${JSON.stringify({ productName, category, description, price })}` }
           ]
 
           for (const url of imageUrls) {
             const absolutePath = path.join(process.cwd(), "public", url)
-            if (fs.existsSync(absolutePath)) {
-              const ext = path.extname(absolutePath).toLowerCase()
-              let format: "jpeg" | "png" | "gif" | "webp" | null = null
-              if (ext === ".jpg" || ext === ".jpeg") format = "jpeg"
-              else if (ext === ".png") format = "png"
-              else if (ext === ".gif") format = "gif"
-              else if (ext === ".webp") format = "webp"
-
-              if (format) {
-                const imageBuffer = fs.readFileSync(absolutePath)
-                messageContent.push({
-                  image: {
-                    format,
-                    source: { bytes: new Uint8Array(imageBuffer) }
-                  }
-                })
-              }
-            }
+            const content = await imageToBedrockContent(absolutePath)
+            if (content) messageContent.push(content)
           }
 
           const command = new ConverseCommand({
             modelId: process.env.BEDROCK_MODEL_ID || "eu.anthropic.claude-sonnet-4-6",
             messages: [{ role: "user", content: messageContent }],
-            system: [
-              {
-                text: `You are an automated moderation agent for an e-commerce marketplace. Your sole job is to evaluate new product listings submitted by sellers and return a single decimal score between 0.00 and 1.00. You must never return anything other than this number — no explanations, no comments, no punctuation, no text.
-
-  SCORING SCALE:
-  0.00 - ILLEGAL ITEM
-
-  0.80-1 - ITEMS WHICH ARE NOT SCUMMY OR SUSPICIOUS IN ANY WAY, OR FOR WHICH THERE IS NOT ENOUGH INFORMATION TO JUDGE (DEFAULT TO APPROVAL)
-
-  YOUR DEFAULT ASSUMPTION IS APPROVAL.
-  Unless you can point to a specific concrete problem, score 0.90 or above.
-  Doubt = approve. Uncertainty = approve. Missing info = approve.
-  Never use the manual review band as a fallback for vagueness.
-
-  ELECTRONICS & BRANDED GOODS:
-  Smartphones, laptops, tablets, and other consumer electronics listed under a real brand name (Apple, Samsung, Sony, etc.) are among the most commonly resold items on any marketplace. Listing an iPhone, Galaxy, MacBook, or similar at any reasonable second-hand price is completely normal. Score these 0.90–1.00 by default.
-
-  WHAT "SUSPICIOUS PRICE" ACTUALLY MEANS:
-  A price is only suspicious if it is more than 90% below the known retail price with zero explanation. Examples:
-  - iPhone 15 Pro listed at 850€ → completely normal → 0.95
-  - iPhone 15 Pro listed at 600€ → used/discounted, totally fine → 0.93
-  - iPhone 15 Pro listed at 50€ → suspicious → 0.60
-  - iPhone 15 Pro listed at 5€ → obvious scam → 0.10
-  A price that simply seems "low" or "cheap" for a new item is NOT a flag. Second-hand electronics are routinely sold at 30–60% below retail.
-
-  HARD REJECTION — 0.00 to 0.45 — only for:
-  - Explicitly illegal products (controlled substances, illegal weapons, CSAM, stolen goods explicitly stated)
-  - Word "replica", "fake", "clone", "copy of" in the listing
-  - Price more than 90% below retail with no condition explanation
-  - Product that has no legitimate civilian use
-
-  MANUAL REVIEW — 0.50 to 0.79 — only for:
-  - Dual-use items commonly misused (certain chemicals, surveillance devices, lock-picking sets)
-  - Prescription-only or heavily regulated items
-  - Images explicitly contradict the text description
-  - Price is 70–90% below retail with no condition explanation
-
-  APPROVE — 0.80 to 1.00 — everything else, including:
-  - All standard consumer electronics, new or used
-  - Branded goods at any reasonable price
-  - Items with short or vague descriptions
-  - Budget or low-cost items
-  - Second-hand goods in any stated condition
-
-  OUTPUT FORMAT:
-  A single decimal number only. Nothing else.`
-              }
-            ],
-            inferenceConfig: { temperature: 0.1, maxTokens: 300 }
+            system: [{ text: MODERATION_SYSTEM_PROMPT }],
+            inferenceConfig: { temperature: 0.1, maxTokens: 300 },
           })
 
           const bedrockResponse = await bedrockClient.send(command)
-          const responseText = bedrockResponse.output?.message?.content?.[0]?.text || "0.0"
-
-          let score = 0.0
-          try {
-            const cleanText = responseText.replace(/```json|```/g, "").trim()
-            const parsed = JSON.parse(cleanText)
-            if (typeof parsed === "number") score = parsed
-            else if (parsed && typeof parsed.score === "number") score = parsed.score
-            else score = parseFloat(cleanText) || 0.0
-          } catch {
-            score = parseFloat(responseText.trim()) || 0.0
-          }
-
-          let status: string
-          if (score < 0.50) status = "rejected"
-          else if (score < 0.80) status = "pending"
-          else status = "approved"
+          const score = parseBedrockScore(bedrockResponse.output?.message?.content?.[0]?.text || "0.0")
+          const status = score < 0.50 ? "rejected" : score < 0.80 ? "pending" : "approved"
 
           const updateData: any = { productName, price, stock, category, description, status, reliability: score }
 
@@ -769,14 +742,12 @@ A single decimal number only. Nothing else.` }],
 
           await db.update(products).set(updateData).where(eq(products.id, productId))
           server.log.info(`Prodotto ${productId} aggiornato. Status: ${status}, Score: ${score}`)
-
         } catch (bgError) {
           server.log.error(bgError)
         }
       })
-
     } catch (error) {
-      console.error("ERRORE MODIFICA PRODOTTO:", error)
+      server.log.error(error)
       return res.status(500).send("Errore durante la modifica del prodotto")
     }
   })
