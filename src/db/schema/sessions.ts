@@ -1,9 +1,7 @@
-import { pgTable, integer, text, serial, jsonb, timestamp } from "drizzle-orm/pg-core"
+import { pgTable, text, jsonb, timestamp } from "drizzle-orm/pg-core"
 
-export const sessions=pgTable("sessions",{
-
-    sid:text().primaryKey(),
-    sess:jsonb().notNull(),
-    expire:timestamp({withTimezone:true}).notNull()
-
+export const sessions = pgTable("sessions", {
+  sid: text("sid").primaryKey(), 
+  sess: jsonb("sess").notNull(),  
+  expire: timestamp("expire", { mode: "date" }).notNull(),
 })

@@ -16,9 +16,10 @@ import { fileURLToPath } from "url"
 import Cart from "../components/cart"
 import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime"
 import EditProductModal from "../components/EditProductModal"
-import { getCartCount } from "../helpers/cartCounter"
-import CartBadgeOOB from "../components/CartBadgeOOB"
+import {getCartCount} from "../helpers/cartCounter"
 import crypto from "crypto"
+import CartBadgeOOB from "../components/CartBadgeOOB"
+
 
 type PaymentBody = { cardNumber: string; expiry: string }
 type CheckOutBody = { fullName?: string; city?: string; cap?: string; address?: string }
@@ -60,7 +61,7 @@ const IMAGE_FORMATS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp"])
 const MODERATION_SYSTEM_PROMPT = `You are an automated moderation agent for an e-commerce marketplace. Your sole job is to evaluate new product listings submitted by sellers and return a single decimal score between 0.00 and 1.00. You must never return anything other than this number — no explanations, no comments, no punctuation, no text.
 
 SCORING SCALE:
-0.00 - ILLEGAL ITEM OR ITEMS THAT CAN'T BE SOLD TO A MINOR OR ARE SOLD BY THE STATE AND CAN'T BE SOLD BY THE PUBLIC (STATE MONOPOLY)
+0.00 - ILLEGAL ITEM
 
 0.80-1 - ITEMS WHICH ARE NOT SCUMMY OR SUSPICIOUS IN ANY WAY, OR FOR WHICH THERE IS NOT ENOUGH INFORMATION TO JUDGE (DEFAULT TO APPROVAL)
 
@@ -125,14 +126,12 @@ async function imageToBedrockContent(filePath: string) {
 const PROTECTED_ROUTES = new Set([
   "/editProfile",
   "/deleteFromCart",
-  "/addToCart",
   "/updateCartQuantity",
   "/payment/confirm",
   "/checkout/validate",
   "/magic-description",
   "/sell-product",
   "/edit-product",
-  "/product",
 ])
 
 function isProtectedRoute(url: string): boolean {
@@ -140,7 +139,6 @@ function isProtectedRoute(url: string): boolean {
   return (
     PROTECTED_ROUTES.has(pathname) ||
     pathname.startsWith("/deleteFromCart/") ||
-    pathname.startsWith("/addToCart/") ||
     pathname.startsWith("/updateCartQuantity/") ||
     pathname.startsWith("/edit-product/") ||
     pathname.startsWith("/edit-product-modal/")
@@ -153,87 +151,79 @@ export default (server: ZodFastifyInstance) => {
     if (!isProtectedRoute(req.url)) return
 
     const token = req.session.sessionToken
-    const isHtmx = req.headers["hx-request"]
-
-    if (!token) {
-      if (isHtmx) {
-        if (req.url.startsWith("/addToCart/")) {
-          return res
-            .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Devi effettuare il login per aggiungere al carrello" } }))
-            .send()
-        }
-        return res.header("HX-Redirect", "/").send()
-      }
-      return res.redirect("/")
-    }
+    if (!token) return res.redirect("/")
 
     const [user] = await db.select().from(users).where(eq(users.session, token)).limit(1)
     if (!user) {
       await req.session.destroy()
-      if (isHtmx) {
-        if (req.url.startsWith("/addToCart/")) {
-          return res
-            .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Sessione scaduta, effettua di nuovo il login" } }))
-            .send()
-        }
-        return res.header("HX-Redirect", "/").send()
-      }
       return res.redirect("/")
     }
 
     req.currentUser = user
   })
 
-  server.post("/login", async (req, res) => {
-    const { redirect } = req.query as { redirect?: string }
-    const redirectTo = redirect || "/"
-    const result = loginSchema.safeParse(req.body)
+ server.post("/login", async (req, res) => {
+  const { redirect } = req.query as { redirect?: string }
+  const redirectTo = redirect || "/"
+  const result = loginSchema.safeParse(req.body)
 
-    if (!result.success) {
-      const fieldErrors = result.error.flatten().fieldErrors
+  if (!result.success) {
+    const fieldErrors = result.error.flatten().fieldErrors
+    return res.status(200).html(
+      <LoginForm redirectTo={redirectTo} values={req.body as any} error={{
+        username: fieldErrors.username?.[0],
+        password: fieldErrors.password?.[0],
+      }} />
+    )
+  }
+
+  const { username, password } = result.data
+
+  try {
+    const [dbUser] = await db.select().from(users).where(eq(users.userName, username)).limit(1)
+
+    if (!dbUser || !(await argon2.verify(dbUser.password, password))) {
       return res.status(200).html(
-        <LoginForm redirectTo={redirectTo} values={req.body as any} error={{
-          username: fieldErrors.username?.[0],
-          password: fieldErrors.password?.[0],
-        }} />
+        <LoginForm redirectTo={redirectTo} values={{ username, password }} error={{ password: "Username o password errati" }} />
       )
     }
 
-    const { username, password } = result.data
+    if (!dbUser.isVerified) {
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
 
-    try {
-      const [dbUser] = await db.select().from(users).where(eq(users.userName, username)).limit(1)
+      await db.update(users).set({ verificationCode }).where(eq(users.id, dbUser.id))
 
-      if (!dbUser || !(await argon2.verify(dbUser.password, password))) {
-        return res.status(200).html(
-          <LoginForm redirectTo={redirectTo} values={{ username, password }} error={{ password: "Username o password errati" }} />
-        )
-      }
+      await sendTemplateEmail({
+        to: dbUser.eMail,
+        subject: "Verifica il tuo account TechStore",
+        template: "WelcomeEmail",
+        payload: { name: dbUser.name, code: verificationCode },
+      })
 
-      const sessionToken = crypto.randomBytes(32).toString("hex")
-
-      await db.update(users).set({ session: sessionToken }).where(eq(users.id, dbUser.id))
-
-      req.session.sessionToken = sessionToken
-      req.session.username = username
-
-      return res
-        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Ti sei loggato con successo" } }))
-        .header("HX-Redirect", redirectTo)
-        .send()
-    } catch (error) {
-      server.log.error(error)
-      return res.status(200).html(
-        <LoginForm redirectTo={redirectTo} values={result.data} error={{ password: "Si è verificato un errore interno. Riprova più tardi." }} />
-      )
+      return res.status(200).html(<OtpForm email={dbUser.eMail} />)
     }
-  })
 
+    const sessionToken = crypto.randomBytes(32).toString("hex")
+    await db.update(users).set({ session: sessionToken }).where(eq(users.id, dbUser.id))
 
+    req.session.sessionToken = sessionToken
+    req.session.username = dbUser.userName
 
+    if (typeof req.session.save === "function") {
+      await req.session.save()
+    }
 
-
-  //Sign Up.
+    return res
+      .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Ti sei loggato con successo" } }))
+      .header("HX-Redirect", redirectTo)
+      .send()
+  } catch (error) {
+    server.log.error(error)
+    return res.status(200).html(
+      <LoginForm redirectTo={redirectTo} values={result.data} error={{ password: "Si è verificato un errore interno. Riprova più tardi." }} />
+    )
+  }
+})
   server.post("/signUp", async (req, res) => {
     const result = signUpSchema.safeParse(req.body)
 
@@ -247,20 +237,43 @@ export default (server: ZodFastifyInstance) => {
     const { nome, cognome, username, email, password } = result.data
 
     try {
-      const [existing] = await db.select().from(users).where(eq(users.userName, username)).limit(1)
-      if (existing) {
+      const [existingUsername] = await db.select().from(users).where(eq(users.userName, username)).limit(1)
+      if (existingUsername && existingUsername.isVerified) {
         return res.status(200).html(<SignUpForm values={req.body as any} errors={{ username: "Username già in uso" }} />)
       }
 
-      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
+      const [existingEmail] = await db.select().from(users).where(eq(users.eMail, email)).limit(1)
+      if (existingEmail && existingEmail.isVerified) {
+        return res.status(200).html(<SignUpForm values={req.body as any} errors={{ email: "Email già in uso" }} />)
+      }
 
-      req.session.tempUserData = {
-        name: nome,
-        lastName: cognome,
-        userName: username,
-        eMail: email,
-        passwordHash: await argon2.hash(password),
-        code: verificationCode,
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
+      const passwordHash = await argon2.hash(password)
+
+      const existingUserToUpdate = existingUsername || existingEmail;
+
+      if (existingUserToUpdate) {
+        
+        await db.update(users).set({
+          name: nome,
+          lastName: cognome,
+          userName: username,
+          eMail: email,
+          password: passwordHash,
+          verificationCode,
+          isVerified: false,
+        }).where(eq(users.id, existingUserToUpdate.id)) 
+      } else {
+       
+        await db.insert(users).values({
+          name: nome,
+          lastName: cognome,
+          userName: username,
+          eMail: email,
+          password: passwordHash,
+          verificationCode,
+          isVerified: false,
+        })
       }
 
       await sendTemplateEmail({
@@ -277,11 +290,6 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
-
-
-
-
-  //Log Out
   server.post("/logout", async (req, reply) => {
     await req.session.destroy()
     return reply
@@ -297,42 +305,17 @@ export default (server: ZodFastifyInstance) => {
     if (isNaN(cartID)) return res.status(400).send("ID non valido")
 
     try {
-        await db.delete(cart).where(eq(cart.id, cartID))
+      const [item] = await db.select().from(cart).where(and(eq(cart.id, cartID), eq(cart.userId, req.currentUser!.id))).limit(1)
+      if (!item) return res.status(403).send("Non autorizzato")
 
-        const user = await db.query.users.findFirst({ where: { userName: req.session.username } })
-
-        const cartProducts = await db.query.cart.findMany({
-            where: user ? { userId: user.id } : undefined,
-            with: { cartItem: true }
-        })
-
-        const totalCart = cartProducts.reduce((sum, item) => {
-            const price = item.cartItem?.price ? Number(item.cartItem.price) : 0
-            const quantity = item.quantity ? Number(item.quantity) : 1
-            return sum + (price * quantity)
-        }, 0)
-
-        const cartCount = await getCartCount(req.session.username)
-
-        return res.status(200).html(
-            <>
-                <span id="cart-total" class="text-[22px] font-bold" hx-swap-oob="true">
-                    ${totalCart.toLocaleString("it-IT")}
-                </span>
-                <CartBadgeOOB count={cartCount} />
-            </>
-        )
+      await db.delete(cart).where(eq(cart.id, cartID))
+      return res.header("HX-Redirect", "/cart").send()
     } catch (error) {
-        server.log.error(error)
-        return res.status(500).send("Errore durante l'eliminazione")
+      server.log.error(error)
+      return res.status(500).send("Errore durante l'eliminazione")
     }
   })
 
-
-
-
-
-  //Add to cart an item.
   server.get("/addToCart/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
@@ -341,57 +324,51 @@ export default (server: ZodFastifyInstance) => {
     if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido")
     if (isNaN(quantity) || quantity < 1) return res.status(400).send("Quantità non valida")
 
-    if (!req.session.username) {
-        return res
-            .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Devi essere loggato per aggiungere prodotti al carrello" } }))
-            .send()
+    if (!req.session.sessionToken) {
+      return res
+        .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Devi essere loggato per aggiungere prodotti al carrello" } }))
+        .send()
     }
 
-    const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+    const [user] = await db.select().from(users).where(eq(users.session, req.session.sessionToken)).limit(1)
     if (!user) {
-        return res.status(401).html(<LoginForm values={{ username: "", password: "" }} error={{ password: "Utente non trovato. Riprova." }} />)
+      return res
+        .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Devi essere loggato per aggiungere prodotti al carrello" } }))
+        .send()
     }
 
     try {
-        const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1)
-        if (!product) return res.status(404).send("Prodotto non trovato")
+      const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1)
+      if (!product) return res.status(404).send("Prodotto non trovato")
 
-        if (product.userId === user.id) {
-            return res.header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Non puoi aggiungere al carrello un tuo prodotto!" } })).send()
+      if (product.userId === user.id) {
+        return res.header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Non puoi aggiungere al carrello un tuo prodotto!" } })).send()
+      }
+
+      if (product.stock < quantity) {
+        return res.header("HX-Trigger", JSON.stringify({ showErrorToast: { message: `Stock insufficiente! Disponibili solo: ${product.stock}` } })).send()
+      }
+
+      const [existingItem] = await db.select().from(cart).where(and(eq(cart.userId, user.id), eq(cart.productId, productId))).limit(1)
+
+      if (existingItem) {
+        const newQuantity = existingItem.quantity + quantity
+        if (product.stock < newQuantity) {
+          return res.header("HX-Trigger", JSON.stringify({ showErrorToast: { message: `Hai già questo articolo nel carrello. Non puoi superare lo stock massimo di ${product.stock}!` } })).send()
         }
+        await db.update(cart).set({ quantity: newQuantity }).where(eq(cart.id, existingItem.id))
+      } else {
+        await db.insert(cart).values({ userId: user.id, productId, quantity })
+      }
 
-        if (product.stock < quantity) {
-            return res.header("HX-Trigger", JSON.stringify({ showErrorToast: { message: `Stock insufficiente! Disponibili solo: ${product.stock}` } })).send()
-        }
-
-        const [existingItem] = await db.select().from(cart).where(and(eq(cart.userId, user.id), eq(cart.productId, productId))).limit(1)
-
-        if (existingItem) {
-            const newQuantity = existingItem.quantity + quantity
-            if (product.stock < newQuantity) {
-                return res.header("HX-Trigger", JSON.stringify({ showErrorToast: { message: `Hai già questo articolo nel carrello. Non puoi superare lo stock massimo di ${product.stock}!` } })).send()
-            }
-            await db.update(cart).set({ quantity: newQuantity }).where(eq(cart.id, existingItem.id))
-        } else {
-            await db.insert(cart).values({ userId: user.id, productId, quantity })
-        }
-
-        // 👇 Calcolato DOPO l'operazione sul DB
-        const cartCount = await getCartCount(req.session?.username)
-
-        return res
-            .header("HX-Trigger", JSON.stringify({ showAddedToCartToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` } }))
-            .html(<CartBadgeOOB count={cartCount} />)
+      return res
+        .header("HX-Trigger", JSON.stringify({ showAddedToCartToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` } }))
+        .send()
     } catch (error) {
-        return res.status(500).send("Errore durante l'aggiunta al carrello")
+      return res.status(500).send("Errore durante l'aggiunta al carrello")
     }
   })
 
-
-
-
-
-  //Edit profile.
   server.post("/editProfile", async (req, res) => {
     const result = editProfileSchema.safeParse(req.body)
     const currentUser = req.currentUser!
@@ -428,11 +405,6 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
-
-
-
-
-  //Update the quantity and the total price of the cart when we increment the selector.
   server.post("/updateCartQuantity/:cartId", async (req, res) => {
     const { cartId } = req.params as { cartId: string }
     const newQty = parseInt((req.body as { quantity: string }).quantity, 10)
@@ -440,7 +412,8 @@ export default (server: ZodFastifyInstance) => {
     if (isNaN(newQty) || newQty < 1) return res.status(400).send("Quantità non valida")
 
     try {
-        await db.update(cart).set({ quantity: newQty }).where(eq(cart.id, parseInt(cartId, 10)))
+      const [item] = await db.select().from(cart).where(and(eq(cart.id, parseInt(cartId, 10)), eq(cart.userId, req.currentUser!.id))).limit(1)
+      if (!item) return res.status(403).send("Non autorizzato")
 
         const user = await db.query.users.findFirst({
             where: { userName: req.session?.username }
@@ -460,7 +433,7 @@ export default (server: ZodFastifyInstance) => {
         const updatedItem = cartProducts.find(p => p.id === parseInt(cartId, 10))
         const itemTotal = ((Number(updatedItem?.cartItem?.price) || 0) * (Number(updatedItem?.quantity) || 1))
 
-        const cartCount = await getCartCount(req.session?.username) // 👈 nuovo
+        const cartCount = await getCartCount(req.session?.username) //nuovo
 
         return res.status(200).html(
             <>
@@ -470,16 +443,15 @@ export default (server: ZodFastifyInstance) => {
                 <span id="cart-total" class="text-[22px] font-bold" hx-swap-oob="true">
                     ${totalCart.toLocaleString("it-IT")}
                 </span>
-                <CartBadgeOOB count={cartCount} /> {/* 👈 nuovo */}
+                <CartBadgeOOB count={cartCount} /> {/*nuovo */}
             </>
         )
+   
     } catch (error) {
-        server.log.error(error)
-        return res.status(500).send("Errore interno del server")
+      server.log.error(error)
+      return res.status(500).send("Errore interno del server")
     }
   })
-
-
 
 
 
@@ -506,53 +478,36 @@ export default (server: ZodFastifyInstance) => {
     if (cartItems.length === 0) return res.header("HX-Redirect", "/cart").send()
 
     let totalAmount = 0
-    const ordersToInsert = []
-    const productUpdates = []
 
     for (const item of cartItems) {
       if (!item.cartItem) continue
       const itemTotal = (item.cartItem.price || 0) * item.quantity
       totalAmount += itemTotal
 
-      ordersToInsert.push({
-        userId: user.id,
-        productId: item.productId,
-        quantity: item.quantity,
-        totalPrice: itemTotal,
-        status: "not yet sent"
-      })
-
-      productUpdates.push(
-        db.update(products)
-          .set({ stock: item.cartItem.stock - item.quantity })
-          .where(eq(products.id, item.productId))
-      )
-    }
-
-    if (ordersToInsert.length > 0) {
-      await db.insert(orders).values(ordersToInsert)
-    }
-    if (productUpdates.length > 0) {
-      await Promise.all(productUpdates)
+      await Promise.all([
+        db.insert(orders).values({ userId: user.id, productId: item.productId, quantity: item.quantity, totalPrice: itemTotal, status: "not yet sent" }),
+        db.update(products).set({ stock: item.cartItem.stock - item.quantity }).where(eq(products.id, item.productId)),
+      ])
     }
 
     await db.delete(cart).where(eq(cart.userId, user.id))
 
-    sendTemplateEmail({
-      to: user.eMail,
-      subject: "Conferma del tuo ordine TechStore",
-      template: "OrderConfirmEmail",
-      payload: { name: user.name, totalPrice: totalAmount.toFixed(2) },
-    }).catch(err => server.log.error(err))
+    res.header("HX-Redirect", "/payment/accepted").send()
 
-    return res.header("HX-Redirect", "/payment/accepted").send()
+    setImmediate(async () => {
+      try {
+        await sendTemplateEmail({
+          to: user.eMail,
+          subject: "Conferma del tuo ordine TechStore",
+          template: "OrderConfirmEmail",
+          payload: { name: user.name, totalPrice: totalAmount.toFixed(2) },
+        })
+      } catch (emailError) {
+        server.log.error(emailError)
+      }
+    })
   })
 
-
-
-
-
-  //Checkout validation
   server.get("/checkout/validate", async (req, res) => {
     const { fullName, city, cap, address } = req.query as CheckOutBody
     const errors: Record<string, string> = {}
@@ -598,11 +553,6 @@ export default (server: ZodFastifyInstance) => {
     return res.header("HX-Redirect", "/checkout/payment").send()
   })
 
-
-
-
-
-  //AI description
   server.post("/magic-description", async (req, res) => {
     const textareaClass = (extra = "") =>
       `w-full border ${extra} rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 text-gray-900 bg-white resize-none`
@@ -665,11 +615,6 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
-
-
-
-
-  //Sell products.
   server.post("/sell-product", async (req, res) => {
     const user = req.currentUser!
     const uploadDir = path.join(process.cwd(), "public", "images")
@@ -702,25 +647,16 @@ export default (server: ZodFastifyInstance) => {
           else if (part.fieldname === "coverIndex") coverIndex = parseInt(part.value as string, 10) || 0
         }
       }
-      if (imageUrls.length === 0) {
-        return res
-          .header("HX-Trigger", JSON.stringify({ 
-            showErrorToast: { message: "Errore: È necessario caricare almeno un'immagine del prodotto." } 
-          }))
-          .send();
-      }
 
-      
       if (!productName || price <= 0 || stock < 1) {
         return res
           .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Errore: Campi non compilati correttamente." } }))
           .send()
       }
 
-
       const [product] = await db.insert(products).values({
         productName, price, stock, category, description,
-        imageUrl: JSON.stringify(imageUrls), // imageUrls is guaranteed to have items here
+        imageUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : undefined,
         userId: user.id,
         status: "pending",
         reliability: null,
@@ -771,11 +707,6 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
-
-
-
-
-  //Product page.
   server.delete("/product/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
@@ -800,45 +731,20 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
-
-
-
-
-  //Edit product modal.
   server.get("/edit-product-modal/:id", async (req, res) => {
-      if (!req.session.username) return res.status(401).send("Non autorizzato, devi essere loggato per modificare un prodotto")
+    const { id } = req.params as { id: string }
+    const productId = parseInt(id, 10)
 
-      const { id } = req.params as { id: string }
-      const productId = parseInt(id, 10)
+    const product = await db.query.products.findFirst({ where: { id: productId } })
+    if (!product) return res.status(404).send("Prodotto non trovato")
 
-      const product = await db.query.products.findFirst({
-          where: { id: productId }
-      })
-
-      if (!product) return res.status(404).send("Prodotto non trovato")
-
-      if (product.userId !== req.currentUser!.id) return res.status(403).send("Non puoi modificare un prodotto che non ti appartiene")
-
-      return res.status(200).html(<EditProductModal product={product} />)
+    return res.status(200).html(<EditProductModal product={product} />)
   })
 
-
-
-
-
-  
-
-
-  //Edit product page.
   server.post("/edit-product/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
     const user = req.currentUser!
-
-    //verifica che il prodotto appartenga all'utente
-    const existingProduct = await db.query.products.findFirst({ where: { id: productId } })
-    if (!existingProduct) return res.status(404).send("Prodotto non trovato")
-    if (existingProduct.userId !== user.id) return res.status(403).send("Non puoi modificare un prodotto che non ti appartiene")
 
     try {
       const parts = req.parts()

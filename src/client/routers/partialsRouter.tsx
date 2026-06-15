@@ -55,54 +55,49 @@ export default (server: ZodFastifyInstance) => {
   })
 
   server.post("/verify-otp", async (req, res) => {
-    const { otp } = req.body as { otp: string }
-    const tempUser = req.session.tempUserData
+  const { otp, email } = req.body as { otp: string; email: string }
 
-    if (!tempUser) {
-      return res.status(200).html(
-        <p class="text-red-500 text-sm font-semibold p-4 text-center">
-          Sessione scaduta. Per favore, ricarica la pagina e riprova.
-        </p>
-      )
+  if (!email) {
+    return res.status(200).html(
+      <p class="text-red-500 text-sm font-semibold p-4 text-center">
+        Sessione scaduta. Per favore, ricarica la pagina e riprova.
+      </p>
+    )
+  }
+
+  const [user] = await db.select().from(users).where(eq(users.eMail, email)).limit(1)
+
+  if (!user) {
+    return res.status(200).html(<OtpForm email={email} error="Utente non trovato. Riprova la registrazione." />)
+  }
+
+  if (!user.isVerified && otp !== user.verificationCode) {
+    return res.status(200).html(<OtpForm email={email} error="Codice non valido o scaduto." />)
+  }
+
+  try {
+    const sessionToken = crypto.randomBytes(32).toString("hex")
+
+    await db.update(users)
+      .set({ isVerified: true, session: sessionToken, verificationCode: null })
+      .where(eq(users.id, user.id))
+
+    req.session.sessionToken = sessionToken
+    req.session.username = user.userName
+
+    if (typeof req.session.save === "function") {
+      await req.session.save()
     }
 
-    //salva i tentativi in sessione, se sono più di 5 devi rifare la registrazione
-    if (!req.session.otpAttempts) req.session.otpAttempts = 0
-    req.session.otpAttempts++
-    if (req.session.otpAttempts > 5) {
-      await req.session.destroy()
-      return res.status(429).send("Troppi tentativi, ricomincia la registrazione")
-    }
-
-    if (otp !== tempUser.code) {
-      return res.status(200).html(<OtpForm email={tempUser.eMail} error="Codice non valido o scaduto." />)
-    }
-
-    try {
-      const sessionToken = crypto.randomBytes(32).toString("hex")
-
-      await db.insert(users).values({
-        name: tempUser.name,
-        lastName: tempUser.lastName,
-        userName: tempUser.userName,
-        eMail: tempUser.eMail,
-        password: tempUser.passwordHash,
-        session: sessionToken,
-      })
-
-      delete req.session.tempUserData
-      req.session.sessionToken = sessionToken
-      req.session.username = tempUser.userName
-
-      return res
-        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Registrazione completata!" } }))
-        .header("HX-Redirect", "/")
-        .send()
-    } catch (error) {
-      server.log.error(error)
-      return res.status(200).html(<OtpForm email={tempUser.eMail} error="Errore di sistema salvando l'utente." />)
-    }
-  })
+    return res
+      .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Account verificato con successo!" } }))
+      .header("HX-Redirect", "/")
+      .send()
+  } catch (error) {
+    server.log.error(error)
+    return res.status(200).html(<OtpForm email={email} error="Errore di sistema salvando l'utente." />)
+  }
+})
 
   server.get("/edit-profile-modal", async (req, res) => {
     if (!req.session.username) {
@@ -189,9 +184,6 @@ export default (server: ZodFastifyInstance) => {
       .set({ password: await argon2.hash(newPassword) })
       .where(eq(users.userName, req.session.username))
 
-    // Invalida la sessione dell'utente dopo il cambio password
-    await db.update(users).set({ session: null }).where(eq(users.userName, req.session.username))
-
     return res
       .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Password aggiornata con successo!" } }))
       .header("HX-Redirect", "/profile")
@@ -253,15 +245,6 @@ export default (server: ZodFastifyInstance) => {
       return res.status(200).html(<ResetPasswordForm email={email} error="Le password non coincidono." />)
     }
 
-    if (!req.session.resetPasswordAttempts) req.session.resetPasswordAttempts = 0
-    req.session.resetPasswordAttempts++
-    if (req.session.resetPasswordAttempts > 5) {
-      await req.session.destroy()
-      return res.status(429).html(
-        <ResetPasswordForm email={email} error="Troppi tentativi. Ricomincia dalla pagina di login." />
-      )
-    }
-
     const [user] = await db.select().from(users).where(eq(users.eMail, email)).limit(1)
 
     if (!user || !user.resetToken || !user.resetTokenExpiry) {
@@ -296,5 +279,28 @@ export default (server: ZodFastifyInstance) => {
     }
 
     return res.status(200).html(<SellProductModal />)
+  })
+
+  server.get("/resend-verification", async (req, res) => {
+    if (!req.session.username) return res.status(401).send("Non autorizzato")
+
+    const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+    if (!user) return res.status(404).send("Utente non trovato")
+    if (user.isVerified) return res.status(400).send("Account già verificato")
+
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
+
+    await db.update(users)
+      .set({ verificationCode })
+      .where(eq(users.id, user.id))
+
+    await sendTemplateEmail({
+      to: user.eMail,
+      subject: "Verifica il tuo account TechStore",
+      template: "WelcomeEmail",
+      payload: { name: user.name, code: verificationCode },
+    })
+
+    return res.status(200).send()
   })
 }
