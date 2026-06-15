@@ -261,7 +261,6 @@ export default async function ProductInfoPage({ product, session }: Props) {
                   </button>
                 ) : (
                   <div id={`purchase-actions-${product.id}`} class={product.stock > 0 ? "flex gap-3" : "hidden"}>
-<<<<<<< HEAD
                     <div
                       id={`modal-${product.id}`}
                       class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center cursor-default"
@@ -336,8 +335,6 @@ export default async function ProductInfoPage({ product, session }: Props) {
                       </div>
                     </div>
 
-=======
->>>>>>> refs/remotes/origin/main
                     <button
                       type="button"
                       onclick={`
