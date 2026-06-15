@@ -58,7 +58,7 @@ const IMAGE_FORMATS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp"])
 const MODERATION_SYSTEM_PROMPT = `You are an automated moderation agent for an e-commerce marketplace. Your sole job is to evaluate new product listings submitted by sellers and return a single decimal score between 0.00 and 1.00. You must never return anything other than this number — no explanations, no comments, no punctuation, no text.
 
 SCORING SCALE:
-0.00 - ILLEGAL ITEM
+0.00 - ILLEGAL ITEM OR ITEMS THAT CAN'T BE SOLD TO A MINOR OR ARE SOLD BY THE STATE AND CAN'T BE SOLD BY THE PUBLIC (STATE MONOPOLY)
 
 0.80-1 - ITEMS WHICH ARE NOT SCUMMY OR SUSPICIOUS IN ANY WAY, OR FOR WHICH THERE IS NOT ENOUGH INFORMATION TO JUDGE (DEFAULT TO APPROVAL)
 
@@ -617,16 +617,25 @@ export default (server: ZodFastifyInstance) => {
           else if (part.fieldname === "coverIndex") coverIndex = parseInt(part.value as string, 10) || 0
         }
       }
+      if (imageUrls.length === 0) {
+        return res
+          .header("HX-Trigger", JSON.stringify({ 
+            showErrorToast: { message: "Errore: È necessario caricare almeno un'immagine del prodotto." } 
+          }))
+          .send();
+      }
 
+      
       if (!productName || price <= 0 || stock < 1) {
         return res
           .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Errore: Campi non compilati correttamente." } }))
           .send()
       }
 
+
       const [product] = await db.insert(products).values({
         productName, price, stock, category, description,
-        imageUrl: imageUrls.length > 0 ? JSON.stringify(imageUrls) : undefined,
+        imageUrl: JSON.stringify(imageUrls), // imageUrls is guaranteed to have items here
         userId: user.id,
         status: "pending",
         reliability: null,

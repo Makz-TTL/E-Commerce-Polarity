@@ -27,12 +27,20 @@ export default function SellProductModal({ error }: Props) {
           </button>
         </div>
 
-        <form 
+                <form 
           hx-post="/sell-product" 
           hx-encoding="multipart/form-data" 
           hx-target="#modal" 
           hx-swap="innerHTML"
-          onsubmit="if(document.querySelectorAll('.preview-card').length === 0) { alert('Carica almeno un\'immagine del prodotto!'); return false; }"
+          onsubmit="
+            const cards = document.querySelectorAll('.preview-card');
+            if (cards.length === 0) { 
+              event.preventDefault(); 
+              event.stopPropagation();
+              document.getElementById('image-error').classList.remove('hidden'); 
+              return false; 
+            }
+          "
           class="flex-1 flex flex-col overflow-hidden"
         >
           
@@ -155,6 +163,10 @@ export default function SellProductModal({ error }: Props) {
                     <span class="text-[11px] font-bold">Aggiungi</span>
                   </button>
                 </div>
+
+                <p id="image-error" class="hidden text-red-500 text-sm font-semibold mt-2">
+                  ⚠️ È obbligatorio caricare almeno un'immagine del prodotto!
+                </p>
               </div>
               
               <div id="hidden-inputs-container" class="hidden"></div>
@@ -208,6 +220,9 @@ export default function SellProductModal({ error }: Props) {
               const file = input.files[0];
               const reader = new FileReader();
               reader.onload = function(e) {
+                // Nasconde l'errore non appena viene caricata una foto
+                document.getElementById('image-error').classList.add('hidden');
+
                 const card = document.createElement('div');
                 card.id = 'preview-card-' + currentId;
                 card.className = 'preview-card relative border-3 rounded-xl overflow-hidden aspect-square bg-gray-50 flex flex-col justify-end p-2 cursor-pointer transition-all shadow-xs transform active:scale-95 group border-transparent';
