@@ -1,4 +1,4 @@
-import { pgTable, integer, text, serial, doublePrecision } from "drizzle-orm/pg-core"
+import { pgTable, integer, text, serial, doublePrecision, boolean } from "drizzle-orm/pg-core"
 
 export const products = pgTable("products", {
   id: serial().primaryKey(),
@@ -11,6 +11,7 @@ export const products = pgTable("products", {
   imageUrl: text(),
   status: text(),
   reliability: doublePrecision(),
+  // isDeleted: boolean().notNull().default(false)
 
 })
 

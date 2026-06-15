@@ -17,6 +17,7 @@ export type ZodFastifyInstance = FastifyInstance<
 
 declare module "fastify" {
   interface Session {
+    userId?: number;
     username?: string;
     tempUserData?: {
       name: string;
