@@ -630,6 +630,7 @@ export default (server: ZodFastifyInstance) => {
         >{generatedText.trim()}</textarea>
       )
     } catch (error) {
+      console.log(error)
       server.log.error(error)
       return res.status(200).html(
         <textarea id="description" name="description" rows="3" maxlength="1000"
@@ -786,7 +787,7 @@ export default (server: ZodFastifyInstance) => {
       const { id } = req.params as { id: string }
       const productId = parseInt(id, 10)
 
-      if (req.session.userId !== Number(id)) return res.status(403).send("Non autorizzato, non puoi modificare un prodotto che non ti appartiene")
+      // if (req.session.userId !== Number(id)) return res.status(403).send("Non autorizzato, non puoi modificare un prodotto che non ti appartiene")
 
       const product = await db.query.products.findFirst({
           where: { id: productId }
