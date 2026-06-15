@@ -280,4 +280,27 @@ export default (server: ZodFastifyInstance) => {
 
     return res.status(200).html(<SellProductModal />)
   })
+
+  server.get("/resend-verification", async (req, res) => {
+    if (!req.session.username) return res.status(401).send("Non autorizzato")
+
+    const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+    if (!user) return res.status(404).send("Utente non trovato")
+    if (user.isVerified) return res.status(400).send("Account già verificato")
+
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
+
+    await db.update(users)
+      .set({ verificationCode })
+      .where(eq(users.id, user.id))
+
+    await sendTemplateEmail({
+      to: user.eMail,
+      subject: "Verifica il tuo account TechStore",
+      template: "WelcomeEmail",
+      payload: { name: user.name, code: verificationCode },
+    })
+
+    return res.status(200).send()
+  })
 }

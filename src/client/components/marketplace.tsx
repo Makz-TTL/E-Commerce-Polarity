@@ -4,6 +4,7 @@ import ConfirmLogoutModal from "./ConfirmLogoutModal"
 import { products as productsTable, users as usersTable } from "../../db/schema"
 import { eq, gt, and, sql, like, ilike } from "drizzle-orm" //aggiunto "like"
 import { getCartCount } from "../helpers/cartCounter"
+import OtpForm from "./OtpForm"
 
 type MarketplaceProps = {
   searchParams?: { category?: string; search?: string } //aggiunto search
@@ -32,6 +33,14 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
     gt(productsTable.stock, 0),
     eq(productsTable.status, "approved")
   ]
+
+  let isVerified = true
+  let currentUser: any = null
+  if (session?.username) {
+    const [found] = await db.select().from(usersTable).where(eq(usersTable.userName, session.username)).limit(1)
+    currentUser = found
+    isVerified = currentUser?.isVerified ? true : false
+  }
 
   if (category) {
     queryConditions.push(like(productsTable.category, category))
@@ -336,6 +345,19 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
       <div id="cart-drawer"></div>
       <div id="modal"></div>
       {session?.username && <ConfirmLogoutModal />}
+
+      {/*mostra OTP modal se non verificato */}
+      {session?.username && !isVerified && (
+      <div 
+        id="otp-verification-overlay" 
+        class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
+        hx-get="/resend-verification"
+        hx-trigger="revealed" /* fa sì che appena il modale appare venga mandato automaticamente il codice via email.*/
+        hx-swap="none"
+      >
+        <OtpForm email={currentUser!.eMail} />
+      </div>
+)}
     </div>
   )
 }

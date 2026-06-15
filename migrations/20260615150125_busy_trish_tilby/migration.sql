@@ -1,0 +1,1 @@
+ALTER TABLE "sessions" ALTER COLUMN "expire" SET DATA TYPE timestamp USING "expire"::timestamp;
