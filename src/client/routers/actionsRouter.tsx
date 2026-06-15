@@ -460,7 +460,7 @@ export default (server: ZodFastifyInstance) => {
         const updatedItem = cartProducts.find(p => p.id === parseInt(cartId, 10))
         const itemTotal = ((Number(updatedItem?.cartItem?.price) || 0) * (Number(updatedItem?.quantity) || 1))
 
-        const cartCount = await getCartCount(req.session?.username) // 👈 nuovo
+        const cartCount = await getCartCount(req.session?.username) //nuovo
 
         return res.status(200).html(
             <>
@@ -470,7 +470,7 @@ export default (server: ZodFastifyInstance) => {
                 <span id="cart-total" class="text-[22px] font-bold" hx-swap-oob="true">
                     ${totalCart.toLocaleString("it-IT")}
                 </span>
-                <CartBadgeOOB count={cartCount} /> {/* 👈 nuovo */}
+                <CartBadgeOOB count={cartCount} /> {/*nuovo */}
             </>
         )
     } catch (error) {
@@ -478,8 +478,6 @@ export default (server: ZodFastifyInstance) => {
         return res.status(500).send("Errore interno del server")
     }
   })
-
-
 
 
 
