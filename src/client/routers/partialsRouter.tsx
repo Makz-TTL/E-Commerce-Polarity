@@ -66,6 +66,14 @@ export default (server: ZodFastifyInstance) => {
       )
     }
 
+    //salva i tentativi in sessione, se sono più di 5 devi rifare la registrazione
+    if (!req.session.otpAttempts) req.session.otpAttempts = 0
+    req.session.otpAttempts++
+    if (req.session.otpAttempts > 5) {
+      await req.session.destroy()
+      return res.status(429).send("Troppi tentativi, ricomincia la registrazione")
+    }
+
     if (otp !== tempUser.code) {
       return res.status(200).html(<OtpForm email={tempUser.eMail} error="Codice non valido o scaduto." />)
     }
@@ -181,6 +189,9 @@ export default (server: ZodFastifyInstance) => {
       .set({ password: await argon2.hash(newPassword) })
       .where(eq(users.userName, req.session.username))
 
+    // Invalida la sessione dell'utente dopo il cambio password
+    await db.update(users).set({ session: null }).where(eq(users.userName, req.session.username))
+
     return res
       .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Password aggiornata con successo!" } }))
       .header("HX-Redirect", "/profile")
@@ -240,6 +251,15 @@ export default (server: ZodFastifyInstance) => {
 
     if (newPassword !== confirmPassword) {
       return res.status(200).html(<ResetPasswordForm email={email} error="Le password non coincidono." />)
+    }
+
+    if (!req.session.resetPasswordAttempts) req.session.resetPasswordAttempts = 0
+    req.session.resetPasswordAttempts++
+    if (req.session.resetPasswordAttempts > 5) {
+      await req.session.destroy()
+      return res.status(429).html(
+        <ResetPasswordForm email={email} error="Troppi tentativi. Ricomincia dalla pagina di login." />
+      )
     }
 
     const [user] = await db.select().from(users).where(eq(users.eMail, email)).limit(1)

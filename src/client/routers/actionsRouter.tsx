@@ -787,13 +787,13 @@ export default (server: ZodFastifyInstance) => {
       const { id } = req.params as { id: string }
       const productId = parseInt(id, 10)
 
-      // if (req.session.userId !== Number(id)) return res.status(403).send("Non autorizzato, non puoi modificare un prodotto che non ti appartiene")
-
       const product = await db.query.products.findFirst({
           where: { id: productId }
       })
 
       if (!product) return res.status(404).send("Prodotto non trovato")
+
+      if (product.userId !== req.currentUser!.id) return res.status(403).send("Non puoi modificare un prodotto che non ti appartiene")
 
       return res.status(200).html(<EditProductModal product={product} />)
   })
@@ -810,6 +810,11 @@ export default (server: ZodFastifyInstance) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
     const user = req.currentUser!
+
+    //verifica che il prodotto appartenga all'utente
+    const existingProduct = await db.query.products.findFirst({ where: { id: productId } })
+    if (!existingProduct) return res.status(404).send("Prodotto non trovato")
+    if (existingProduct.userId !== user.id) return res.status(403).send("Non puoi modificare un prodotto che non ti appartiene")
 
     try {
       const parts = req.parts()
