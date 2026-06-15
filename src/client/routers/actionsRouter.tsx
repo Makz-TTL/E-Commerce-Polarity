@@ -628,6 +628,7 @@ export default (server: ZodFastifyInstance) => {
         >{generatedText.trim()}</textarea>
       )
     } catch (error) {
+      console.log(error)
       server.log.error(error)
       return res.status(200).html(
         <textarea id="description" name="description" rows="3" maxlength="1000"
