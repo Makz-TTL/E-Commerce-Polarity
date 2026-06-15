@@ -269,15 +269,60 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
+
+  //Aggiorna la quantità e il prezzo totale del carrello quando aumentiamo il selettore.
   server.post("/updateCartQuantity/:cartId", async (req, res) => {
-    const { cartId } = req.params as { cartId: string }
-    const newQty = parseInt((req.body as { quantity: string }).quantity, 10)
+    const { cartId } = req.params as { cartId: string } //Prendiamo l'id dai parametri della richesta.
+    const newQty = parseInt((req.body as { quantity: string }).quantity, 10) //La quantità dal body.
 
     if (isNaN(newQty) || newQty < 1) return res.status(400).send("Quantità non valida")
 
     try {
-      await db.update(cart).set({ quantity: newQty }).where(eq(cart.id, parseInt(cartId, 10)))
-      return res.status(200).html(<Cart session={req.session} />)
+      
+      // Recupera l'item del carrello per controllare lo stock
+      const cartItem = await db.query.cart.findFirst({
+        where: { id: parseInt(cartId, 10) },
+        with: { cartItem: true }
+      })
+
+      if (!cartItem) return res.status(404).send("Item non trovato")
+
+      const maxStock = cartItem.cartItem?.stock || 99
+      const clampedQty = Math.min(newQty, maxStock)
+
+
+      await db.update(cart).set({ quantity: clampedQty }).where(eq(cart.id, parseInt(cartId, 10))) //Aggiorna il db con la nuova quantità.
+
+      const user = await db.query.users.findFirst({ //Troviamo l'utente tramite la sessione.
+        where: { userName: req.session?.username }
+      })
+
+      const cartProducts = await db.query.cart.findMany({ //Prendiamo l'intero carrello dell'utente.
+        where: user ? { userId: user.id } : undefined,
+        with: { cartItem: true }
+      })
+
+      const totalCart = cartProducts.reduce((sum, item) => { // Calcoliamo il totale del carrello.
+        const price = item.cartItem?.price ? Number(item.cartItem.price) : 0
+        const quantity = item.quantity ? Number(item.quantity) : 1
+        return sum + (price * quantity)
+      }, 0)
+
+      //Calcolo il totale di un singolo item.
+      const updatedItem = cartProducts.find(p => p.id === parseInt(cartId, 10))
+      const itemTotal = ((Number(updatedItem?.cartItem?.price) || 0) * (Number(updatedItem?.quantity) || 1))
+
+      //Risposta diversa, infatti ritorniamo due elemnti non uno solo, infatti è tra "<>", il front-end quando riceverà la risposta controllerà comunque il DOM e sostituira gli elementi selzionati.
+      return res.status(200).html(
+        <>
+          <span id={`item-total-${cartId}`} class="text-xl font-semibold text-black-600" hx-swap-oob="true">
+            ${itemTotal.toLocaleString("it-IT")}
+          </span>
+          <span id="cart-total" class="text-[22px] font-bold" hx-swap-oob="true">
+            ${totalCart.toLocaleString("it-IT")}
+          </span>
+        </>
+      )
     } catch (error) {
       server.log.error(error)
       return res.status(500).send("Errore interno del server")

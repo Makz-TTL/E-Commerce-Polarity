@@ -146,18 +146,25 @@ export default async function Cart({ session } : cartProps) {
                                         value={order.quantity.toString()}
                                         min="1"
                                         max={order.cartItem?.stock || 99}
-                                        hx-include="this" // <-- FONDAMENTALE: invia il valore numerico dell'input al server
+                                        hx-include="this"
                                         hx-post={`/updateCartQuantity/${order.id}`}
                                         hx-trigger="change, keyup delay:500ms changed"
-                                        hx-target="body" // <-- CAMBIATO: punta a tutto il body della pagina
-                                        hx-swap="innerHTML" // <-- CAMBIATO: sostituisce il contenuto interno del body
+                                        hx-target="this"
+                                        hx-swap="none"
+                                        oninput={`
+                                            const max = parseInt(this.max);
+                                            if (this.value !== '' && parseInt(this.value) > max) this.value = max;
+                                        `}
+                                        onblur={`
+                                            if (this.value === '' || parseInt(this.value) < 1) this.value = '1';
+                                        `}
                                         class="w-16 text-center border border-gray-200 rounded-xl bg-gray-50 py-1.5 text-sm font-bold text-gray-800 focus:outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-inner"
                                     />
                                 </div>
 
                                 <div class="flex flex-col items-end gap-1 min-w-[80px]">
                                     <span class="text-xs text-gray-400 font-medium">Totale item</span>
-                                    <span class="text-xl font-semibold text-black-600">${((Number(order.cartItem?.price) || 0) * (Number(order.quantity) || 1)).toLocaleString("it-IT")}</span>
+                                    <span id={`item-total-${order.id}`} class="text-xl font-semibold text-black-600">${((Number(order.cartItem?.price) || 0) * (Number(order.quantity) || 1)).toLocaleString("it-IT")}</span>
                                 </div>
 
                                 <button
@@ -205,7 +212,7 @@ export default async function Cart({ session } : cartProps) {
                                     </svg>
                                 </button>
                             </a>
-                            <p class="ml-auto text-[18px] font-medium text-gray-700">Totale carrello: <span class="text-[22px] font-bold">${totalCart.toLocaleString("it-IT")}</span></p>
+                            <p class="ml-auto text-[18px] font-medium text-gray-700">Totale carrello: <span id="cart-total" class="text-[22px] font-bold">${totalCart.toLocaleString("it-IT")}</span></p>
                         </div>
                     )}
                 </div>
