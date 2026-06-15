@@ -2,7 +2,6 @@ import env from "./utils/env"
 import path, { join } from "path"
 import { buildSync } from "esbuild"
 import { execSync } from "child_process"
-
 import Fastify from "fastify"
 import fastifyHtml from "@kitajs/fastify-html-plugin"
 import { validatorCompiler, ZodTypeProvider } from "fastify-type-provider-zod"
@@ -10,16 +9,18 @@ import fastifySession from "@fastify/session"
 import fastifyCookie from "@fastify/cookie"
 import fastifyMultipart from "@fastify/multipart"
 import fastifyFormbody from "@fastify/formbody"
-import pg from "pg"
+import { drizzle } from "drizzle-orm/node-postgres"
+import { eq, and, gt } from "drizzle-orm"
 
+import { sessions } from "./db/schema"
 import viewsRouter from "./client/routers/viewsRouter"
 import partialsRouter from "./client/routers/partialsRouter"
 import actionsRouter from "./client/routers/actionsRouter"
-
 import notFoundHandler from "./handlers/notFound"
 import registerGlobalErrorHandler from "./handlers/globalErrorHandler"
 
 import { users } from "./db/schema"
+
 type UserSelect = typeof users.$inferSelect
 
 declare module "@fastify/session" {
@@ -43,33 +44,66 @@ declare module "fastify" {
   }
 }
 
-const pool = new pg.Pool({
-  user: env.POSTGRES_USER,
-  password: env.POSTGRES_PASSWORD,
-  database: env.POSTGRES_DB,
-  host: "localhost",
-  port: 5432,
-}) //redo
+export const db = drizzle({
+  connection: {
+    user: env.POSTGRES_USER,
+    password: env.POSTGRES_PASSWORD,
+    database: env.POSTGRES_DB,
+    host: "localhost",
+    port: 5432
+  }
+})
 
-const sessionStore = {
-  get: (sid: string, cb: Function) => {
-    pool.query("SELECT sess FROM sessions WHERE sid = $1 AND expire > NOW()", [sid])
-      .then(res => cb(null, res.rows[0]?.sess ?? null))
-      .catch(e => cb(e))
+export const sessionStore = {
+  get: async (sid: string, cb: Function) => {
+    try {
+      const result = await db
+        .select({ sess: sessions.sess })
+        .from(sessions)
+        .where(
+          and(
+            eq(sessions.sid, sid),
+            gt(sessions.expire, new Date())
+          )
+        )
+      cb(null, result[0]?.sess ?? null)
+    } catch (e) {
+      cb(e)
+    }
   },
-  set: (sid: string, session: any, cb: Function) => {
-    const expire = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    pool.query(
-      "INSERT INTO sessions (sid, sess, expire) VALUES ($1, $2, $3) ON CONFLICT (sid) DO UPDATE SET sess = $2, expire = $3", //redo
-      [sid, JSON.stringify(session), expire]
-    )
-      .then(() => cb(null))
-      .catch(e => cb(e))
+
+  set: async (sid: string, session: any, cb: Function) => {
+    try {
+      const expire = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      
+      await db
+        .insert(sessions)
+        .values({
+          sid: sid,
+          sess: session,
+          expire: expire,
+        })
+        .onConflictDoUpdate({
+          target: sessions.sid,
+          set: { 
+            sess: session, 
+            expire: expire 
+          },
+        })
+        
+      cb(null)
+    } catch (e) {
+      cb(e)
+    }
   },
-  destroy: (sid: string, cb: Function) => {
-    pool.query("DELETE FROM sessions WHERE sid = $1", [sid])
-      .then(() => cb(null))
-      .catch(e => cb(e))
+
+  destroy: async (sid: string, cb: Function) => {
+    try {
+      await db.delete(sessions).where(eq(sessions.sid, sid))
+      cb(null)
+    } catch (e) {
+      cb(e)
+    }
   },
 }
 
@@ -80,9 +114,11 @@ const server = Fastify({ allowErrorHandlerOverride: false })
 server.register(fastifyCookie)
 server.register(fastifySession, {
   secret: env.SESSION_SECRET,
-  cookie: { secure: process.env.NODE_ENV === "production", 
-  sameSite: "strict",
-    maxAge: 7 * 24 * 60 * 60 * 1000 },
+  cookie: { 
+    secure: process.env.NODE_ENV === "production", 
+    sameSite: "strict",
+    maxAge: 7 * 24 * 60 * 60 * 1000 
+  },
   store: sessionStore as any,
 })
 server.register(fastifyHtml)
@@ -123,7 +159,4 @@ server.get("/live-style", (_req, reply) => {
 })
 
 server.listen({ port: +env.PORT, host: "0.0.0.0" })
-console.log(`
-App is listening on port ${env.PORT}
-Try http://localhost:${env.PORT}
-`)
+console.log(`\nApp is listening on port ${env.PORT}\nTry http://localhost:${env.PORT}\n`)
