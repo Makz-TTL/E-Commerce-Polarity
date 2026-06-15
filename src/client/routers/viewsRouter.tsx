@@ -55,9 +55,6 @@ export default (server: ZodFastifyInstance) => {
   server.get("/cart", async (req, res) => {
     if (!req.session.username) return res.redirect("/")
 
-    const { username } = req.query as { username?: string }
-    const targetUsername = username || req.session.username
-
     return res.html(
       <MainLayout>
         <Cart session={req.session} />
@@ -84,8 +81,6 @@ export default (server: ZodFastifyInstance) => {
       with: { cartItem: true },
     })
 
-    if (cart.length === 0) return res.redirect("/cart")
-
     return res.html(
       <MainLayout>
         <Checkout session={req.session} cart={cart} user={user} />
@@ -102,8 +97,6 @@ export default (server: ZodFastifyInstance) => {
       with: { cartItem: true },
     })
 
-    if (cartItems.length === 0) return res.redirect("/cart")
-
     const totalAmountOrders = cartItems.reduce((acc, item) => {
       return acc + (item.cartItem?.price || 0) * (item.quantity || 1)
     }, 0)
@@ -115,9 +108,7 @@ export default (server: ZodFastifyInstance) => {
     )
   })
 
-  server.get("/payment/accepted", async (req, res) => {
-    if (!req.session.username) return res.redirect("/")
-
+  server.get("/payment/accepted", async (_req, res) => {
     return res.html(
       <MainLayout>
         <PaymentAccepted />
@@ -125,9 +116,7 @@ export default (server: ZodFastifyInstance) => {
     )
   })
 
-  server.get("/payment/declined", async (req, res) => {
-    if (!req.session.username) return res.redirect("/")
-      
+  server.get("/payment/declined", async (_req, res) => {
     return res.html(
       <MainLayout>
         <PaymentDeclined />
@@ -159,10 +148,6 @@ export default (server: ZodFastifyInstance) => {
           name: result.users.name,
           lastName: result.users.lastName,
         } : undefined,
-      }
-
-      if (product.status !== "approved" && req.session.username !== product.seller?.userName) {
-        return res.status(404).send("Prodotto non trovato o non più disponibile")
       }
 
       return res.status(200).html(

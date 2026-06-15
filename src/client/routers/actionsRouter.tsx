@@ -571,6 +571,30 @@ export default (server: ZodFastifyInstance) => {
       )
     }
 
+    //controllo stock prima di proseguire
+    const user = await db.query.users.findFirst({
+        where: { userName: req.session.username }
+    })
+
+    const cartItems = await db.query.cart.findMany({
+        where: user ? { userId: user.id } : undefined,
+        with: { cartItem: true }
+    })
+
+    const stockIssues = cartItems.filter(item => (item.quantity ?? 1) > (item.cartItem?.stock ?? 0))
+
+    if (stockIssues.length > 0) {
+        const message = stockIssues
+            .map(item => `${item.cartItem?.productName}: richiesti ${item.quantity}, disponibili ${item.cartItem?.stock ?? 0}`)
+            .join(" | ")
+
+        return res
+            .header("HX-Trigger", JSON.stringify({
+                showErrorToast: { message: `Stock insufficiente per alcuni prodotti: ${message}. Aggiorna il carrello.` }
+            }))
+            .send()
+    }
+
     return res.header("HX-Redirect", "/checkout/payment").send()
   })
 

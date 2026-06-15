@@ -15,9 +15,10 @@ type CheckoutProps = {
     } | null
   }[]
   user?: { name: string; lastName: string } | null
+  stockIssues?: { cartId: number; productName: string; requested: number; available: number }[]
 }
 
-export default function Checkout({ session, cart, user }: CheckoutProps) {
+export default function Checkout({ session, cart, user, stockIssues = [] }: CheckoutProps) {
 
   const totalPrice = cart.reduce((sum, item) => {
     const price = item.cartItem?.price ? Number(item.cartItem?.price) : 0;
@@ -39,6 +40,25 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
           </div>
         </div>
       </nav>
+
+      {stockIssues.length > 0 && (
+                <div class="max-w-7xl mx-auto px-6 mt-4">
+                    <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 flex flex-col gap-2">
+                        <p class="font-bold">⚠️ Alcuni prodotti nel carrello non sono più disponibili nella quantità richiesta:</p>
+                        <ul class="list-disc list-inside text-sm">
+                            {stockIssues.map(issue => (
+                                <li>
+                                    <strong>{issue.productName}</strong>: richiesti {issue.requested}, disponibili solo {issue.available}
+                                </li>
+                            ))}
+                        </ul>
+                        <p class="text-sm">Aggiorna le quantità nel carrello prima di procedere.</p>
+                        <a href="/cart" class="inline-block mt-1 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold py-2 px-4 rounded-xl w-fit">
+                            Torna al carrello
+                        </a>
+                    </div>
+                </div>
+            )}
 
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         
@@ -181,7 +201,8 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
                 </div>
               </div>
 
-              <button
+              {stockIssues.length === 0 ? (
+                <button
                 hx-get="/checkout/validate"
                 hx-include="#checkout-section [name]"
                 hx-swap="none"
@@ -192,6 +213,16 @@ export default function Checkout({ session, cart, user }: CheckoutProps) {
                 </svg>
                 Checkout
               </button>
+            ) : (
+                <button
+                disabled class="opacity-50 cursor-not-allowed"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4 shrink-0">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+                </svg>
+                Checkout
+              </button>
+            )}
 
               <a href="/cart" class="text-center text-xs text-gray-400 hover:text-indigo-500 hover:underline transition-colors">
                 ← Torna al carrello
