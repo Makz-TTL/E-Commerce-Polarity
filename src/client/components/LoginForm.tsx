@@ -93,6 +93,7 @@ export default function LoginForm({ values = {}, error, redirectTo = "/" }: Prop
           hx-target="#login-form"
           hx-swap="outerHTML"
           class="text-blue-600 hover:underline"
+          style="cursor: pointer"
         > 
           Recuperala!
         </a>

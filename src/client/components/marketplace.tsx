@@ -198,9 +198,9 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
               <div id="profile-section">
                 {session?.username ? (
                   <div class="flex items-center gap-3">
-                    <span class="text-sm font-medium text-gray-700">
+                    <a href={`/profile?username=${session.username}`} class="text-sm font-medium text-gray-700" style="cursor: pointer">
                       Ciao, <strong class="text-indigo-600">{session.username}</strong>
-                    </span>
+                    </a>
                   </div>
                 ) : (
                   <div class="flex items-center gap-2">
