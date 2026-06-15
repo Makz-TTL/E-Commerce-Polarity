@@ -717,17 +717,7 @@ export default (server: ZodFastifyInstance) => {
 
       return res.status(200).html(<EditProductModal product={product} />)
   })
-  server.post("/edit-product/:id", async (req, res) => {
-    if (!req.session.username) return res.status(401).send("Non autorizzato")
 
-    const { id } = req.params as { id: string }
-    const productId = parseInt(id, 10)
-
-    const product = await db.query.products.findFirst({ where: { id: productId } })
-    if (!product) return res.status(404).send("Prodotto non trovato")
-
-    return res.status(200).html(<EditProductModal product={product} />)
-  })
 
   server.post("/edit-product/:id", async (req, res) => {
     const { id } = req.params as { id: string }
