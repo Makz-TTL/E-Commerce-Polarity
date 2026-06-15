@@ -8,46 +8,43 @@ import PorfilePage from "../components/ProfilePage"
 import { products, users } from "../../db/schema"
 import { db } from "../../db"
 import LoginForm from "../components/LoginForm"
+import { eq } from "drizzle-orm"
 import Checkout from "../components/checkout"
 import Payment from "../components/payment"
 import ProductInfoPage from "../components/ProductInfoPage"
 import PaymentAccepted from "../components/paymentAccepted"
 import PaymentDeclined from "../components/paymentDeclined"
-import { eq, gt, and, sql, like, ilike } from "drizzle-orm"
-
-
 
 export default (server: ZodFastifyInstance) => {
+
   const renderMarketplace = async (
     req: FastifyRequest<{ Querystring: { category?: string; search?: string } }>,
     reply: FastifyReply
   ) => {
-    const query = req.query
-
+    const { category, search } = req.query
     const searchParams = {
-      category: typeof query.category === "string" ? query.category : undefined,
-      search: typeof query.search === "string" ? query.search : undefined,
+      category: typeof category === "string" ? category : undefined,
+      search: typeof search === "string" ? search : undefined,
     }
 
     const isHtmx = req.headers["hx-request"] === "true"
 
     if (isHtmx) {
-      const htmlContent = await Marketplace({ searchParams, partial: true, session: req.session }) //aggiunta session anche qui
-      return reply.html(htmlContent)
+      return reply.html(await Marketplace({ searchParams, partial: true, session: req.session }))
     }
     
     const marketplaceContent = await Marketplace({ searchParams, session: req.session })
     return reply.html(
       <MainLayout>
-        {marketplaceContent}
+        {await Marketplace({ searchParams, session: req.session })}
       </MainLayout>
     )
   }
 
+  server.get("/", renderMarketplace)
+  server.get("/marketplace", renderMarketplace)
 
-
-  //Sign Up form page.
-  server.get("/signUp", async (req, res) => {
+  server.get("/signUp", async (_req, res) => {
     return res.html(
       <MainLayout>
         <SignUpForm values={{ nome: "", cognome: "", username: "", email: "", password: "" }} />
@@ -55,11 +52,9 @@ export default (server: ZodFastifyInstance) => {
     )
   })
 
-
-
-  //Cart page.
   server.get("/cart", async (req, res) => {
-    console.log("Session in /cart route:", req.session.username) 
+    if (!req.session.username) return res.redirect("/")
+
     return res.html(
       <MainLayout>
         <Cart session={req.session} />
@@ -67,190 +62,102 @@ export default (server: ZodFastifyInstance) => {
     )
   })
 
-
-
-  //Profile page.
   server.get("/profile", async (req, res) => {
-    if(!req.session.username){
-      return res.redirect("/")
-    }
+    if (!req.session.username) return res.redirect("/")
 
-    const content = await PorfilePage({ username: req.session.username })
     return res.html(
       <MainLayout>
-        {content}
+        {await PorfilePage({ username: req.session.username })}
       </MainLayout>
     )
   })
 
-
-
-  //Checkout form page.
   server.get("/checkout", async (req, res) => {
-    const user = await db.query.users.findFirst({
-      where: { userName: req.session.username }
-    })
+    if (!req.session.username) return res.redirect("/")
 
+    const user = await db.query.users.findFirst({ where: { userName: req.session.username } })
     const cart = await db.query.cart.findMany({
       where: user ? { userId: user.id } : undefined,
-      with: { cartItem: true }
+      with: { cartItem: true },
     })
 
     return res.html(
       <MainLayout>
-        <Checkout session={req.session} cart={cart} user={user}/>
+        <Checkout session={req.session} cart={cart} user={user} />
       </MainLayout>
     )
   })
 
-
-
-  //Payment form page.
   server.get("/checkout/payment", async (req, res) => {
+    if (!req.session.username) return res.redirect("/")
 
-    const user = await db.query.users.findFirst({
-      where: {userName : req.session.username}
-    });
-
+    const user = await db.query.users.findFirst({ where: { userName: req.session.username } })
     const cartItems = await db.query.cart.findMany({
       where: user ? { userId: user.id } : undefined,
-      with: { cartItem: true }
+      with: { cartItem: true },
     })
 
-
-
-    //Dato che è un array calcola il totale di tutti gli ordini nel carrello.
     const totalAmountOrders = cartItems.reduce((acc, item) => {
-      // Accediamo al prezzo dentro cartItem e alla quantità nel carrello
-      const price = item.cartItem?.price || 0; 
-      const quantity = item.quantity || 1; // Metti 1 se non hai una colonna quantità
-      
-      return acc + (price * quantity);
-    }, 0);
+      return acc + (item.cartItem?.price || 0) * (item.quantity || 1)
+    }, 0)
 
     return res.html(
       <MainLayout>
-        <Payment session={req.session} cart={cartItems} totalPrice={totalAmountOrders}/>
+        <Payment session={req.session} cart={cartItems} totalPrice={totalAmountOrders} />
       </MainLayout>
     )
   })
 
-
-  //Accepted payment page.
-  server.get("/payment/accepted", async (req, res) => {
-    
+  server.get("/payment/accepted", async (_req, res) => {
     return res.html(
-
       <MainLayout>
         <PaymentAccepted />
       </MainLayout>
-
     )
-
   })
 
-
-
-  server.get("/payment/declined", async (req, res) => {
-
+  server.get("/payment/declined", async (_req, res) => {
     return res.html(
-
       <MainLayout>
         <PaymentDeclined />
       </MainLayout>
-
     )
-
   })
 
+  server.get("/product/:id", async (req, res) => {
+    const { id } = req.params as { id: string }
+    const productId = parseInt(id, 10)
 
-  //Edit profile page.
-  server.get("/editProfile", async (req, res) => {
-    if (!req.session.username) {
-      return res.status(200).html(
-        <LoginForm
-          values={{ username: "", password: "" }}
-          error={{ password: "Devi essere autenticato per modificare il profilo" }}
-        />
-      )
-    }
+    if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido")
 
     try {
-      const rows = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-      const currentUser = rows[0]
+      const productRows = await db
+        .select()
+        .from(products)
+        .leftJoin(users, eq(products.userId, users.id))
+        .where(eq(products.id, productId))
+        .limit(1)
 
-      if (!currentUser) {
-        return res.status(404).send("Utente non trovato")
+      const result = productRows[0]
+      if (!result) return res.status(404).send("Prodotto non trovato o non più disponibile")
+
+      const product = {
+        ...result.products,
+        seller: result.users ? {
+          userName: result.users.userName,
+          name: result.users.name,
+          lastName: result.users.lastName,
+        } : undefined,
       }
 
       return res.status(200).html(
-        <SignUpForm
-          isEdit={true}
-          onEditPasswordClick="alert('Pulsante cliccato! Endpoint password non configurato come da istruzioni.')"
-          values={{
-            nome: currentUser.name || "",       
-            cognome: currentUser.lastName || "", 
-            username: currentUser.userName || "",
-            email: currentUser.eMail || "",
-          }}
-        />
+        <MainLayout>
+          <ProductInfoPage product={product} session={req.session} />
+        </MainLayout>
       )
     } catch (error) {
       server.log.error(error)
-      return res.status(500).send("Errore nel caricamento del profilo")
+      return res.status(500).send("Errore interno durante il caricamento dei dettagli del prodotto")
     }
   })
-
-
-
-  //Product page.
-  server.get("/product/:id", async (req, res) => {
-  const { id } = req.params as { id: string }
-  const productId = parseInt(id, 10)
-
-  if (isNaN(productId)) {
-    return res.status(400).send("ID Prodotto non valido")
-  }
-
-  try {
-    // Facciamo il join con la tabella degli utenti per recuperare il venditore
-    const productRows = await db
-      .select()
-      .from(products)
-      .leftJoin(users, eq(products.userId, users.id)) // <-- Modifica 'userId' se la tua FK si chiama diversamente (es. sellerId)
-      .where(eq(products.id, productId))
-      .limit(1)
-
-    const result = productRows[0]
-
-    if (!result) {
-      return res.status(404).send("Prodotto non trovato o non più disponibile")
-    }
-
-    // Ricostruiamo la struttura dati piatta + oggetto seller annidato per la pagina
-    const product = {
-      ...result.products,
-      seller: result.users ? {
-        userName: result.users.userName, 
-        name: result.users.name,
-        lastName: result.users.lastName
-      } : undefined
-    }
-
-    return res.status(200).html(
-      <MainLayout>
-        <ProductInfoPage product={product} session={req.session} />
-      </MainLayout>
-    )
-  } catch (error) {
-    console.error("Errore nel recupero del prodotto:", error)
-    return res.status(500).send("Errore interno durante il caricamento dei dettagli del prodotto")
-  }
-})
-
-
-
-  //Render markeplace.
-  server.get("/", renderMarketplace)
-  server.get("/marketplace", renderMarketplace)
 }

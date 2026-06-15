@@ -11,7 +11,6 @@ type MarketplaceProps = {
   session?: Session
 }
 
-// Spostiamo la mappa fuori dal componente così viene istanziata una sola volta
 const AVAILABLE_CATEGORIES = [
   { value: "", label: "Tutte le categorie" },
   { value: "Tech", label: "Tech" },
@@ -25,7 +24,7 @@ const AVAILABLE_CATEGORIES = [
 
 export default async function Marketplace({ searchParams, partial, session }: MarketplaceProps) {
   const category = searchParams?.category ? searchParams.category.trim() : ""
-  const search = searchParams?.search ? searchParams.search.trim() : "" // 👈 nuovo
+  const search = searchParams?.search ? searchParams.search.trim() : ""
 
   const cartCount = await getCartCount(session?.username)
 
@@ -34,14 +33,10 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
     eq(productsTable.status, "approved")
   ]
 
-  // 2. Logica di filtro ottimizzata per le nuove categorie
   if (category) {
-    // Usiamo ilike per un match case-insensitive (es. "tech" troverà anche "Tech")
-    // Inoltre gestisce in modo più sicuro stringhe complesse come "Sport&Outdoor"
     queryConditions.push(like(productsTable.category, category))
   }
 
-  //filtra per nome prodotto (case-insensitive)
   if (search) {
     queryConditions.push(ilike(productsTable.productName, `%${search}%`))
   }
@@ -73,7 +68,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
 
   const productsGrid = (
     <div id="products-grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 p-6 max-w-7xl mx-auto">
-      {products.length === 0 ? ( // 👈 nuovo: empty state
+      {products.length === 0 ? (
         <div class="col-span-full flex flex-col items-center justify-center py-20 text-center">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-14 h-14 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 15.803a7.5 7.5 0 0 0 10.607 0Z" />
@@ -98,8 +93,12 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
           }
 
           return (
-            <div id={`product-card-${product.id}`} class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl flex flex-col justify-between">
-              <div class="w-full aspect-[4/3] bg-gray-50 overflow-hidden rounded-t-xl hover:cursor-pointer group" onclick={`window.location.href='/product/${product.id}'`}>
+            <div 
+              id={`product-card-${product.id}`} 
+              onclick={`window.location.href='/product/${product.id}'`}
+              class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:cursor-pointer flex flex-col justify-between"
+            >
+              <div class="w-full aspect-[4/3] bg-gray-50 overflow-hidden rounded-t-xl group">
                 <img
                   src={productCover}
                   alt={product.productName}
@@ -129,6 +128,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                   {isOwnProduct ? (
                     <button
                       disabled
+                      onclick="event.stopPropagation();"
                       class="w-32 bg-gray-100 text-gray-400 font-medium py-2 px-3 rounded-xl text-xs text-center cursor-not-allowed border border-gray-200"
                     >
                       Tuo prodotto
@@ -137,6 +137,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                     <button
                       type="button"
                       onclick={`
+                        event.stopPropagation();
                         const btn = this;
                         const badge = document.getElementById('stock-badge-${product.id}');
                         const card = document.getElementById('product-card-${product.id}');
@@ -207,9 +208,9 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
               <div id="profile-section">
                 {session?.username ? (
                   <div class="flex items-center gap-3">
-                    <span class="text-sm font-medium text-gray-700">
+                    <a href={`/profile?username=${session.username}`} class="text-sm font-medium text-gray-700" style="cursor: pointer">
                       Ciao, <strong class="text-indigo-600">{session.username}</strong>
-                    </span>
+                    </a>
                   </div>
                 ) : (
                   <div class="flex items-center gap-2">
@@ -241,85 +242,74 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
         Marketplace
       </h1>
 
-      {/* 👇 NUOVA BARRA: filtri categoria + search bar affiancati */}
       <div class="flex flex-col sm:flex-row gap-3 mt-4 mb-2 max-w-7xl mx-auto px-6">
-        
-        {/* Filtri categoria - dropdown custom */}
-<div class="relative shrink-0" id="category-dropdown">
-  
-  {/* Bottone trigger */}
-  <button
-    type="button"
-    onclick="
-      const menu = document.getElementById('category-menu');
-      const arrow = document.getElementById('dropdown-arrow');
-      const isOpen = !menu.classList.contains('hidden');
-      if (isOpen) {
-        menu.classList.add('opacity-0', 'scale-95');
-        menu.classList.remove('opacity-100', 'scale-100');
-        setTimeout(() => menu.classList.add('hidden'), 150);
-        arrow.classList.remove('rotate-180');
-      } else {
-        menu.classList.remove('hidden');
-        setTimeout(() => {
-          menu.classList.remove('opacity-0', 'scale-95');
-          menu.classList.add('opacity-100', 'scale-100');
-        }, 10);
-        arrow.classList.add('rotate-180');
-      }
-    "
-    class="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl px-4 py-2.5 shadow-sm hover:border-indigo-400 transition-colors cursor-pointer min-w-[180px] justify-between"
-  >
-    <span id="category-label">Tutte le categorie</span>
-    <svg id="dropdown-arrow" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-    </svg>
-  </button>
+        <div class="relative shrink-0" id="category-dropdown">
+          <button
+            type="button"
+            onclick="
+              const menu = document.getElementById('category-menu');
+              const arrow = document.getElementById('dropdown-arrow');
+              const isOpen = !menu.classList.contains('hidden');
+              if (isOpen) {
+                menu.classList.add('opacity-0', 'scale-95');
+                menu.classList.remove('opacity-100', 'scale-100');
+                setTimeout(() => menu.classList.add('hidden'), 150);
+                arrow.classList.remove('rotate-180');
+              } else {
+                menu.classList.remove('hidden');
+                setTimeout(() => {
+                  menu.classList.remove('opacity-0', 'scale-95');
+                  menu.classList.add('opacity-100', 'scale-100');
+                }, 10);
+                arrow.classList.add('rotate-180');
+              }
+            "
+            class="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-xl px-4 py-2.5 shadow-sm hover:border-indigo-400 transition-colors cursor-pointer min-w-[180px] justify-between"
+          >
+            <span id="category-label">Tutte le categorie</span>
+            <svg id="dropdown-arrow" xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+            </svg>
+          </button>
 
-  {/* Menu dropdown */}
-  <div
-    id="category-menu"
-    class="hidden absolute z-50 mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden opacity-0 scale-95 transition-all duration-150 origin-top"
-    >
-      {AVAILABLE_CATEGORIES.map((cat) => (
-        <button
-          type="button"
-          onclick={`
-            // aggiorna label
-            document.getElementById('category-label').innerText = '${cat.label}';
-            // chiudi menu
-            const menu = document.getElementById('category-menu');
-            const arrow = document.getElementById('dropdown-arrow');
-            menu.classList.add('opacity-0', 'scale-95');
-            menu.classList.remove('opacity-100', 'scale-100');
-            setTimeout(() => menu.classList.add('hidden'), 150);
-            arrow.classList.remove('rotate-180');
-            // aggiorna input hidden e triggera htmx
-            document.getElementById('category-value').value = '${cat.value}';
-            htmx.trigger(document.getElementById('category-value'), 'change');
-          `}
-          class="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors cursor-pointer"
-        >
-          {cat.label}
-        </button>
-      ))}
-    </div>
+          <div
+            id="category-menu"
+            class="hidden absolute z-50 mt-2 w-full bg-white border border-gray-100 rounded-2xl shadow-xl overflow-hidden opacity-0 scale-95 transition-all duration-150 origin-top"
+          >
+            {AVAILABLE_CATEGORIES.map((cat) => (
+              <button
+                type="button"
+                onclick={`
+                  document.getElementById('category-label').innerText = '${cat.label}';
+                  const menu = document.getElementById('category-menu');
+                  const arrow = document.getElementById('dropdown-arrow');
+                  menu.classList.add('opacity-0', 'scale-95');
+                  menu.classList.remove('opacity-100', 'scale-100');
+                  setTimeout(() => menu.classList.add('hidden'), 150);
+                  arrow.classList.remove('rotate-180');
+                  document.getElementById('category-value').value = '${cat.value}';
+                  htmx.trigger(document.getElementById('category-value'), 'change');
+                `}
+                class="w-full text-left px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors cursor-pointer"
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
 
-    {/* Input hidden per HTMX */}
-    <input
-      id="category-value"
-      type="hidden"
-      name="category"
-      value=""
-      hx-get="/marketplace"
-      hx-target="#products-grid"
-      hx-swap="outerHTML"
-      hx-trigger="change"
-      hx-include="#search-input"
-    />
-  </div>
+          <input
+            id="category-value"
+            type="hidden"
+            name="category"
+            value=""
+            hx-get="/marketplace"
+            hx-target="#products-grid"
+            hx-swap="outerHTML"
+            hx-trigger="change"
+            hx-include="#search-input"
+          />
+        </div>
 
-        {/* Search bar */}
         <div class="flex-1 relative">
           <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -339,7 +329,6 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
             class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 placeholder-gray-400 placeholder:font-normal shadow-sm hover:border-indigo-400 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 transition-colors"
           />
         </div>
-
       </div>
 
       {productsGrid}
