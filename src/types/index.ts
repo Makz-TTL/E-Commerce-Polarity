@@ -19,6 +19,9 @@ declare module "fastify" {
   interface Session {
     userId?: number;
     username?: string;
+    sessionToken?: string;
+    otpAttempts?: number;
+    resetPasswordAttempts?: number
     tempUserData?: {
       name: string;
       lastName: string;
