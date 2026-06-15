@@ -80,7 +80,9 @@ const server = Fastify({ allowErrorHandlerOverride: false })
 server.register(fastifyCookie)
 server.register(fastifySession, {
   secret: env.SESSION_SECRET,
-  cookie: { secure: false, maxAge: 7 * 24 * 60 * 60 * 1000 },
+  cookie: { secure: process.env.NODE_ENV === "production", 
+  sameSite: "strict",
+    maxAge: 7 * 24 * 60 * 60 * 1000 },
   store: sessionStore as any,
 })
 server.register(fastifyHtml)
