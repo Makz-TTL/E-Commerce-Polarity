@@ -87,7 +87,7 @@ export default function ProductInfoPage({ product, session }: Props) {
 
               {session?.username && (
                 <button onclick="window.location.href='/profile'" class="relative p-2.5 text-gray-600 hover:text-indigo-600 hover:bg-gray-50 rounded-xl transition-all group">
-                  <svg xmlns="http://www.w3.org/2000/xl" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 group-hover:scale-105 transition-transform">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 group-hover:scale-105 transition-transform">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
                   </svg>
                 </button>
@@ -118,7 +118,6 @@ export default function ProductInfoPage({ product, session }: Props) {
                 src={url} 
                 alt={`${product.productName} - Immagine ${index + 1}`} 
                 data-carousel-item
-                /* Aggiunto il cursore zoom-in e l'evento onclick per aprire il lightbox sull'indice corrente */
                 class={`absolute inset-0 w-full h-full object-cover transition-all duration-300 cursor-zoom-in ${index === 0 ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'}`}
                 loading={index === 0 ? "eager" : "lazy"}
                 onclick={`(() => {
@@ -256,82 +255,36 @@ export default function ProductInfoPage({ product, session }: Props) {
                   </button>
                 ) : (
                   <div id={`purchase-actions-${product.id}`} class={product.stock > 0 ? "flex gap-3" : "hidden"}>
-                    <div
-                      id={`modal-${product.id}`}
-                      class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center cursor-default"
-                      onclick="if(event.target === this) this.classList.add('hidden')"
-                    >
-                      <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4" onclick="event.stopPropagation()">
-                        <h3 class="text-lg font-bold text-gray-900">Aggiungi al carrello</h3>
-                        <p class="text-sm text-gray-500">
-                          Disponibili: <span id={`modal-stock-${product.id}`} class="font-semibold text-indigo-600">{product.stock}</span>
-                        </p>
-
-                        <div class="flex flex-col gap-1">
-                          <label class="text-sm font-medium text-gray-700">Quantità</label>
-                          <input
-                            id={`qty-${product.id}`}
-                            type="number"
-                            min="1"
-                            max={product.stock}
-                            value="1"
-                            class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-gray-900 bg-white"
-                            onblur={`
-                              const val = parseInt(this.value);
-                              if (isNaN(val) || val < 1) this.value = 1;
-                              if (val > parseInt(this.max)) this.value = this.max;
-                            `}
-                          />
-                        </div>
-
-                        <div class="flex gap-2 mt-1">
-                          <button
-                            type="button"
-                            onclick={`document.getElementById('modal-${product.id}').classList.add('hidden')`}
-                            class="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors cursor-pointer"
-                          >
-                            Annulla
-                          </button>
-                          
-                          <button
-                            type="button"
-                            onclick={`
-                              const qtyInput = document.getElementById('qty-${product.id}');
-                              const qty = parseInt(qtyInput.value, 10);
-                              if (isNaN(qty) || qty < 1) return;
-
-                              htmx.ajax('GET', '/addToCart/${product.id}?quantity=' + qty, { swap: 'none' });
-                              document.getElementById('modal-${product.id}').classList.add('hidden');
-                              
-                              const stockBadge = document.getElementById('stock-badge-${product.id}');
-                              if (stockBadge) {
-                                const currentStock = parseInt(stockBadge.innerText, 10);
-                                const newStock = Math.max(0, currentStock - qty);
-                                
-                                if (newStock <= 0) {
-                                  document.getElementById('stock-status-${product.id}').innerText = 'Esaurito';
-                                  document.getElementById('purchase-actions-${product.id}').remove();
-                                } else {
-                                  stockBadge.innerText = newStock;
-                                  const modalStockBadge = document.getElementById('modal-stock-${product.id}');
-                                  if (modalStockBadge) modalStockBadge.innerText = newStock;
-                                  qtyInput.max = newStock;
-                                  qtyInput.value = "1";
-                                }
-                              }
-                            `}
-                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2 rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
-                          >
-                            Conferma
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
                     <button
-                      onclick={`document.getElementById('modal-${product.id}').classList.remove('hidden')`}
-                      class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
+                      type="button"
+                      onclick={`
+                        event.stopPropagation();
+                        const btn = this;
+                        const badge = document.getElementById('stock-badge-${product.id}');
+                        const statusContainer = document.getElementById('stock-status-${product.id}');
+                        const actionsContainer = document.getElementById('purchase-actions-${product.id}');
+                        
+                        btn.addEventListener('htmx:afterRequest', function(e) {
+                          if (e.detail.successful && badge) {
+                            const currentStock = parseInt(badge.innerText, 10);
+                            const newStock = Math.max(0, currentStock - 1);
+                            
+                            if (newStock <= 0) {
+                              if (statusContainer) statusContainer.innerText = 'Esaurito';
+                              if (actionsContainer) actionsContainer.remove();
+                            } else {
+                              badge.innerText = newStock;
+                            }
+                          }
+                        }, { once: true });
+
+                        htmx.ajax('GET', '/addToCart/${product.id}?quantity=1', { swap: 'none', elt: btn });
+                      `}
+                      class="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
                     >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 shrink-0">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                      </svg>
                       Aggiungi al Carrello
                     </button>
                   </div>
