@@ -500,7 +500,7 @@ export default async function ProductInfoPage({ product, session }: Props) {
             {images.map((_, index) => (
               <span data-lightbox-dot class="w-2 h-2 rounded-full transition-all bg-white/40"></span>
             ))}
-          </div>
+          </div> 
         )}
       </div>
 
