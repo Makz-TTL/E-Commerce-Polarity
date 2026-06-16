@@ -1,5 +1,5 @@
 .modal__wrap {
-  @apply fixed top-0 left-0 w-full h-full items-center justify-center hidden z-50;
+  @apply fixed inset-0 items-center justify-center hidden z-50;
 
   &.is-open {
     @apply flex;
@@ -28,7 +28,8 @@
 }
 
 .modal__overlay {
-  @apply fixed top-0 left-0 w-full h-full bg-gray-800 opacity-70 z-10;
+  /* FIX: Translucent background color + backdrop blur. Removed full-node opacity. */
+  @apply fixed inset-0 bg-gray-900/40 backdrop-blur-md z-10;
 }
 
 .modal {
