@@ -8,7 +8,7 @@ import OrderConfirmEmail, { OrderConfirmEmailProps } from "./templates/OrderConf
 
 const transport = createTransport({
   port: 1025,
-  host: "localhost",
+  host: "127.0.0.1",
 })
 
 export const sendLocalEmail = async (options: {

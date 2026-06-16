@@ -1,8 +1,9 @@
-import { pgTable, integer, text, serial, doublePrecision, boolean } from "drizzle-orm/pg-core"
+import { pgTable, integer, text, serial, doublePrecision } from "drizzle-orm/pg-core"
+import { users } from "./users"
 
 export const products = pgTable("products", {
   id: serial().primaryKey(),
-  userId: integer().notNull(),
+  userId: integer().notNull().references(() => users.id, { onDelete: "cascade" }),
   productName: text().notNull(),
   description: text(),
   price: doublePrecision().notNull(),
@@ -11,8 +12,6 @@ export const products = pgTable("products", {
   imageUrl: text(),
   status: text(),
   reliability: doublePrecision(),
-  // isDeleted: boolean().notNull().default(false)
-
 })
 
 type Product = typeof products.$inferSelect
