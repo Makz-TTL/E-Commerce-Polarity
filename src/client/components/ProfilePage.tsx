@@ -55,6 +55,17 @@ export default async function PorfilePage({ username }: Props) {
                     <h1 class="text-2xl font-bold text-gray-900">{user.name} {user.lastName}</h1>
                     <p class="text-gray-500 text-sm">@{user.userName}</p>
                     <p class="text-gray-400 text-xs mt-1">{user.eMail}</p>
+                    <div class="flex items-center gap-1.5 mt-2">
+                        <span class="text-xs text-gray-400 font-medium">Saldo:</span>
+                        <button
+                            hx-get="/profile/transactions"
+                            hx-target="#modal"
+                            hx-swap="innerHTML"
+                            class="text-sm font-bold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer transition-colors"
+                        >
+                            ${balance.toFixed(2)}
+                        </button>
+                    </div>
                 </div>
                 <div class="ml-auto flex items-center gap-3">
                     <button
@@ -249,34 +260,6 @@ export default async function PorfilePage({ username }: Props) {
                     </div>
                 )}
                 </div>
-
-                {/* Saldo */}
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                    <h2 class="text-lg font-bold text-gray-800 mb-1">Saldo</h2>
-                    <p class="text-3xl font-bold text-emerald-600">${balance.toFixed(2)}</p>
-                </div>
-
-                {/* Transazioni */}
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                    <h2 class="text-lg font-bold text-gray-800 mb-5">Transazioni</h2>
-
-                    {soldOrders.length === 0 ? (
-                        <p class="text-gray-400 text-sm text-center py-6">Nessuna transazione ancora.</p>
-                    ) : (
-                        <ul class="divide-y divide-gray-100">
-                            {soldOrders.map(order => (
-                                <li class="flex items-center justify-between py-3 gap-4">
-                                    <div class="flex-1">
-                                        <p class="font-medium text-gray-800">{order.product?.productName ?? "Prodotto eliminato"}</p>
-                                        <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
-                                    </div>
-                                    <span class="text-emerald-600 font-bold">+${order.totalPrice.toLocaleString("it-IT")}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
-
             </div>
             <div id="modal"></div>
             <ConfirmLogoutModal />

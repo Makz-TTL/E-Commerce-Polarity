@@ -1,4 +1,5 @@
 import { users } from "../../db/schema"
+import { products } from "../../db/schema"
 import { ZodFastifyInstance } from "../../types/index"
 import ConfirmLogoutModal from "../components/ConfirmLogoutModal"
 import LoginForm from "../components/LoginForm"
@@ -16,6 +17,8 @@ import ResetPasswordForm from "../components/ResetPasswordForm"
 import * as crypto from "crypto"
 import SellProductModal from "../components/SellProductModal"
 import { z } from "zod"
+import TransitionModal from "../components/TransitionListModal"
+import TransitionListModal from "../components/TransitionListModal"
 
 export default (server: ZodFastifyInstance) => {
 
@@ -302,5 +305,21 @@ export default (server: ZodFastifyInstance) => {
     })
 
     return res.status(200).send()
+  })
+
+  server.get("/profile/transactions", async (req, res) => {
+    if (!req.session.username) return res.status(401).send("Non autorizzato")
+
+    const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+    if (!user) return res.status(404).send("Utente non trovato")
+
+    const userProducts = await db.select().from(products).where(eq(products.userId, user.id))
+    const productIds = userProducts.map(p => p.id)
+
+    const soldOrders = productIds.length > 0
+      ? await db.query.orders.findMany({ where: { productId: { in: productIds } }, with: { product: true } })
+      : []
+
+    return res.status(200).html( <TransitionListModal soldOrders={ soldOrders }/>)
   })
 }
