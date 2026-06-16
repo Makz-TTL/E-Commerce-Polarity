@@ -14,7 +14,7 @@ import {
 
 export type WelcomeEmailProps = {
   name: string
-  code: string // 👈 Aggiungiamo il codice separato
+  code: string 
 }
 
 export default ({ name, code }: WelcomeEmailProps) => (

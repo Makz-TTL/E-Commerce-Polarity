@@ -286,7 +286,7 @@ export default (server: ZodFastifyInstance) => {
         to: email,
         subject: "Verifica il tuo account TechStore",
         template: "WelcomeEmail",
-        payload: { name: nome, code: verificationCode },
+        payload: { name: (nome[0].toUpperCase())+(nome.substring(1)), code: verificationCode },
       })
       console.log("fetching done")
 

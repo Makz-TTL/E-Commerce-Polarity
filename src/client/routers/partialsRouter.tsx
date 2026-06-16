@@ -17,8 +17,8 @@ import ResetPasswordForm from "../components/ResetPasswordForm"
 import * as crypto from "crypto"
 import SellProductModal from "../components/SellProductModal"
 import { z } from "zod"
-import TransitionModal from "../components/TransitionListModal"
-import TransitionListModal from "../components/TransitionListModal"
+import TransitionModal from "../components/TransactionsListModal"
+import TransitionListModal from "../components/TransactionsListModal"
 
 export default (server: ZodFastifyInstance) => {
 
