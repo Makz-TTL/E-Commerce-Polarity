@@ -264,43 +264,63 @@ export default async function AdminDashboard() {
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                   {allUsers.map((user, i) => {
-                    const avatar = avatarColorClass(i)
-                    const isActive = user.isVerified
+                    const avatar = avatarColorClass(i);
+                    const isActive = user.isVerified;
+                    const isBanned = user.isBanned; // Recuperiamo lo stato dal DB
+
                     return (
-                      <tr class="hover:bg-gray-50/50 transition-colors">
+                      <tr class={`transition-colors ${isBanned ? "bg-red-50/40 hover:bg-red-50/60" : "hover:bg-gray-50/50"}`}>
                         <td class="p-4">
                           <div class="flex items-center gap-3">
                             <div class={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold ${avatar.bg} ${avatar.text}`}>
                               {initials(user.name, user.lastName)}
                             </div>
                             <div>
-                              <div class="font-medium text-gray-900">{user.name} {user.lastName}</div>
+                              <div class="font-medium text-gray-900">
+                                {user.name} {user.lastName}
+                                {isBanned && (
+                                  <span class="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-red-100 text-red-700">
+                                    Bannato
+                                  </span>
+                                )}
+                              </div>
                               <div class="text-xs text-gray-400">@{user.userName}</div>
                             </div>
                           </div>
                         </td>
+                        
                         <td class="p-4 text-gray-500 font-normal">{user.eMail}</td>
+                        
                         <td class="p-4">
                           <div class="flex items-center gap-2">
-                            <span class={`w-2 h-2 rounded-full ${isActive ? "bg-emerald-500" : "bg-red-400"}`} />
-                            <span class={`text-xs font-medium ${isActive ? "text-emerald-700" : "text-red-700"}`}>
-                              {isActive ? "Attivo" : "Non verificato"}
+                            <span class={`w-2 h-2 rounded-full ${isBanned ? "bg-red-600" : isActive ? "bg-emerald-500" : "bg-red-400"}`} />
+                            <span class={`text-xs font-medium ${isBanned ? "text-red-600" : isActive ? "text-emerald-700" : "text-red-700"}`}>
+                              {isBanned ? "Bannato" : isActive ? "Attivo" : "Non verificato"}
                             </span>
                           </div>
                         </td>
+                        
                         <td class="p-4 text-right">
                           <button
-                            class="px-3 py-1.5 text-xs font-medium rounded-xl text-amber-700 border border-amber-200 bg-white hover:bg-amber-50 shadow-sm transition-all"
-                            hx-post={`/admin/users/${user.id}/ban`}
-                            hx-confirm={`Bannare l'utente ${user.name} ${user.lastName}?`}
+                            class={`px-3 py-1.5 text-xs font-medium rounded-xl shadow-sm transition-all border ${
+                              isBanned
+                                ? "text-emerald-700 border-emerald-200 bg-white hover:bg-emerald-50"
+                                : "text-amber-700 border-amber-200 bg-white hover:bg-amber-50"
+                            }`}
+                            hx-post={`/admin/users/${user.id}/toggle-ban`}
+                            hx-confirm={
+                              isBanned 
+                                ? `Sbloccare l'utente ${user.name} ${user.lastName}?` 
+                                : `Bannare l'utente ${user.name} ${user.lastName}?`
+                            }
                             hx-target="closest tr"
                             hx-swap="outerHTML"
                           >
-                            Banna
+                            {isBanned ? "Sbanna" : "Banna"}
                           </button>
                         </td>
                       </tr>
-                    )
+                    );
                   })}
                 </tbody>
               </table>

@@ -40,30 +40,45 @@ export default (server: ZodFastifyInstance) => {
   })
 
 
-  // Rotta per gestire il "ban" (impostando isVerified a false)
-  server.post("/admin/users/:id/ban", async (request, reply) => {
+  // Rotta per gestire il toggle del ban (Banna / Sbanna)
+  server.post("/admin/users/:id/toggle-ban", async (request, reply) => {
     const { id } = request.params as { id: string };
+    const userId = Number(id);
 
     try {
-      // 1. Aggiorna l'utente nel database impostando isVerified a false
-      await db
-        .update(users)
-        .set({ isVerified: false })
-        .where(eq(users.id, Number(id))); // Usa Number(id) se il tuo ID è un intero
-
-      // 2. Recuperiamo l'utente aggiornato dal DB per rimandarlo ad HTMX
-      const [updatedUser] = await db
+      // 1. Recuperiamo lo stato attuale dell'utente
+      const [currentUser] = await db
         .select()
         .from(users)
-        .where(eq(users.id, Number(id)));
+        .where(eq(users.id, userId));
 
-      if (!updatedUser) {
+      if (!currentUser) {
         return reply.code(404).send("Utente non trovato");
       }
 
+      // 2. Invertiamo il valore di isBanned
+      const newBanStatus = !currentUser.isBanned;
+
+      await db
+        .update(users)
+        .set({ isBanned: newBanStatus })
+        .where(eq(users.id, userId));
+
+      // 3. Recuperiamo l'utente aggiornato
+      const [updatedUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, userId));
+
+      // 4. Inviamo la risposta impostando il tipo di contenuto su HTML
+      reply.type("text/html");
+      
+      // Sostituisci "UserRow" con il nome della tua funzione/componente che genera la riga
+      return UserRow(updatedUser, 0); 
+
     } catch (error) {
       server.log.error(error);
-      return reply.code(500).send("Errore durante il ban dell'utente");
+      return reply.code(500).send("Errore durante la modifica dello stato di ban");
     }
   });
   
@@ -355,6 +370,10 @@ function avatarColorClass(id: number) {
   throw new Error("Function not implemented.")
 }
 function initials(name: string, lastName: string) {
+  throw new Error("Function not implemented.")
+}
+
+function UserRow(updatedUser: { id: number; name: string; lastName: string; eMail: string; userName: string; password: string; resetToken: string | null; resetTokenExpiry: string | null; session: string | null; isVerified: boolean; verificationCode: string | null; hasUnseenModeration: boolean; isAdmin: boolean; isBanned: boolean }, arg1: number): unknown {
   throw new Error("Function not implemented.")
 }
 

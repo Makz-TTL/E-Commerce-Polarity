@@ -19,21 +19,46 @@ import BannedPage from "../components/bannedPage"
 
 export default (server: ZodFastifyInstance) => {
 
-  // ← AGGIUNGI QUI
-  server.addHook("preHandler", async (req, res) => {
-    if (req.url.startsWith("/banned")) return
-    if (!req.session.sessionToken) return
-
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.session, req.session.sessionToken))
-      .limit(1)
-
-    if (user?.isBanned) {
-      return res.redirect("/banned")
+  server.addHook("preHandler", async (request, reply) => {
+    const url = request.raw.url || "";
+    console.log("url", url)
+    
+    // 1. ESCLUSIONI CRUCIALI: 
+    // Non bloccare la pagina di ban, i file statici, i fogli di stile 
+    // e SOPRATTUTTO le rotte dell'admin (altrimenti l'admin non potrà bannare/sbannare nessuno!)
+    if (
+      url.startsWith("/banned") || 
+      url.startsWith("/admin") ||  // <--- AGGIUNGI QUESTO: permette all'admin di gestire i ban
+      url.startsWith("/public") || 
+      url.includes(".")
+    ) {
+      return; // Lascia passare la richiesta senza controlli
     }
-  })
+
+    // 2. Prendi l'utente loggato dalla sessione attuale
+    const currentUser = (request as any).user; 
+
+    if (currentUser) {
+      // 3. Controlla lo stato di ban dell'utente corrente nel database
+      const [dbUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, currentUser.id));
+
+      // 4. Se l'utente è effettivamente bannato, bloccalo immediatamente
+      if (dbUser && dbUser.isBanned) {
+        
+        // Se l'utente bannato prova a fare un'azione tramite HTMX
+        if (request.headers["hx-request"]) {
+          reply.header("HX-Location", "/banned");
+          return reply.code(200).send(); 
+        }
+
+        // Se l'utente bannato naviga normalmente con il browser
+        return reply.redirect("/banned");
+      }
+    }
+  });
 
 
   const renderMarketplace = async (
@@ -93,8 +118,9 @@ export default (server: ZodFastifyInstance) => {
 
 
 
-  server.get("/banned", async (_req, reply) => {
-    return reply.html(
+  server.get("/banned", async (req, reply) => {
+    reply.type("text/html");
+    return(
 
       <MainLayout>
 
