@@ -686,7 +686,7 @@ export default (server: ZodFastifyInstance) => {
       }).returning()
 
       res
-        .header("HX-Redirect", "/")
+        .header("HX-Redirect", `/profile?username=${user.userName}&toast=Richiesta ricevuta. Il prodotto è in fase di elaborazione.`)
         .send()
 
       setImmediate(async () => {
