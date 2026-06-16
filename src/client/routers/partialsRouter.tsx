@@ -17,6 +17,7 @@ import * as crypto from "crypto"
 import SellProductModal from "../components/SellProductModal"
 import { z } from "zod"
 import TransitionListModal from "../components/TransactionsListModal"
+import { ProductStatusModal } from "../components/ProductStatusModal"
 //import { avatarColorClass, initials } from "../components/adminDashboard"
 
 export default (server: ZodFastifyInstance) => {
@@ -349,6 +350,14 @@ export default (server: ZodFastifyInstance) => {
 
     return res.status(200).html( <TransitionListModal soldOrders={ soldOrders }/>)
   })
+
+    server.get("/dashboard/products/:id/status-modal", async (req, res) => {
+    const { id } = req.params as { id: string }
+    const product = await db.query.products.findFirst({ where: { id: parseInt(id, 10) } })
+    if (!product) return res.status(404).send("Prodotto non trovato")
+    return res.status(200).html(<ProductStatusModal product={product} />)
+  })
+  
 }
 
 function avatarColorClass(id: number) {
