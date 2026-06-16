@@ -8,7 +8,9 @@ export const orders = pgTable("orders", {
   productId: integer().notNull().references(() => products.id, { onDelete: "set null" }),
   quantity: integer().notNull(),
   totalPrice: doublePrecision().notNull(),
-  status: text(),
+  address: text(),
+  city: text(),
+  status: text()
 })
 
 type Order = typeof orders.$inferSelect

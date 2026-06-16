@@ -68,6 +68,22 @@ export default async function PorfilePage({ username }: Props) {
                     </div>
                 </div>
                 <div class="ml-auto flex items-center gap-3">
+                    <div class="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-2xl font-bold text-indigo-600">
+                        {user.name[0].toUpperCase()}
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">{user.name} {user.lastName}</h1>
+                        <p class="text-gray-500 text-sm">@{user.userName}</p>
+                        <p class="text-gray-400 text-xs mt-1">{user.eMail}</p>
+                    </div>
+                    <div class="ml-auto flex items-center gap-3">    
+                    
+                    {user.isAdmin && (
+                        <a href="/dashboard" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors">
+                        Dashboard admin
+                        </a>
+                    )}
+
                     <button
                     hx-get="/edit-profile-modal"
                     hx-target="#modal"
@@ -82,9 +98,11 @@ export default async function PorfilePage({ username }: Props) {
                     >
                       Logout
                     </button>
-                </div>
+                    </div>
                 </div>
             </div>
+
+            
 
             <div class="max-w-5xl mx-auto px-6 mt-8 space-y-8">
 
@@ -198,6 +216,8 @@ export default async function PorfilePage({ username }: Props) {
                     </div>
                 )}
                 </div>
+                
+                
 
                 {/* I miei ordini */}
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -264,5 +284,7 @@ export default async function PorfilePage({ username }: Props) {
             <div id="modal"></div>
             <ConfirmLogoutModal />
         </div>
+
+    </div>    
     )
 }
