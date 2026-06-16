@@ -237,6 +237,8 @@ export default (server: ZodFastifyInstance) => {
 
     const { nome, cognome, username, email, password } = result.data
 
+  
+
     try {
       const [existingUsername] = await db.select().from(users).where(eq(users.userName, username)).limit(1)
       if (existingUsername && existingUsername.isVerified) {
@@ -257,8 +259,8 @@ export default (server: ZodFastifyInstance) => {
         
     console.log("fetching existingUserToUpdate")
         await db.update(users).set({
-          name: nome,
-          lastName: cognome,
+          name: (nome[0].toUpperCase())+(nome.substring(1)),
+          lastName: (cognome[0].toUpperCase())+(cognome.substring(1)),
           userName: username,
           eMail: email,
           password: passwordHash,
@@ -269,8 +271,8 @@ export default (server: ZodFastifyInstance) => {
       } else {
        console.log("fetching not existingUserToUpdate")
         await db.insert(users).values({
-          name: nome,
-          lastName: cognome,
+          name: (nome[0].toUpperCase())+(nome.substring(1)),
+          lastName: (cognome[0].toUpperCase())+(cognome.substring(1)),
           userName: username,
           eMail: email,
           password: passwordHash,
