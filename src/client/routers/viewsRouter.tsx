@@ -14,6 +14,7 @@ import Payment from "../components/payment"
 import ProductInfoPage from "../components/ProductInfoPage"
 import PaymentAccepted from "../components/paymentAccepted"
 import PaymentDeclined from "../components/paymentDeclined"
+import AdminDashboard from "../components/adminDashboard"
 
 export default (server: ZodFastifyInstance) => {
 
@@ -60,6 +61,19 @@ export default (server: ZodFastifyInstance) => {
       </MainLayout>
     )
   })
+
+
+  server.get("/dashboard", async (req, res) => {
+    if (!req.session.username) return res.redirect("/")
+
+    return res.html(
+      <MainLayout>
+        <AdminDashboard />
+      </MainLayout>
+    )
+  })
+
+
 
   server.get("/profile", async (req, res) => {
     if (!req.session.username) return res.redirect("/")

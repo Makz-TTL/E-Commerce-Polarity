@@ -1,5 +1,4 @@
-import { users } from "../../db/schema"
-import { products } from "../../db/schema"
+import { orders, products, users } from "../../db/schema"
 import { ZodFastifyInstance } from "../../types/index"
 import ConfirmLogoutModal from "../components/ConfirmLogoutModal"
 import LoginForm from "../components/LoginForm"
@@ -17,7 +16,6 @@ import ResetPasswordForm from "../components/ResetPasswordForm"
 import * as crypto from "crypto"
 import SellProductModal from "../components/SellProductModal"
 import { z } from "zod"
-import TransitionModal from "../components/TransactionsListModal"
 import TransitionListModal from "../components/TransactionsListModal"
 
 export default (server: ZodFastifyInstance) => {

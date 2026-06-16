@@ -19,6 +19,7 @@ import EditProductModal from "../components/EditProductModal"
 import { getCartCount } from "../helpers/cartCounter"
 import crypto from "crypto"
 import CartBadgeOOB from "../components/CartBadgeOOB"
+import { OrderDetailModal } from "../components/orderDetailModal"
 
 type PaymentBody = { cardNumber: string; expiry: string }
 type CheckOutBody = { fullName?: string; city?: string; cap?: string; address?: string }
@@ -148,6 +149,7 @@ const PROTECTED_ROUTES = new Set([
   "/magic-description",
   "/sell-product",
   "/edit-product",
+  "/dashboard",
 ])
 
 function isProtectedRoute(url: string): boolean {
@@ -157,7 +159,8 @@ function isProtectedRoute(url: string): boolean {
     pathname.startsWith("/deleteFromCart/") ||
     pathname.startsWith("/updateCartQuantity/") ||
     pathname.startsWith("/edit-product/") ||
-    pathname.startsWith("/edit-product-modal/")
+    pathname.startsWith("/edit-product-modal/") ||
+    pathname.startsWith("/dashboard/")
   )
 }
 
@@ -172,6 +175,13 @@ export default (server: ZodFastifyInstance) => {
     const [user] = await db.select().from(users).where(eq(users.session, token)).limit(1)
     if (!user) {
       await req.session.destroy()
+      return res.redirect("/")
+    }
+
+    const pathname = req.url.split("?")[0]
+
+    // Se la rotta è admin, verifica che l'utente sia admin
+    if (pathname.startsWith("/dashboard") && !user.isAdmin) {
       return res.redirect("/")
     }
 
@@ -301,6 +311,9 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
+
+
+
   server.post("/logout", async (req, reply) => {
     await req.session.destroy()
     return reply
@@ -308,6 +321,9 @@ export default (server: ZodFastifyInstance) => {
       .header("HX-Redirect", "/")
       .send()
   })
+
+
+
 
   server.post("/deleteFromCart/:id", async (req, res) => {
     const { id } = req.params as { id: string }
@@ -484,13 +500,17 @@ export default (server: ZodFastifyInstance) => {
 
     let totalAmount = 0
 
+    const address = (req.session as any).userAddress.address;
+    const city = (req.session as any).userAddress.city;
+    console.log("indirizzo: ",address);
+
     for (const item of cartItems) {
       if (!item.cartItem) continue
       const itemTotal = (item.cartItem.price || 0) * item.quantity
       totalAmount += itemTotal
 
       await Promise.all([
-        db.insert(orders).values({ userId: user.id, productId: item.productId, quantity: item.quantity, totalPrice: itemTotal, status: "not yet sent" }),
+        db.insert(orders).values({ userId: user.id, productId: item.productId, quantity: item.quantity, totalPrice: itemTotal, status: "not yet sent", address: address, city: city }),
         db.update(products).set({ stock: item.cartItem.stock - item.quantity }).where(eq(products.id, item.productId)),
       ])
     }
@@ -548,6 +568,11 @@ export default (server: ZodFastifyInstance) => {
         .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: `Stock insufficiente per alcuni prodotti: ${message}. Aggiorna il carrello.` } }))
         .send()
     }
+
+    (req.session as any).userAddress = {
+      address: address,
+      city: city
+    };
 
     return res.header("HX-Redirect", "/checkout/payment").send()
   })
@@ -705,6 +730,25 @@ export default (server: ZodFastifyInstance) => {
         .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Errore interno durante la moderazione del prodotto." } }))
         .send()
     }
+  })
+
+
+  // GET /admin/orders/:id/modal
+// Restituisce l'HTML del modal per quell'ordine
+  server.get("/dashboard/orders/:id/modal", async (req, reply) => {
+    const { id } = req.params as { id: string }
+
+    const [order] = await db.select().from(orders).where(eq(orders.id, Number(id)))
+    const user = await db.select().from(users).where(eq(users.id, order.userId))
+    const product = await db.select().from(products).where(eq(products.id, order.productId))
+
+    const orderWithDetails = {
+      ...order,
+      userName: user[0] ? `${user[0].name} ${user[0].lastName}` : "Utente rimosso",
+      productName: product[0]?.productName ?? "Prodotto rimosso",
+    }
+
+    return reply.html(<OrderDetailModal order={orderWithDetails} />)
   })
 
   server.delete("/product/:id", async (req, res) => {

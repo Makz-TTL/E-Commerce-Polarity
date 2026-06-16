@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   isVerified: boolean().notNull().default(false),
   verificationCode: text(),
   hasUnseenModeration: boolean().notNull().default(false),
+  isAdmin: boolean().notNull().default(false)
 })
 
 
