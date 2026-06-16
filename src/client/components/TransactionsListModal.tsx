@@ -13,7 +13,7 @@ export default function TransitionListModal( {soldOrders}: Props ){
                 <button onclick="this.closest('.fixed').remove()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">✕</button>
                 <h2 class="text-lg font-bold text-gray-800 mb-4">Transazioni</h2>
                 {soldOrders.length === 0 ? (
-                <p class="text-gray-400 text-sm text-center py-6">Nessuna transazion.</p>
+                <p class="text-gray-400 text-sm text-center py-6">Nessuna transazione</p>
                 ) : (
                 <ul class="divide-y divide-gray-100">
                     {soldOrders.map(order => (

@@ -149,6 +149,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                       type="button"
                       onclick={`
                         event.stopPropagation();
+                        event.preventDefault();
                         const btn = this;
                         const badge = document.getElementById('stock-badge-${product.id}');
                         const card = document.getElementById('product-card-${product.id}');
@@ -316,7 +317,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
             type="hidden"
             name="category"
             value=""
-            hx-get="/marketplace"
+            hx-get="/"
             hx-target="#products-grid"
             hx-swap="outerHTML"
             hx-trigger="change"
