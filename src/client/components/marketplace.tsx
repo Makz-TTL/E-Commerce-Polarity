@@ -1,15 +1,15 @@
 import { db } from "../../db"
-import { Session } from "fastify"
+import type { FastifySessionObject } from "@fastify/session"
 import ConfirmLogoutModal from "./ConfirmLogoutModal"
 import { products as productsTable, users as usersTable } from "../../db/schema"
-import { eq, gt, and, sql, like, ilike } from "drizzle-orm" //aggiunto "like"
+import { eq, gt, and, like, ilike } from "drizzle-orm"
 import { getCartCount } from "../helpers/cartCounter"
 import OtpForm from "./OtpForm"
 
 type MarketplaceProps = {
-  searchParams?: { category?: string; search?: string } //aggiunto search
+  searchParams?: { category?: string; search?: string }
   partial?: boolean
-  session?: Session
+  session?: FastifySessionObject
 }
 
 const AVAILABLE_CATEGORIES = [
@@ -22,6 +22,8 @@ const AVAILABLE_CATEGORIES = [
   { value: "Collectibles", label: "Collectibles" },
   { value: "Other", label: "Altro" }
 ]
+
+
 
 export default async function Marketplace({ searchParams, partial, session }: MarketplaceProps) {
   const category = searchParams?.category ? searchParams.category.trim() : ""
@@ -87,22 +89,22 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
         </div>
       ) : (
         products.map((product: any) => {
-          const isOwnProduct = session?.username && session.username === product.seller?.userName;
+          const isOwnProduct = session?.username && session.username === product.seller?.userName
 
-          let productCover = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80';
+          let productCover = 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80'
           if (product.imageUrl) {
             try {
-              const images = JSON.parse(product.imageUrl);
+              const images = JSON.parse(product.imageUrl)
               if (Array.isArray(images) && images.length > 0) {
-                productCover = images[0];
+                productCover = images[0]
               }
             } catch (e) {
-              productCover = product.imageUrl;
+              productCover = product.imageUrl
             }
           }
 
           return (
-            <a 
+            <a
               href={`/product/${product.id}`}
               id={`product-card-${product.id}`}
               class="w-full rounded-2xl overflow-hidden shadow-lg bg-white border border-gray-100 transition-all duration-300 hover:shadow-xl hover:cursor-pointer flex flex-col justify-between"
@@ -202,15 +204,15 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
             </div>
 
             <div class="flex items-center gap-4">
-              <a href="/cart" class="relative p-2.5 text-gray-600 hover:text-indigo-600 rounded-xl transition-all group hover:bg-gray-50 hover:scale-105 transition-transform">
+              <a href="/cart" class="relative p-2.5 text-gray-600 hover:text-indigo-600 rounded-xl transition-all group hover:bg-gray-50 hover:scale-105">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 scale-105">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
                 </svg>
-                <span 
-                    id="cart-count-badge" 
-                    class={`absolute -top-1 -right-1 bg-indigo-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center ${cartCount === 0 ? 'hidden' : ''}`}
+                <span
+                  id="cart-count-badge"
+                  class={`absolute -top-1 -right-1 bg-indigo-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center ${cartCount === 0 ? 'hidden' : ''}`}
                 >
-                    {cartCount}
+                  {cartCount}
                 </span>
               </a>
 
@@ -240,6 +242,9 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 group-hover:scale-105 transition-transform">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
                   </svg>
+                  {currentUser?.hasUnseenModeration && (
+                    <span class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                  )}
                 </a>
               )}
             </div>
@@ -346,18 +351,17 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
       <div id="modal"></div>
       {session?.username && <ConfirmLogoutModal />}
 
-      {/*mostra OTP modal se non verificato */}
       {session?.username && !isVerified && (
-      <div 
-        id="otp-verification-overlay" 
-        class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
-        hx-get="/resend-verification"
-        hx-trigger="revealed" /* fa sì che appena il modale appare venga mandato automaticamente il codice via email.*/
-        hx-swap="none"
-      >
-        <OtpForm email={currentUser!.eMail} />
-      </div>
-)}
+        <div
+          id="otp-verification-overlay"
+          class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
+          hx-get="/resend-verification"
+          hx-trigger="revealed"
+          hx-swap="none"
+        >
+          <OtpForm email={currentUser!.eMail} />
+        </div>
+      )}
     </div>
   )
 }

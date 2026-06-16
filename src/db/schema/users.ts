@@ -1,4 +1,4 @@
-import { pgTable, integer, text, serial, boolean} from "drizzle-orm/pg-core"
+import { pgTable, integer, text, serial, boolean, numeric } from "drizzle-orm/pg-core"
 
 export const users = pgTable("users", {
   id: serial().primaryKey(),
@@ -10,8 +10,10 @@ export const users = pgTable("users", {
   resetToken: text(),
   resetTokenExpiry: text(),
   session: text(),
-  isVerified:boolean().notNull().default(false),
-  verificationCode:text()
+  isVerified: boolean().notNull().default(false),
+  verificationCode: text(),
+  hasUnseenModeration: boolean().notNull().default(false),
 })
+
 
 type User = typeof users.$inferSelect

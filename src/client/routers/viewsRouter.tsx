@@ -32,8 +32,7 @@ export default (server: ZodFastifyInstance) => {
     if (isHtmx) {
       return reply.html(await Marketplace({ searchParams, partial: true, session: req.session }))
     }
-    
-    const marketplaceContent = await Marketplace({ searchParams, session: req.session })
+
     return reply.html(
       <MainLayout>
         {await Marketplace({ searchParams, session: req.session })}
@@ -64,6 +63,13 @@ export default (server: ZodFastifyInstance) => {
 
   server.get("/profile", async (req, res) => {
     if (!req.session.username) return res.redirect("/")
+
+    if (req.session.sessionToken) {
+      const [user] = await db.select().from(users).where(eq(users.session, req.session.sessionToken)).limit(1)
+      if (user?.hasUnseenModeration) {
+        await db.update(users).set({ hasUnseenModeration: false }).where(eq(users.id, user.id))
+      }
+    }
 
     return res.html(
       <MainLayout>

@@ -16,10 +16,9 @@ import { fileURLToPath } from "url"
 import Cart from "../components/cart"
 import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime"
 import EditProductModal from "../components/EditProductModal"
-import {getCartCount} from "../helpers/cartCounter"
+import { getCartCount } from "../helpers/cartCounter"
 import crypto from "crypto"
 import CartBadgeOOB from "../components/CartBadgeOOB"
-
 
 type PaymentBody = { cardNumber: string; expiry: string }
 type CheckOutBody = { fullName?: string; city?: string; cap?: string; address?: string }
@@ -179,70 +178,67 @@ export default (server: ZodFastifyInstance) => {
     req.currentUser = user
   })
 
- server.post("/login", async (req, res) => {
-  const { redirect } = req.query as { redirect?: string }
-  const redirectTo = redirect || "/"
-  const result = loginSchema.safeParse(req.body)
+  server.post("/login", async (req, res) => {
+    const { redirect } = req.query as { redirect?: string }
+    const redirectTo = redirect || "/"
+    const result = loginSchema.safeParse(req.body)
 
-  if (!result.success) {
-    const fieldErrors = result.error.flatten().fieldErrors
-    return res.status(200).html(
-      <LoginForm redirectTo={redirectTo} values={req.body as any} error={{
-        username: fieldErrors.username?.[0],
-        password: fieldErrors.password?.[0],
-      }} />
-    )
-  }
-
-  const { username, password } = result.data
-
-  try {
-    const [dbUser] = await db.select().from(users).where(eq(users.userName, username)).limit(1)
-
-    if (!dbUser || !(await argon2.verify(dbUser.password, password))) {
+    if (!result.success) {
+      const fieldErrors = result.error.flatten().fieldErrors
       return res.status(200).html(
-        <LoginForm redirectTo={redirectTo} values={{ username, password }} error={{ password: "Username o password errati" }} />
+        <LoginForm redirectTo={redirectTo} values={req.body as any} error={{
+          username: fieldErrors.username?.[0],
+          password: fieldErrors.password?.[0],
+        }} />
       )
     }
 
-    if (!dbUser.isVerified) {
-      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
+    const { username, password } = result.data
 
-      await db.update(users).set({ verificationCode }).where(eq(users.id, dbUser.id))
+    try {
+      const [dbUser] = await db.select().from(users).where(eq(users.userName, username)).limit(1)
 
-      await sendTemplateEmail({
-        to: dbUser.eMail,
-        subject: "Verifica il tuo account TechStore",
-        template: "WelcomeEmail",
-        payload: { name: dbUser.name, code: verificationCode },
-      })
+      if (!dbUser || !(await argon2.verify(dbUser.password, password))) {
+        return res.status(200).html(
+          <LoginForm redirectTo={redirectTo} values={{ username, password }} error={{ password: "Username o password errati" }} />
+        )
+      }
 
-      return res.status(200).html(<OtpForm email={dbUser.eMail} />)
+      if (!dbUser.isVerified) {
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
+        await db.update(users).set({ verificationCode }).where(eq(users.id, dbUser.id))
+        await sendTemplateEmail({
+          to: dbUser.eMail,
+          subject: "Verifica il tuo account TechStore",
+          template: "WelcomeEmail",
+          payload: { name: dbUser.name, code: verificationCode },
+        })
+        return res.status(200).html(<OtpForm email={dbUser.eMail} />)
+      }
+
+      const sessionToken = crypto.randomBytes(32).toString("hex")
+      await db.update(users).set({ session: sessionToken }).where(eq(users.id, dbUser.id))
+
+      req.session.sessionToken = sessionToken
+      req.session.username = dbUser.userName
+
+      if (typeof req.session.save === "function") {
+        await req.session.save()
+      }
+
+      return res
+        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Ti sei loggato con successo" } }))
+        .header("HX-Redirect", redirectTo)
+        .send()
+    } catch (error) {
+      server.log.error(error)
+      return res.status(200).html(
+        <LoginForm redirectTo={redirectTo} values={result.data} error={{ password: "Si è verificato un errore interno. Riprova più tardi." }} />
+      )
     }
+  })
 
-    const sessionToken = crypto.randomBytes(32).toString("hex")
-    await db.update(users).set({ session: sessionToken }).where(eq(users.id, dbUser.id))
-
-    req.session.sessionToken = sessionToken
-    req.session.username = dbUser.userName
-
-    if (typeof req.session.save === "function") {
-      await req.session.save()
-    }
-
-    return res
-      .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Ti sei loggato con successo" } }))
-      .header("HX-Redirect", redirectTo)
-      .send()
-  } catch (error) {
-    server.log.error(error)
-    return res.status(200).html(
-      <LoginForm redirectTo={redirectTo} values={result.data} error={{ password: "Si è verificato un errore interno. Riprova più tardi." }} />
-    )
-  }
-})
   server.post("/signUp", async (req, res) => {
-    console.log("Here")
     const result = signUpSchema.safeParse(req.body)
 
     if (!result.success) {
@@ -253,8 +249,6 @@ export default (server: ZodFastifyInstance) => {
     }
 
     const { nome, cognome, username, email, password } = result.data
-
-  
 
     try {
       const [existingUsername] = await db.select().from(users).where(eq(users.userName, username)).limit(1)
@@ -269,27 +263,22 @@ export default (server: ZodFastifyInstance) => {
 
       const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
       const passwordHash = await argon2.hash(password)
-
-      const existingUserToUpdate = existingUsername || existingEmail;
+      const existingUserToUpdate = existingUsername || existingEmail
 
       if (existingUserToUpdate) {
-        
-    console.log("fetching existingUserToUpdate")
         await db.update(users).set({
-          name: (nome[0].toUpperCase())+(nome.substring(1)),
-          lastName: (cognome[0].toUpperCase())+(cognome.substring(1)),
+          name: nome[0].toUpperCase() + nome.substring(1),
+          lastName: cognome[0].toUpperCase() + cognome.substring(1),
           userName: username,
           eMail: email,
           password: passwordHash,
           verificationCode,
           isVerified: false,
         }).where(eq(users.id, existingUserToUpdate.id))
-        console.log("fetching done")
       } else {
-       console.log("fetching not existingUserToUpdate")
         await db.insert(users).values({
-          name: (nome[0].toUpperCase())+(nome.substring(1)),
-          lastName: (cognome[0].toUpperCase())+(cognome.substring(1)),
+          name: nome[0].toUpperCase() + nome.substring(1),
+          lastName: cognome[0].toUpperCase() + cognome.substring(1),
           userName: username,
           eMail: email,
           password: passwordHash,
@@ -298,14 +287,12 @@ export default (server: ZodFastifyInstance) => {
         })
       }
 
-      console.log("sendin email")
       await sendTemplateEmail({
         to: email,
         subject: "Verifica il tuo account TechStore",
         template: "WelcomeEmail",
-        payload: { name: (nome[0].toUpperCase())+(nome.substring(1)), code: verificationCode },
+        payload: { name: nome[0].toUpperCase() + nome.substring(1), code: verificationCode },
       })
-      console.log("fetching done")
 
       return res.status(200).html(<OtpForm email={email} />)
     } catch (error) {
@@ -439,47 +426,41 @@ export default (server: ZodFastifyInstance) => {
       const [item] = await db.select().from(cart).where(and(eq(cart.id, parseInt(cartId, 10)), eq(cart.userId, req.currentUser!.id))).limit(1)
       if (!item) return res.status(403).send("Non autorizzato")
 
-        const user = await db.query.users.findFirst({
-            where: { userName: req.session?.username }
-        })
+      const user = await db.query.users.findFirst({ where: { userName: req.session?.username } })
 
-        const cartProducts = await db.query.cart.findMany({
-            where: user ? { userId: user.id } : undefined,
-            with: { cartItem: true }
-        })
+      const cartProducts = await db.query.cart.findMany({
+        where: user ? { userId: user.id } : undefined,
+        with: { cartItem: true },
+      })
 
-        const totalCart = cartProducts.reduce((sum, item) => {
-            const price = item.cartItem?.price ? Number(item.cartItem.price) : 0
-            const quantity = item.quantity ? Number(item.quantity) : 1
-            return sum + (price * quantity)
-        }, 0)
+      const totalCart = cartProducts.reduce((sum, item) => {
+        const price = item.cartItem?.price ? Number(item.cartItem.price) : 0
+        const quantity = item.quantity ? Number(item.quantity) : 1
+        return sum + price * quantity
+      }, 0)
 
-        const updatedItem = cartProducts.find(p => p.id === parseInt(cartId, 10))
-        const itemTotal = ((Number(updatedItem?.cartItem?.price) || 0) * (Number(updatedItem?.quantity) || 1))
+      const updatedItem = cartProducts.find(p => p.id === parseInt(cartId, 10))
+      const itemTotal = (Number(updatedItem?.cartItem?.price) || 0) * (Number(updatedItem?.quantity) || 1)
 
-        const cartCount = await getCartCount(req.session?.username) //nuovo
+      const cartCount = await getCartCount(req.session?.username)
 
-        return res.status(200).html(
-            <>
-                <span id={`item-total-${cartId}`} class="text-xl font-semibold text-black-600" hx-swap-oob="true">
-                    ${itemTotal.toLocaleString("it-IT")}
-                </span>
-                <span id="cart-total" class="text-[22px] font-bold" hx-swap-oob="true">
-                    ${totalCart.toLocaleString("it-IT")}
-                </span>
-                <CartBadgeOOB count={cartCount} /> {/*nuovo */}
-            </>
-        )
-   
+      return res.status(200).html(
+        <>
+          <span id={`item-total-${cartId}`} class="text-xl font-semibold text-black-600" hx-swap-oob="true">
+            ${itemTotal.toLocaleString("it-IT")}
+          </span>
+          <span id="cart-total" class="text-[22px] font-bold" hx-swap-oob="true">
+            ${totalCart.toLocaleString("it-IT")}
+          </span>
+          <CartBadgeOOB count={cartCount} />
+        </>
+      )
     } catch (error) {
       server.log.error(error)
       return res.status(500).send("Errore interno del server")
     }
   })
 
-
-
-  //Confirmed payment.
   server.post("/payment/confirm", async (req, res) => {
     const { cardNumber, expiry } = req.body as PaymentBody
     const [month, year] = expiry.split("/")
@@ -550,28 +531,22 @@ export default (server: ZodFastifyInstance) => {
       )
     }
 
-    //controllo stock prima di proseguire
-    const user = await db.query.users.findFirst({
-        where: { userName: req.session.username }
-    })
-
+    const user = await db.query.users.findFirst({ where: { userName: req.session.username } })
     const cartItems = await db.query.cart.findMany({
-        where: user ? { userId: user.id } : undefined,
-        with: { cartItem: true }
+      where: user ? { userId: user.id } : undefined,
+      with: { cartItem: true },
     })
 
     const stockIssues = cartItems.filter(item => (item.quantity ?? 1) > (item.cartItem?.stock ?? 0))
 
     if (stockIssues.length > 0) {
-        const message = stockIssues
-            .map(item => `${item.cartItem?.productName}: richiesti ${item.quantity}, disponibili ${item.cartItem?.stock ?? 0}`)
-            .join(" | ")
+      const message = stockIssues
+        .map(item => `${item.cartItem?.productName}: richiesti ${item.quantity}, disponibili ${item.cartItem?.stock ?? 0}`)
+        .join(" | ")
 
-        return res
-            .header("HX-Trigger", JSON.stringify({
-                showErrorToast: { message: `Stock insufficiente per alcuni prodotti: ${message}. Aggiorna il carrello.` }
-            }))
-            .send()
+      return res
+        .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: `Stock insufficiente per alcuni prodotti: ${message}. Aggiorna il carrello.` } }))
+        .send()
     }
 
     return res.header("HX-Redirect", "/checkout/payment").send()
@@ -628,7 +603,6 @@ export default (server: ZodFastifyInstance) => {
         >{generatedText.trim()}</textarea>
       )
     } catch (error) {
-      console.log(error)
       server.log.error(error)
       return res.status(200).html(
         <textarea id="description" name="description" rows="3" maxlength="1000"
@@ -687,7 +661,7 @@ export default (server: ZodFastifyInstance) => {
       }).returning()
 
       res
-        .header("HX-Redirect", `/profile?username=${user.userName}&toast=Richiesta ricevuta. Il prodotto è in fase di elaborazione.`)
+        .header("HX-Redirect", "/")
         .send()
 
       setImmediate(async () => {
@@ -718,6 +692,8 @@ export default (server: ZodFastifyInstance) => {
           }
 
           await db.update(products).set({ status, reliability: score }).where(eq(products.id, product.id))
+          await db.update(users).set({ hasUnseenModeration: true }).where(eq(users.id, user.id))
+
           server.log.info(`Product saved. Status: ${status}`)
         } catch (bgError) {
           server.log.error(bgError)
@@ -842,6 +818,8 @@ export default (server: ZodFastifyInstance) => {
           }
 
           await db.update(products).set(updateData).where(eq(products.id, productId))
+          await db.update(users).set({ hasUnseenModeration: true }).where(eq(users.id, user.id))
+
           server.log.info(`Prodotto ${productId} aggiornato. Status: ${status}, Score: ${score}`)
         } catch (bgError) {
           server.log.error(bgError)
@@ -852,4 +830,6 @@ export default (server: ZodFastifyInstance) => {
       return res.status(500).send("Errore durante la modifica del prodotto")
     }
   })
+
+  
 }
