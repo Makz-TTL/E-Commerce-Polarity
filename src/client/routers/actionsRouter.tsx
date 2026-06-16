@@ -20,6 +20,7 @@ import { getCartCount } from "../helpers/cartCounter"
 import crypto from "crypto"
 import CartBadgeOOB from "../components/CartBadgeOOB"
 import { OrderDetailModal } from "../components/orderDetailModal"
+import { ProductStatusModal } from "../components/ProductStatusModal"
 
 type PaymentBody = { cardNumber: string; expiry: string }
 type CheckOutBody = { fullName?: string; city?: string; cap?: string; address?: string }
@@ -878,6 +879,26 @@ export default (server: ZodFastifyInstance) => {
       return res.status(500).send("Errore durante la modifica del prodotto")
     }
   })
+
+
+
+  //BACKEND LOGIC FOR ADMIN
+
+
+server.patch("/admin/products/:id/status", async (req, res) => {
+  const { id } = req.params as { id: string }
+  const { status } = req.body as { status: string }
+  const allowed = ["approved", "pending", "rejected"]
+  if (!allowed.includes(status)) return res.status(400).send("Stato non valido")
+  
+  await db.update(products).set({ status }).where(eq(products.id, parseInt(id, 10)))
+  
+  
+  const message = encodeURIComponent("Lo stato del prodotto e' stato cambiato")
+  return res
+    .header("HX-Redirect", `/dashboard?toast=${message}&toastType=success`)
+    .send()
+})
 
   
 }
