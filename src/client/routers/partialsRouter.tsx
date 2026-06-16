@@ -17,6 +17,7 @@ import * as crypto from "crypto"
 import SellProductModal from "../components/SellProductModal"
 import { z } from "zod"
 import TransitionListModal from "../components/TransactionsListModal"
+//import { avatarColorClass, initials } from "../components/adminDashboard"
 
 export default (server: ZodFastifyInstance) => {
 
@@ -38,6 +39,34 @@ export default (server: ZodFastifyInstance) => {
     )
   })
 
+
+  // Rotta per gestire il "ban" (impostando isVerified a false)
+  server.post("/admin/users/:id/ban", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    try {
+      // 1. Aggiorna l'utente nel database impostando isVerified a false
+      await db
+        .update(users)
+        .set({ isVerified: false })
+        .where(eq(users.id, Number(id))); // Usa Number(id) se il tuo ID è un intero
+
+      // 2. Recuperiamo l'utente aggiornato dal DB per rimandarlo ad HTMX
+      const [updatedUser] = await db
+        .select()
+        .from(users)
+        .where(eq(users.id, Number(id)));
+
+      if (!updatedUser) {
+        return reply.code(404).send("Utente non trovato");
+      }
+
+    } catch (error) {
+      server.log.error(error);
+      return reply.code(500).send("Errore durante il ban dell'utente");
+    }
+  });
+  
   server.get("/signup-modal", (_req, reply) => {
     return reply.html(
       <Modal
@@ -321,3 +350,11 @@ export default (server: ZodFastifyInstance) => {
     return res.status(200).html( <TransitionListModal soldOrders={ soldOrders }/>)
   })
 }
+
+function avatarColorClass(id: number) {
+  throw new Error("Function not implemented.")
+}
+function initials(name: string, lastName: string) {
+  throw new Error("Function not implemented.")
+}
+

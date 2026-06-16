@@ -185,6 +185,10 @@ export default (server: ZodFastifyInstance) => {
       return res.redirect("/")
     }
 
+    if (user.isBanned) {
+      return res.redirect("/banned")
+    }
+
     req.currentUser = user
   })
 

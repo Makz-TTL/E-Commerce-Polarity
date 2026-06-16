@@ -15,8 +15,26 @@ import ProductInfoPage from "../components/ProductInfoPage"
 import PaymentAccepted from "../components/paymentAccepted"
 import PaymentDeclined from "../components/paymentDeclined"
 import AdminDashboard from "../components/adminDashboard"
+import BannedPage from "../components/bannedPage"
 
 export default (server: ZodFastifyInstance) => {
+
+  // ← AGGIUNGI QUI
+  server.addHook("preHandler", async (req, res) => {
+    if (req.url.startsWith("/banned")) return
+    if (!req.session.sessionToken) return
+
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.session, req.session.sessionToken))
+      .limit(1)
+
+    if (user?.isBanned) {
+      return res.redirect("/banned")
+    }
+  })
+
 
   const renderMarketplace = async (
     req: FastifyRequest<{ Querystring: { category?: string; search?: string } }>,
@@ -74,6 +92,18 @@ export default (server: ZodFastifyInstance) => {
   })
 
 
+
+  server.get("/banned", async (_req, reply) => {
+    return reply.html(
+
+      <MainLayout>
+
+        <BannedPage />
+
+      </MainLayout>
+
+    )
+  })
 
   server.get("/profile", async (req, res) => {
     if (!req.session.username) return res.redirect("/")
