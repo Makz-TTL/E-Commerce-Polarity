@@ -42,7 +42,12 @@ export default ({
       aria-hidden="true"
       {...props}
     >
-      <div class="modal__overlay" aria-hidden="true" />
+      <div 
+        class="modal__overlay" 
+        aria-hidden="true" 
+        onclick={closable ? `closeModal(event, ${removeOnClose})` : ""}
+        style={closable ? "cursor: pointer;" : ""}
+      />
 
       <div class="modal" role="document">
         <div class={"flex justify-between items-center gap-4 mb-4"}>
@@ -50,29 +55,24 @@ export default ({
             {title}
           </div>
 
-          {
-            closable
-              ?
-              <button type="button" class="modal__close" aria-label="Chiudi" onclick={`closeModal(event, ${removeOnClose})`}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                  <path d="M18 6l-12 12" />
-                  <path d="M6 6l12 12" />
-                </svg>
-              </button>
-              : null
-          }
+          {closable ? (
+            <button type="button" class="modal__close" aria-label="Chiudi" onclick={`closeModal(event, ${removeOnClose})`}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+                <path d="M18 6l-12 12" />
+                <path d="M6 6l12 12" />
+              </svg>
+            </button>
+          ) : null}
         </div>
 
         <div class="modal__content">{children as "safe"}</div>
 
-        {footer
-          ?
+        {footer ? (
           <div class="modal__footer">
-            {footer ? footer : null}
+            {footer}
           </div>
-          : null
-        }
+        ) : null}
       </div>
     </div>
   )

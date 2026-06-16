@@ -14,14 +14,17 @@ export const loginFormId = "login-form"
 
 export default function LoginForm({ values = {}, error, redirectTo = "/" }: Props) {
   return (
+    
     <form 
       id={loginFormId}
       hx-post={`/login?redirect=${encodeURIComponent(redirectTo)}`}
       hx-target="this"
       hx-swap="outerHTML"
       hx-push-url="false"
-      class="space-y-5 w-full max-w-md mx-auto bg-white p-2"
+      class="space-y-5 w-full max-w-md mx-auto bg-white p-2  backdrop-blur-sm transition-opacity"
+           
     >
+     
       <div class="flex flex-col gap-1.5">
         <label class="text-sm font-semibold text-gray-700" for="username">
           Username
