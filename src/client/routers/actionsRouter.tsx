@@ -1256,8 +1256,9 @@ server.post("/orders/:id/mark-sent", async (req, res) => {
     return res.status(403).send("Azione non permessa")
   }
 
+   await db.update(orders).set({ status: "sent" }).where(eq(orders.id, orderId))
 
-  const productLink = order.product ? `/product/${order.product.id}` : "#"
+    const productLink = order.product ? `/product/${order.product.id}` : "#"
 
   return res.html(
     <div
