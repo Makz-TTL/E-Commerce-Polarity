@@ -4,6 +4,7 @@ import type { FastifySessionObject } from "@fastify/session"
 import ConfirmLogoutModal from "./ConfirmLogoutModal"
 import { getCartCount } from "../helpers/cartCounter"
 import { eq } from "drizzle-orm"
+import Navbar from "./Navbar"
 
 type Product = typeof productsTable.$inferSelect & {
   seller?: {
@@ -49,7 +50,7 @@ export default async function ProductInfoPage({ product, session }: Props) {
     <div class="bg-gray-50/50 min-h-screen pb-12">
       
       {/* Navbar */}
-      <nav class="w-full bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
+      {/* <nav class="w-full bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex justify-between h-16 items-center">
             <div class="flex-shrink-0 flex items-center">
@@ -107,7 +108,7 @@ export default async function ProductInfoPage({ product, session }: Props) {
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-6 h-6 group-hover:scale-105 transition-transform">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
                   </svg>
-                  {/* Dynamic red dot injected if user has unseen updates */}
+                  {/* Dynamic red dot injected if user has unseen updates }
                   {currentUser?.hasUnseenModeration && (
                     <span class="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
                   )}
@@ -116,7 +117,8 @@ export default async function ProductInfoPage({ product, session }: Props) {
             </div>
           </div>
         </div>
-      </nav>
+      </nav> */}
+      <Navbar currentUser={currentUser} session={session} cartCount={cartCount} />
 
       {/* Torna indietro */}
       <div class="max-w-5xl mx-auto px-6 mt-6">
