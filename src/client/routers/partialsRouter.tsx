@@ -134,7 +134,7 @@ server.post("/verify-otp", async (req, res) => {
     return res.status(200).html(<OtpForm email={email} error="Utente non trovato. Riprova la registrazione." />)
   }
 
-  if (!user.isVerified && otp !== user.verificationCode) {
+  if (otp !== user.verificationCode) {
     return res.status(200).html(<OtpForm email={email} error="Codice non valido o scaduto." />)
   }
 

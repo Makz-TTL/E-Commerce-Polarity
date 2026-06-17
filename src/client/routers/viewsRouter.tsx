@@ -16,8 +16,6 @@ import PaymentAccepted from "../components/paymentAccepted"
 import PaymentDeclined from "../components/paymentDeclined"
 import AdminDashboard, { OrderWithDetails } from "../components/adminDashboard"
 import BannedPage from "../components/bannedPage"
-import Mail from "nodemailer/lib/mailer"
-import TransactionListModal from "../components/TransactionsListModal"
 
 export default (server: ZodFastifyInstance) => {
 
@@ -112,7 +110,21 @@ export default (server: ZodFastifyInstance) => {
 server.get("/dashboard", async (req, res) => {
   if (!req.session.username) return res.redirect("/")
 
-  const query     = req.query as { tab?: string }
+  const callerUserName = req.session.username
+  
+  if (!callerUserName){
+    return res.status(401).send("Devi effettuare il login")
+  }
+  
+  const callerUser = await db.query.users.findFirst({
+    where: { userName: callerUserName }
+  })
+  
+  if (!callerUser || !callerUser.isAdmin){
+    return res.status(403).send("Non autorizzato")
+  }
+
+  const query = req.query as { tab?: string }
   const activeTab = query.tab || "users"
 
   const [allUsers, allProducts, allOrders] = await Promise.all([
@@ -147,8 +159,6 @@ server.get("/dashboard", async (req, res) => {
       />
     </MainLayout>
   )
-
- 
   return res.type("text/html").send(html)
 })
 
@@ -167,22 +177,22 @@ server.get("/dashboard", async (req, res) => {
     )
   })
 
-server.get("/profile", async (req, res) => {
-  if (!req.session.username) return res.redirect("/")
+  server.get("/profile", async (req, res) => {
+    if (!req.session.username) return res.redirect("/")
 
-  if (req.session.sessionToken) {
-    const [user] = await db.select().from(users).where(eq(users.session, req.session.sessionToken)).limit(1)
-    if (user?.hasUnseenModeration) {
-      await db.update(users).set({ hasUnseenModeration: false }).where(eq(users.id, user.id))
+    if (req.session.sessionToken) {
+      const [user] = await db.select().from(users).where(eq(users.session, req.session.sessionToken)).limit(1)
+      if (user?.hasUnseenModeration) {
+        await db.update(users).set({ hasUnseenModeration: false }).where(eq(users.id, user.id))
+      }
     }
-  }
 
-  return res.html(
-    <MainLayout>
-      {await PorfilePage({ username: req.session.username, sessionUsername: req.session.username })}
-    </MainLayout>
-  )
-})
+    return res.html(
+      <MainLayout>
+        {await PorfilePage({ username: req.session.username, sessionUsername: req.session.username })}
+      </MainLayout>
+    )
+  })
 
   server.get("/checkout", async (req, res) => {
     if (!req.session.username) return res.redirect("/")
@@ -203,6 +213,20 @@ server.get("/profile", async (req, res) => {
 
   // routes/admin/orders.ts (o dove hai gli action routes)
   server.patch("/admin/orders/:id/status", async (request, reply) => {
+    const callerUserName = request.session.username
+    
+    if (!callerUserName){
+      return reply.status(401).send("Devi effettuare il login")
+    }
+    
+    const callerUser = await db.query.users.findFirst({
+      where: { userName: callerUserName }
+    })
+    
+    if (!callerUser || !callerUser.isAdmin){
+      return reply.status(403).send("Non autorizzato")
+    }
+    
     const { id } = request.params as { id: string };
     const { status } = request.body as { status: string };
 
@@ -293,6 +317,4 @@ server.get("/profile", async (req, res) => {
       return res.status(500).send("Errore interno durante il caricamento dei dettagli del prodotto")
     }
   })
-
- 
 }
