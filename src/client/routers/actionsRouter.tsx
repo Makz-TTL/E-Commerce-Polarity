@@ -13,14 +13,14 @@ import { sendTemplateEmail } from "../../emails/index"
 import path from "path"
 import { pipeline } from "stream/promises"
 import { fileURLToPath } from "url"
-import Cart from "../components/cart"
 import { BedrockRuntimeClient, ConverseCommand } from "@aws-sdk/client-bedrock-runtime"
 import EditProductModal from "../components/EditProductModal"
 import { getCartCount } from "../helpers/cartCounter"
 import crypto from "crypto"
 import CartBadgeOOB from "../components/CartBadgeOOB"
 import { OrderDetailModal } from "../components/orderDetailModal"
-import { ProductStatusModal } from "../components/ProductStatusModal"
+import { count } from "drizzle-orm";
+import { statusBadge } from "../components/orderDetailModal";
 
 type PaymentBody = { cardNumber: string; expiry: string }
 type CheckOutBody = { fullName?: string; city?: string; cap?: string; address?: string }
@@ -37,6 +37,16 @@ if (!fs.existsSync(uploadDir)) {
 const bedrockClient = new BedrockRuntimeClient({
   region: process.env.AWS_REGION || "eu-central-1",
 })
+
+//Calcola numero di ordini pendenti nel db.
+async function getPendingOrdersCount() {
+  const result = await db
+    .select({ count: count() })
+    .from(orders)
+    .where(eq(orders.status, "pending"));
+
+  return result[0].count;
+}
 
 const loginSchema = z.object({
   username: z.string().trim().min(1, "Il nome utente è obbligatorio"),
@@ -739,6 +749,41 @@ export default (server: ZodFastifyInstance) => {
         .send()
     }
   })
+
+
+  // Fastify
+  server.post("/admin/orders/:id/status", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { status } = request.body as { status: string };
+
+    const validStatuses = ["pending", "shipped", "delivered", "cancelled"];
+    if (!validStatuses.includes(status)) {
+      return reply.status(400).send({ error: "Stato non valido" });
+    }
+
+    await db.update(orders).set({ status }).where(eq(orders.id, Number(id)));
+
+    const badge = statusBadge[status] ?? statusBadge["pending"];
+    const pendingCount = await getPendingOrdersCount();
+
+    reply.header("Content-Type", "text/html");
+    return reply.send(`
+      <span
+        id="badge-${id}"
+        class="${badge.bg} ${badge.label} inline-block text-xs px-2.5 py-1 rounded-full"
+        hx-swap-oob="true"
+      >
+        ${badge.label}
+      </span>
+      <div
+        id="pending-count"
+        hx-swap-oob="true"
+        class="text-2xl font-bold tracking-tight ${pendingCount > 0 ? "text-amber-600" : "text-emerald-600"}"
+      >
+        ${pendingCount}
+      </div>
+    `);
+  });
 
 
   // GET /admin/orders/:id/modal

@@ -200,6 +200,27 @@ server.get("/profile", async (req, res) => {
     )
   })
 
+
+  // routes/admin/orders.ts (o dove hai gli action routes)
+  server.patch("/admin/orders/:id/status", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { status } = request.body as { status: string };
+
+    const validStatuses = ["pending", "shipped", "delivered", "cancelled"];
+
+    if (!validStatuses.includes(status)) {
+      return reply.status(400).send({ error: "Stato non valido" });
+    }
+
+    await db
+      .update(orders)
+      .set({ status })
+      .where(eq(orders.id, Number(id)));
+
+    // hx-swap="none" quindi non serve ritornare HTML
+    return reply.status(200).send();
+  });
+
   server.get("/checkout/payment", async (req, res) => {
     if (!req.session.username) return res.redirect("/")
 
