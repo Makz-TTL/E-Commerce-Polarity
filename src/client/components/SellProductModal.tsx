@@ -78,6 +78,7 @@ export default function SellProductModal({ error }: Props) {
                   max="999999.99"
                   required 
                   placeholder="0.00"
+                  oninput="if(this.value < 0.1) this.value = 0.1"
                   class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
                 />
               </div>
@@ -91,6 +92,7 @@ export default function SellProductModal({ error }: Props) {
                   max="99999"
                   required 
                   placeholder="1"
+                  oninput="if(this.value < 1) this.value = 1"
                   class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
                 />
               </div>

@@ -152,15 +152,30 @@ export default function EditProductModal({ product, error }: Props) {
               </select>
             </div>
 
-            <div class="flex flex-col gap-1">
-              <label class="text-sm font-semibold text-gray-700" for="description">Descrizione</label>
-              <textarea
-                id="description"
-                name="description"
+           <div class="flex flex-col gap-1">
+              <div class="flex justify-between items-center mb-0.5">
+                <label class="text-sm font-semibold text-gray-700" for="description">Descrizione</label>
+                <button 
+                  type="button"
+                  hx-post="/magic-description"
+                  hx-include="closest form"
+                  hx-encoding="multipart/form-data"
+                  hx-target="#description"
+                  hx-swap="outerHTML"
+                  class="text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <span class="default-text">✨ Scrittura Magica</span>
+                  <span class="loading-spinner animate-pulse">🪄 Generando...</span>
+                </button>
+              </div>
+              <textarea 
+                id="description" 
+                name="description" 
                 rows="3"
                 maxlength="1000"
+                placeholder="Descrivi brevemente le caratteristiche del prodotto (max 1000 caratteri)..."
                 class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white resize-none"
-              >{product.description || ""}</textarea>
+              ></textarea>
             </div>
 
             <div class="space-y-3 pt-2">
