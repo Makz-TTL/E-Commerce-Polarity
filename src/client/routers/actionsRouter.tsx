@@ -893,10 +893,30 @@ server.patch("/admin/products/:id/status", async (req, res) => {
   
   await db.update(products).set({ status }).where(eq(products.id, parseInt(id, 10)))
   
+ 
+  const currentUrlHeader = req.headers["hx-current-url"] as string
+  let redirectUrl = "/dashboard?tab=products" 
   
-  const message = encodeURIComponent("Lo stato del prodotto e' stato cambiato")
+  if (currentUrlHeader) {
+    const parsedUrl = new URL(currentUrlHeader)
+    
+   
+    parsedUrl.searchParams.set("toast", "Lo stato del prodotto e' stato cambiato")
+    parsedUrl.searchParams.set("toastType", "success")
+    
+    
+    if (!parsedUrl.searchParams.has("tab")) {
+      parsedUrl.searchParams.set("tab", "products")
+    }
+    
+    redirectUrl = parsedUrl.pathname + parsedUrl.search
+  } else {
+    const message = encodeURIComponent("Lo stato del prodotto e' stato cambiato")
+    redirectUrl = `/dashboard?tab=products&toast=${message}&toastType=success`
+  }
+
   return res
-    .header("HX-Redirect", `/dashboard?toast=${message}&toastType=success`)
+    .header("HX-Redirect", redirectUrl)
     .send()
 })
 

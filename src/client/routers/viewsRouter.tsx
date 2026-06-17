@@ -5,7 +5,7 @@ import MainLayout from "../layouts/MainLayout"
 import SignUpForm from "../components/SignUpForm"
 import Cart from "../components/cart"
 import PorfilePage from "../components/ProfilePage"
-import { products, users } from "../../db/schema"
+import { orders, products, users } from "../../db/schema"
 import { db } from "../../db"
 import LoginForm from "../components/LoginForm"
 import { eq } from "drizzle-orm"
@@ -14,8 +14,9 @@ import Payment from "../components/payment"
 import ProductInfoPage from "../components/ProductInfoPage"
 import PaymentAccepted from "../components/paymentAccepted"
 import PaymentDeclined from "../components/paymentDeclined"
-import AdminDashboard from "../components/adminDashboard"
+import AdminDashboard, { OrderWithDetails } from "../components/adminDashboard"
 import BannedPage from "../components/bannedPage"
+import Mail from "nodemailer/lib/mailer"
 
 export default (server: ZodFastifyInstance) => {
 
@@ -106,15 +107,49 @@ export default (server: ZodFastifyInstance) => {
   })
 
 
-  server.get("/dashboard", async (req, res) => {
-    if (!req.session.username) return res.redirect("/")
 
-    return res.html(
-      <MainLayout>
-        <AdminDashboard />
-      </MainLayout>
-    )
+server.get("/dashboard", async (req, res) => {
+  if (!req.session.username) return res.redirect("/")
+
+  const query     = req.query as { tab?: string }
+  const activeTab = query.tab || "users"
+
+  const [allUsers, allProducts, allOrders] = await Promise.all([
+    db.select().from(users),
+    db.select().from(products),
+    db.select().from(orders),
+  ])
+
+  const totalRevenue = allOrders.reduce((sum, o) => sum + (o.totalPrice ?? 0), 0)
+  const pendingOrders = allOrders.filter(o => o.status === "pending").length
+
+  const ordersWithDetails: OrderWithDetails[] = allOrders.map(order => {
+    const user    = allUsers.find(u => u.id === order.userId)
+    const product = allProducts.find(p => p.id === order.productId)
+    return {
+      ...order,
+      userName:    user    ? `${user.name} ${user.lastName}` : "Utente rimosso",
+      productName: product?.productName ?? "Prodotto rimosso",
+    }
   })
+
+  const html = (
+    <MainLayout>
+      <AdminDashboard
+        activeTab={activeTab}
+        allUsers={allUsers}
+        allProducts={allProducts}
+        allOrders={allOrders}
+        ordersWithDetails={ordersWithDetails}
+        totalRevenue={totalRevenue}
+        pendingOrders={pendingOrders}
+      />
+    </MainLayout>
+  )
+
+ 
+  return res.type("text/html").send(html)
+})
 
 
 

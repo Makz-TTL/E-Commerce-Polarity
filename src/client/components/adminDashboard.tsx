@@ -49,33 +49,36 @@ const statusBadge: Record<string, { label: string; bg: string; text: string }> =
   cancelled: { label: "Annullato",  bg: "bg-red-50",     text: "text-red-800" },
 }
 
+  type Props = {
+    activeTab?: string
+    allUsers: User[]
+    allProducts: Product[]
+    allOrders: Order[]
+    ordersWithDetails: OrderWithDetails[]
+    totalRevenue: number
+    pendingOrders: number
+  }
 
+  export default function AdminDashboard({
+    activeTab = "users",
+    allUsers,
+    allProducts,
+    allOrders,
+    ordersWithDetails,
+    totalRevenue,
+    pendingOrders,
+  }: Props) {
+    const isUsers    = activeTab === "users"
+    const isProducts = activeTab === "products"
+    const isOrders   = activeTab === "orders"
 
-
-
-export default async function AdminDashboard() {
-  const [allUsers, allProducts, allOrders] = await Promise.all([
-    db.select().from(users),
-    db.select().from(products),
-    db.select().from(orders),
-  ])
-
-  const totalRevenue = allOrders.reduce((sum, o) => sum + (o.totalPrice ?? 0), 0)
-  const pendingOrders = allOrders.filter(o => o.status === "pending").length
-
-  const ordersWithDetails: OrderWithDetails[] = allOrders.map(order => {
-    const user = allUsers.find(u => u.id === order.userId)
-    const product = allProducts.find(p => p.id === order.productId)
-    return {
-      ...order,
-      userName: user ? `${user.name} ${user.lastName}` : "Utente rimosso",
-      productName: product?.productName ?? "Prodotto rimosso",
-    }
-  })
-
+    const activeBtnClass   = "text-indigo-600 border-indigo-600 font-semibold"
+    const inactiveBtnClass = "text-gray-400 border-transparent hover:text-gray-600"
+  
   return (
     <>
-      <div class="antialiased text-gray-900 font-sans p-6 max-w-6xl mx-auto space-y-6">
+      {/* FIX: Outer container acts as the target for HTMX swaps */}
+      <div id="admin-dashboard-wrapper" class="antialiased text-gray-900 font-sans p-6 max-w-6xl mx-auto space-y-6">
 
         <div class="flex items-center justify-between border-b border-gray-100 pb-4">
           <div>
@@ -105,13 +108,41 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
+        {/* FIX: Handled tabs purely via HTMX attributes */}
         <div class="flex gap-2 border-b border-gray-200">
-          <button id="tab-btn-users" class="px-4 py-2.5 text-sm font-medium border-b-2 border-indigo-600 text-indigo-600 transition-all" onclick="adminShowTab('users')">Utenti</button>
-          <button id="tab-btn-products" class="px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-600 transition-all" onclick="adminShowTab('products')">Prodotti</button>
-          <button id="tab-btn-orders" class="px-4 py-2.5 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-600 transition-all" onclick="adminShowTab('orders')">Ordini</button>
+          <button 
+            id="tab-btn-users" 
+            hx-get="/dashboard?tab=users"
+            hx-target="#admin-dashboard-wrapper"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+            class={`px-4 py-2.5 text-sm font-medium border-b-2 transition-all ${isUsers ? activeBtnClass : inactiveBtnClass}`}
+          >
+            Utenti
+          </button>
+          <button 
+            id="tab-btn-products" 
+            hx-get="/dashboard?tab=products"
+            hx-target="#admin-dashboard-wrapper"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+            class={`px-4 py-2.5 text-sm font-medium border-b-2 transition-all ${isProducts ? activeBtnClass : inactiveBtnClass}`}
+          >
+            Prodotti
+          </button>
+          <button 
+            id="tab-btn-orders" 
+            hx-get="/dashboard?tab=orders"
+            hx-target="#admin-dashboard-wrapper"
+            hx-swap="outerHTML"
+            hx-push-url="true"
+            class={`px-4 py-2.5 text-sm font-medium border-b-2 transition-all ${isOrders ? activeBtnClass : inactiveBtnClass}`}
+          >
+            Ordini
+          </button>
         </div>
 
-        <div id="admin-tab-users" class="block tab-section animate-fade-in">
+        <div id="admin-tab-users" class={`tab-section animate-fade-in ${isUsers ? "block" : "hidden"}`}>
           <div class="bg-white border border-gray-100 shadow-sm rounded-2xl overflow-hidden">
             <div class="px-5 py-4 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
               <h2 class="text-sm font-semibold text-gray-800">Gestione utenti</h2>
@@ -193,7 +224,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div id="admin-tab-products" class="hidden tab-section">
+        <div id="admin-tab-products" class={`tab-section ${isProducts ? "block" : "hidden"}`}>
           <div class="bg-white border border-gray-100 shadow-sm rounded-2xl overflow-hidden">
             <div class="px-5 py-4 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
               <h2 class="text-sm font-semibold text-gray-800">Catalogo prodotti</h2>
@@ -272,7 +303,7 @@ export default async function AdminDashboard() {
           </div>
         </div>
 
-        <div id="admin-tab-orders" class="hidden tab-section">
+        <div id="admin-tab-orders" class={`tab-section ${isOrders ? "block" : "hidden"}`}>
           <div class="bg-white border border-gray-100 shadow-sm rounded-2xl overflow-hidden">
             <div class="px-5 py-4 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
               <h2 class="text-sm font-semibold text-gray-800">Gestione ordini</h2>
@@ -329,25 +360,6 @@ export default async function AdminDashboard() {
       </div>
 
       <script>{`
-        function adminShowTab(name) {
-          const tabs = ['users', 'products', 'orders'];
-          tabs.forEach(t => {
-            const btn = document.getElementById('tab-btn-' + t);
-            const section = document.getElementById('admin-tab-' + t);
-            if (t === name) {
-              btn.classList.remove('text-gray-400', 'border-transparent');
-              btn.classList.add('text-indigo-600', 'border-indigo-600', 'font-semibold');
-              section.classList.remove('hidden');
-              section.classList.add('block');
-            } else {
-              btn.classList.remove('text-indigo-600', 'border-indigo-600', 'font-semibold');
-              btn.classList.add('text-gray-400', 'border-transparent');
-              section.classList.remove('block');
-              section.classList.add('hidden');
-            }
-          });
-        }
-
         function closeOrderModal() {
           const container = document.getElementById('order-modal-container');
           if(container) container.innerHTML = '';
