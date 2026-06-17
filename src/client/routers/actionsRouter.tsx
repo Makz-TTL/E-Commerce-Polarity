@@ -21,6 +21,7 @@ import CartBadgeOOB from "../components/CartBadgeOOB"
 import { OrderDetailModal } from "../components/orderDetailModal"
 import { count } from "drizzle-orm";
 import { statusBadge } from "../components/orderDetailModal";
+import { OrderWithDetails, OrderRows, ProductRows, UserRows } from "../components/adminDashboard"
 
 type PaymentBody = { cardNumber: string; expiry: string }
 type CheckOutBody = { fullName?: string; city?: string; cap?: string; address?: string }
@@ -405,9 +406,43 @@ export default (server: ZodFastifyInstance) => {
         await db.insert(cart).values({ userId: user.id, productId, quantity })
       }
 
-      return res
-        .header("HX-Trigger", JSON.stringify({ showAddedToCartToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` } }))
-        .send()
+      // --- LOGICA DI AGGIORNAMENTO IN TEMPO REALE (HTMX OOB) ---
+
+      // 1. Recupera tutti gli elementi aggiornati nel carrello dell'utente (con i dati del prodotto associato)
+      const cartProducts = await db.query.cart.findMany({
+        where: user ? { userId: user.id } : undefined,
+        with: { cartItem: true },
+      })
+      
+
+      // where: user ? { userId: user.id } : undefined,
+      //   with: { cartItem: true },
+
+      // 2. Calcola il nuovo prezzo totale globale del carrello
+      const totalCart = cartProducts.reduce((sum, item) => {
+        const price = item.cartItem?.price ? Number(item.cartItem.price) : 0
+        const quantity = item.quantity ? Number(item.quantity) : 1
+        return sum + price * quantity
+      }, 0)
+
+      // 3. Calcola il numero di elementi totali per il badge
+      const cartCount = await getCartCount(user.userName)
+
+      // 4. Rispondi impostando il Toast nell'header e i nodi OOB nel body dell'HTML
+      res.header("HX-Trigger", JSON.stringify({ showAddedToCartToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` } }))
+      res.header("Content-Type", "text/html")
+
+      return res.status(200).send(
+          <>
+            {/* Aggiorna il contatore numerico sulla Navbar */}
+            <CartBadgeOOB count={cartCount} />
+
+            {/* Aggiorna la cifra totale del carrello (se l'utente si trova nella pagina del carrello) */}
+            <span id="cart-total" class="text-[22px] font-bold" hx-swap-oob="true">
+              ${totalCart.toLocaleString("it-IT")}
+            </span>
+          </>
+      )
     } catch (error) {
       return res.status(500).send("Errore durante l'aggiunta al carrello")
     }
@@ -450,6 +485,10 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
+
+
+
+  //Aggiornamento quantità prodotto.
   server.post("/updateCartQuantity/:cartId", async (req, res) => {
     const { cartId } = req.params as { cartId: string }
     const newQty = parseInt((req.body as { quantity: string }).quantity, 10)
@@ -457,9 +496,19 @@ export default (server: ZodFastifyInstance) => {
     if (isNaN(newQty) || newQty < 1) return res.status(400).send("Quantità non valida")
 
     try {
-      const [item] = await db.select().from(cart).where(and(eq(cart.id, parseInt(cartId, 10)), eq(cart.userId, req.currentUser!.id))).limit(1)
+      // 1. Controlla se l'elemento appartiene all'utente
+      const [item] = await db.select().from(cart)
+        .where(and(eq(cart.id, parseInt(cartId, 10)), eq(cart.userId, req.currentUser!.id)))
+        .limit(1)
+        
       if (!item) return res.status(403).send("Non autorizzato")
 
+      // 2. AGGIORNA LA QUANTITÀ NEL DATABASE (Questo mancava!)
+      await db.update(cart)
+        .set({ quantity: newQty })
+        .where(eq(cart.id, parseInt(cartId, 10)))
+
+      // 3. Recupera l'utente e i prodotti AGGIORNATI dal database
       const user = await db.query.users.findFirst({ where: { userName: req.session?.username } })
 
       const cartProducts = await db.query.cart.findMany({
@@ -467,17 +516,20 @@ export default (server: ZodFastifyInstance) => {
         with: { cartItem: true },
       })
 
+      // 4. Calcola il totale globale del carrello con i dati aggiornati
       const totalCart = cartProducts.reduce((sum, item) => {
         const price = item.cartItem?.price ? Number(item.cartItem.price) : 0
         const quantity = item.quantity ? Number(item.quantity) : 1
         return sum + price * quantity
       }, 0)
 
+      // 5. Trova l'elemento corrente aggiornato per calcolare il suo totale parziale
       const updatedItem = cartProducts.find(p => p.id === parseInt(cartId, 10))
       const itemTotal = (Number(updatedItem?.cartItem?.price) || 0) * (Number(updatedItem?.quantity) || 1)
 
       const cartCount = await getCartCount(req.session?.username)
 
+      // 6. Rispondi con i blocchi OOB (Out-of-Band) aggiornati
       return res.status(200).html(
         <>
           <span id={`item-total-${cartId}`} class="text-xl font-semibold text-black-600" hx-swap-oob="true">
@@ -495,6 +547,11 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
+
+
+
+
+  //Conferma pagamento.
   server.post("/payment/confirm", async (req, res) => {
     const { cardNumber, expiry } = req.body as PaymentBody
     const [month, year] = expiry.split("/")
@@ -551,6 +608,11 @@ export default (server: ZodFastifyInstance) => {
     })
   })
 
+
+
+
+
+  //Validazione checkout.
   server.get("/checkout/validate", async (req, res) => {
     const { fullName, city, cap, address } = req.query as CheckOutBody
     const errors: Record<string, string> = {}
@@ -595,6 +657,11 @@ export default (server: ZodFastifyInstance) => {
     return res.header("HX-Redirect", "/checkout/payment").send()
   })
 
+
+
+
+
+  //Descrizione con l'AI
   server.post("/magic-description", async (req, res) => {
     const textareaClass = (extra = "") =>
       `w-full border ${extra} rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 text-gray-900 bg-white resize-none`
@@ -656,6 +723,11 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
+
+
+
+
+  //Vendita prodotto.
   server.post("/sell-product", async (req, res) => {
     const user = req.currentUser!
     const uploadDir = path.join(process.cwd(), "public", "images")
@@ -751,7 +823,109 @@ export default (server: ZodFastifyInstance) => {
   })
 
 
-  // Fastify
+
+
+
+  //End-point per il filtro della sezione ordini.
+  server.get("/admin/orders/filter", async (request, reply) => {
+    const { filter } = request.query as { filter?: string };
+
+    const [allUsers, allProducts, allOrders] = await Promise.all([
+      db.select().from(users),
+      db.select().from(products),
+      filter && filter !== "all"
+        ? db.select().from(orders).where(eq(orders.status, filter))
+        : db.select().from(orders),
+    ]);
+
+    const ordersWithDetails: OrderWithDetails[] = allOrders.map(order => {
+      const user = allUsers.find(u => u.id === order.userId);
+      const product = allProducts.find(p => p.id === order.productId);
+      return {
+        ...order,
+        userName: user ? `${user.name} ${user.lastName}` : "Utente rimosso",
+        productName: product?.productName ?? "Prodotto rimosso",
+      };
+    });
+
+    reply.header("Content-Type", "text/html");
+    return reply.send(await (<OrderRows orders={ordersWithDetails} />));
+  });
+
+
+
+
+
+  //End-point per il filtro della sezione utenti.
+  server.get('/admin/products/filter', async (req, reply) => {
+    // 1. Recupera i parametri di filtro inviati dal form HTMX
+    const { status, sortPrice, sortStock } = req.query as { 
+      status?: string; 
+      sortPrice?: 'asc' | 'desc'; 
+      sortStock?: 'asc' | 'desc';
+    };
+
+    // 2. Prendi i prodotti reali dal database (esegui la query asincrona)
+    const dbProducts = await db.select().from(products); 
+    // NOTA: Assicurati che "products" sia il riferimento corretto alla tabella del tuo schema db
+    
+    let filteredProducts = [...dbProducts];
+
+    // 3. Logica di filtraggio dello stato
+    if (status && status !== 'all') {
+      filteredProducts = filteredProducts.filter(p => p.status === status);
+    }
+    
+    // 4. Logica di ordinamento del Prezzo
+    if (sortPrice === 'asc') {
+      filteredProducts.sort((a, b) => Number(a.price) - Number(b.price));
+    } else if (sortPrice === 'desc') {
+      filteredProducts.sort((a, b) => Number(b.price) - Number(a.price));
+    }
+    
+    // 5. Logica di ordinamento dello Stock
+    if (sortStock === 'asc') {
+      filteredProducts.sort((a, b) => Number(a.stock) - Number(b.stock));
+    } else if (sortStock === 'desc') {
+      filteredProducts.sort((a, b) => Number(b.stock) - Number(a.stock));
+    }
+
+    // 6. Imposta l'header corretto e rispondi con il componente compilato
+    reply.header("Content-Type", "text/html");
+    return reply.send(<ProductRows products={filteredProducts} />);
+  });
+
+
+  server.get('/admin/users/filter', async (req, reply) => {
+    // 1. Recupera il parametro di stato inviato da HTMX
+    const { status } = req.query as { status?: 'all' | 'active' | 'inactive' | 'banned' };
+
+    // 2. Prendi gli utenti dal database usando la tua istanza db
+    const dbUsers = await db.select().from(users); // Assicurati che "users" punti alla tabella corretta
+
+    let filteredUsers = [...dbUsers];
+
+    // 3. Logica di filtraggio
+    if (status === 'active') {
+      // Utenti verificati e NON bannati
+      filteredUsers = filteredUsers.filter(u => u.isVerified && !u.isBanned);
+    } else if (status === 'inactive') {
+      // Utenti non verificati e NON bannati (corretto anche il pallino arancione nel front-end)
+      filteredUsers = filteredUsers.filter(u => !u.isVerified && !u.isBanned);
+    } else if (status === 'banned') {
+      // Utenti bannati
+      filteredUsers = filteredUsers.filter(u => u.isBanned);
+    }
+
+    // 4. Invia la risposta HTML parziale
+    reply.header("Content-Type", "text/html");
+    return reply.send(
+        <UserRows user={filteredUsers} />
+      );
+  });
+
+
+  //Modifica stato ordini.
   server.post("/admin/orders/:id/status", async (request, reply) => {
     const { id } = request.params as { id: string };
     const { status } = request.body as { status: string };
@@ -786,8 +960,10 @@ export default (server: ZodFastifyInstance) => {
   });
 
 
-  // GET /admin/orders/:id/modal
-// Restituisce l'HTML del modal per quell'ordine
+
+
+
+  //Apertura modale per dettagli ordine.
   server.get("/dashboard/orders/:id/modal", async (req, reply) => {
     const { id } = req.params as { id: string }
 
@@ -804,6 +980,11 @@ export default (server: ZodFastifyInstance) => {
     return reply.html(<OrderDetailModal order={orderWithDetails} />)
   })
 
+
+
+
+
+  //Eliminazione prodotto tramite l'id.
   server.delete("/product/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
@@ -828,6 +1009,11 @@ export default (server: ZodFastifyInstance) => {
     }
   })
 
+
+
+
+
+  //Apertura modale per modifica prodotto. 
   server.get("/edit-product-modal/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
@@ -838,192 +1024,208 @@ export default (server: ZodFastifyInstance) => {
     return res.status(200).html(<EditProductModal product={product} />)
   })
 
-server.post("/edit-product/:id", async (req, res) => {
-  const { id } = req.params as { id: string }
-  const productId = parseInt(id, 10)
-  const user = req.currentUser!
-  const resolvedUploadDir = path.join(process.cwd(), "public", "images")
-  fs.mkdirSync(resolvedUploadDir, { recursive: true })
 
-  try {
-    const parts = req.parts()
-    let productName = "", price = 0, stock = 0, category = "", description = "", coverImage = ""
-    const keepImages: string[] = []
-    const newImageUrls: string[] = []
 
-    for await (const part of parts) {
-      if (part.type === "file" && part.fieldname === "images" && part.filename) {
-        const ext = path.extname(part.filename).toLowerCase()
-        if (!IMAGE_FORMATS.has(ext)) { part.file.resume(); continue }
 
-        const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.jpg`
-        const uploadPath = path.join(resolvedUploadDir, uniqueFilename)
-        const optimizer = sharp({ failOn: "none" })
-          .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
-          .jpeg({ quality: 80, progressive: true })
 
-        await pipeline(part.file, optimizer, fs.createWriteStream(uploadPath))
-        newImageUrls.push(`/images/${uniqueFilename}`)
-      } else if (part.type === "field") {
-        if (part.fieldname === "productName") productName = part.value as string
-        if (part.fieldname === "price")       price = parseFloat(part.value as string) || 0
-        if (part.fieldname === "stock")       stock = parseInt(part.value as string, 10) || 0
-        if (part.fieldname === "category")    category = part.value as string
-        if (part.fieldname === "description") description = part.value as string
-        if (part.fieldname === "coverImage")  coverImage = part.value as string
-        if (part.fieldname === "keepImages")  keepImages.push(part.value as string)
-      }
-    }
+  //End-point per l'effettiva modifica prodotto.
+  server.post("/edit-product/:id", async (req, res) => {
+    const { id } = req.params as { id: string }
+    const productId = parseInt(id, 10)
+    const user = req.currentUser!
+    const resolvedUploadDir = path.join(process.cwd(), "public", "images")
+    fs.mkdirSync(resolvedUploadDir, { recursive: true })
 
-    if (!productName || price < 0.01 || stock < 1) {
-      const product = await db.query.products.findFirst({ where: { id: productId } })
-      return res.status(200).html(<EditProductModal product={product!} error="Campi non compilati correttamente." />)
-    }
+    try {
+      const parts = req.parts()
+      let productName = "", price = 0, stock = 0, category = "", description = "", coverImage = ""
+      const keepImages: string[] = []
+      const newImageUrls: string[] = []
 
-    let finalImages = [...keepImages, ...newImageUrls]
+      for await (const part of parts) {
+        if (part.type === "file" && part.fieldname === "images" && part.filename) {
+          const ext = path.extname(part.filename).toLowerCase()
+          if (!IMAGE_FORMATS.has(ext)) { part.file.resume(); continue }
 
-    if (coverImage && !coverImage.startsWith("new-") && keepImages.includes(coverImage)) {
-      finalImages = [coverImage, ...finalImages.filter(u => u !== coverImage)]
-    } else if (coverImage.startsWith("new-") && newImageUrls.length > 0) {
-      finalImages = [...newImageUrls, ...keepImages]
-    }
+          const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.jpg`
+          const uploadPath = path.join(resolvedUploadDir, uniqueFilename)
+          const optimizer = sharp({ failOn: "none" })
+            .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
+            .jpeg({ quality: 80, progressive: true })
 
-    await db.update(products)
-      .set({ productName, price, stock, category, description, imageUrl: JSON.stringify(finalImages) })
-      .where(eq(products.id, productId))
-
-    const toast = encodeURIComponent("Modifiche ricevute. Il prodotto è in fase di revisione.")
-    res.header("HX-Redirect", `/profile?username=${user.userName}&toast=${toast}`).send()
-
-    setImmediate(async () => {
-      try {
-        const messageContent: any[] = [
-          { text: `Analizza questo prodotto modificato:\n${JSON.stringify({ productName, category, description, price })}` }
-        ]
-
-        for (const url of newImageUrls) {
-          const absolutePath = path.join(process.cwd(), "public", url)
-          const content = await imageToBedrockContent(absolutePath)
-          if (content) messageContent.push(content)
+          await pipeline(part.file, optimizer, fs.createWriteStream(uploadPath))
+          newImageUrls.push(`/images/${uniqueFilename}`)
+        } else if (part.type === "field") {
+          if (part.fieldname === "productName") productName = part.value as string
+          if (part.fieldname === "price")       price = parseFloat(part.value as string) || 0
+          if (part.fieldname === "stock")       stock = parseInt(part.value as string, 10) || 0
+          if (part.fieldname === "category")    category = part.value as string
+          if (part.fieldname === "description") description = part.value as string
+          if (part.fieldname === "coverImage")  coverImage = part.value as string
+          if (part.fieldname === "keepImages")  keepImages.push(part.value as string)
         }
-
-        const command = new ConverseCommand({
-          modelId: process.env.BEDROCK_MODEL_ID || "eu.anthropic.claude-sonnet-4-6",
-          messages: [{ role: "user", content: messageContent }],
-          system: [{ text: MODERATION_SYSTEM_PROMPT }],
-          inferenceConfig: { temperature: 0.1, maxTokens: 300 },
-        })
-
-        const bedrockResponse = await bedrockClient.send(command)
-        const score = parseBedrockScore(bedrockResponse.output?.message?.content?.[0]?.text || "0.0")
-        const status = score < 0.50 ? "rejected" : score < 0.80 ? "pending" : "approved"
-
-        await db.update(products)
-          .set({ status, reliability: score })
-          .where(eq(products.id, productId))
-
-        await db.update(users)
-          .set({ hasUnseenModeration: true })
-          .where(eq(users.id, user.id))
-
-        server.log.info(`Prodotto ${productId} moderato. Status: ${status}, Score: ${score}`)
-      } catch (bgError) {
-        server.log.error(bgError, "moderation background error")
       }
-    })
-  } catch (error) {
-    server.log.error(error, "edit-product error")
-    if (!res.sent) {
-      res.status(500).send("Errore durante la modifica del prodotto")
-    }
-  }
-})
 
-  //BACKEND LOGIC FOR ADMIN
+      if (!productName || price < 0.01 || stock < 1) {
+        const product = await db.query.products.findFirst({ where: { id: productId } })
+        return res.status(200).html(<EditProductModal product={product!} error="Campi non compilati correttamente." />)
+      }
 
+      let finalImages = [...keepImages, ...newImageUrls]
 
-server.patch("/admin/products/:id/status", async (req, res) => {
-  const callerUserName = req.session.username
-    
-  if (!callerUserName) {
-    return res.status(401).send("NO")
-  }
+      if (coverImage && !coverImage.startsWith("new-") && keepImages.includes(coverImage)) {
+        finalImages = [coverImage, ...finalImages.filter(u => u !== coverImage)]
+      } else if (coverImage.startsWith("new-") && newImageUrls.length > 0) {
+        finalImages = [...newImageUrls, ...keepImages]
+      }
 
-  const callerUser= await db.query.users.findFirst({
-    where: {
-      userName: callerUserName
+      await db.update(products)
+        .set({ productName, price, stock, category, description, imageUrl: JSON.stringify(finalImages) })
+        .where(eq(products.id, productId))
+
+      const toast = encodeURIComponent("Modifiche ricevute. Il prodotto è in fase di revisione.")
+      res.header("HX-Redirect", `/profile?username=${user.userName}&toast=${toast}`).send()
+
+      setImmediate(async () => {
+        try {
+          const messageContent: any[] = [
+            { text: `Analizza questo prodotto modificato:\n${JSON.stringify({ productName, category, description, price })}` }
+          ]
+
+          for (const url of newImageUrls) {
+            const absolutePath = path.join(process.cwd(), "public", url)
+            const content = await imageToBedrockContent(absolutePath)
+            if (content) messageContent.push(content)
+          }
+
+          const command = new ConverseCommand({
+            modelId: process.env.BEDROCK_MODEL_ID || "eu.anthropic.claude-sonnet-4-6",
+            messages: [{ role: "user", content: messageContent }],
+            system: [{ text: MODERATION_SYSTEM_PROMPT }],
+            inferenceConfig: { temperature: 0.1, maxTokens: 300 },
+          })
+
+          const bedrockResponse = await bedrockClient.send(command)
+          const score = parseBedrockScore(bedrockResponse.output?.message?.content?.[0]?.text || "0.0")
+          const status = score < 0.50 ? "rejected" : score < 0.80 ? "pending" : "approved"
+
+          await db.update(products)
+            .set({ status, reliability: score })
+            .where(eq(products.id, productId))
+
+          await db.update(users)
+            .set({ hasUnseenModeration: true })
+            .where(eq(users.id, user.id))
+
+          server.log.info(`Prodotto ${productId} moderato. Status: ${status}, Score: ${score}`)
+        } catch (bgError) {
+          server.log.error(bgError, "moderation background error")
+        }
+      })
+    } catch (error) {
+      server.log.error(error, "edit-product error")
+      if (!res.sent) {
+        res.status(500).send("Errore durante la modifica del prodotto")
+      }
     }
   })
 
-  if (!callerUser || !callerUser.isAdmin) {
-    return res.status(403).send("NO MA SEI LOGGATO")
-  }
 
 
-  const { id } = req.params as { id: string }
-  const { status } = req.body as { status: string }
-  const allowed = ["approved", "pending", "rejected"]
-  if (!allowed.includes(status)) return res.status(400).send("Stato non valido")
   
-  await db.update(products).set({ status }).where(eq(products.id, parseInt(id, 10)))
-  
- 
-  const currentUrlHeader = req.headers["hx-current-url"] as string
-  let redirectUrl = "/dashboard?tab=products" 
-  
-  if (currentUrlHeader) {
-    const parsedUrl = new URL(currentUrlHeader)
-    
-   
-    parsedUrl.searchParams.set("toast", "Lo stato del prodotto e' stato cambiato")
-    parsedUrl.searchParams.set("toastType", "success")
-    
-    
-    if (!parsedUrl.searchParams.has("tab")) {
-      parsedUrl.searchParams.set("tab", "products")
+  //BACKEND LOGIC FOR ADMIN
+
+
+
+
+  //Modifica dello stato del prodotto.
+  server.patch("/admin/products/:id/status", async (req, res) => {
+    const callerUserName = req.session.username
+      
+    if (!callerUserName) {
+      return res.status(401).send("NO")
     }
+
+    const callerUser= await db.query.users.findFirst({
+      where: {
+        userName: callerUserName
+      }
+    })
+
+    if (!callerUser || !callerUser.isAdmin) {
+      return res.status(403).send("NO MA SEI LOGGATO")
+    }
+
+
+    const { id } = req.params as { id: string }
+    const { status } = req.body as { status: string }
+    const allowed = ["approved", "pending", "rejected"]
+    if (!allowed.includes(status)) return res.status(400).send("Stato non valido")
     
-    redirectUrl = parsedUrl.pathname + parsedUrl.search
-  } else {
-    const message = encodeURIComponent("Lo stato del prodotto e' stato cambiato")
-    redirectUrl = `/dashboard?tab=products&toast=${message}&toastType=success`
-  }
+    await db.update(products).set({ status }).where(eq(products.id, parseInt(id, 10)))
+    
+  
+    const currentUrlHeader = req.headers["hx-current-url"] as string
+    let redirectUrl = "/dashboard?tab=products" 
+    
+    if (currentUrlHeader) {
+      const parsedUrl = new URL(currentUrlHeader)
+      
+    
+      parsedUrl.searchParams.set("toast", "Lo stato del prodotto e' stato cambiato")
+      parsedUrl.searchParams.set("toastType", "success")
+      
+      
+      if (!parsedUrl.searchParams.has("tab")) {
+        parsedUrl.searchParams.set("tab", "products")
+      }
+      
+      redirectUrl = parsedUrl.pathname + parsedUrl.search
+    } else {
+      const message = encodeURIComponent("Lo stato del prodotto e' stato cambiato")
+      redirectUrl = `/dashboard?tab=products&toast=${message}&toastType=success`
+    }
 
-  return res
-    .header("HX-Redirect", redirectUrl)
-    .send()
-})
+    return res
+      .header("HX-Redirect", redirectUrl)
+      .send()
+  })
 
-server.patch("/orders/:id/mark-sent", async (req, res) => {
-  const { id } = req.params as { id: string }
-  const orderId = parseInt(id, 10)
-  const user = req.currentUser!
 
-  const order = await db.query.orders.findFirst({ where: { id: orderId } })
-  if (!order) return res.status(404).send("Ordine non trovato")
 
-  const product = await db.query.products.findFirst({ where: { id: order.productId } })
-  if (!product) return res.status(404).send("Prodotto non trovato")
-  if (product.userId !== user.id) return res.status(403).send("Non autorizzato")
-  if (order.status !== "not yet sent") return res.status(400).send("Stato non modificabile")
 
-  await db.update(orders).set({ status: "sent" }).where(eq(orders.id, orderId))
 
-  return res.status(200).html(
-    <div id={`sold-order-${orderId}`} class="flex items-center justify-between py-3 gap-4">
-      <div class="flex-1">
-        <p class="font-medium text-gray-800">{product.productName}</p>
-        <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
+  //Chiedere a Makz
+  server.patch("/orders/:id/mark-sent", async (req, res) => {
+    const { id } = req.params as { id: string }
+    const orderId = parseInt(id, 10)
+    const user = req.currentUser!
+
+    const order = await db.query.orders.findFirst({ where: { id: orderId } })
+    if (!order) return res.status(404).send("Ordine non trovato")
+
+    const product = await db.query.products.findFirst({ where: { id: order.productId } })
+    if (!product) return res.status(404).send("Prodotto non trovato")
+    if (product.userId !== user.id) return res.status(403).send("Non autorizzato")
+    if (order.status !== "not yet sent") return res.status(400).send("Stato non modificabile")
+
+    await db.update(orders).set({ status: "sent" }).where(eq(orders.id, orderId))
+
+    return res.status(200).html(
+      <div id={`sold-order-${orderId}`} class="flex items-center justify-between py-3 gap-4">
+        <div class="flex-1">
+          <p class="font-medium text-gray-800">{product.productName}</p>
+          <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-blue-50 text-blue-700 border-blue-200">
+            Spedito
+          </span>
+          <span class="text-emerald-600 font-bold">+${order.totalPrice.toLocaleString("it-IT")}</span>
+        </div>
       </div>
-      <div class="flex items-center gap-3">
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-blue-50 text-blue-700 border-blue-200">
-          Spedito
-        </span>
-        <span class="text-emerald-600 font-bold">+${order.totalPrice.toLocaleString("it-IT")}</span>
-      </div>
-    </div>
-  )
-})
+    )
+  })
 
 
   

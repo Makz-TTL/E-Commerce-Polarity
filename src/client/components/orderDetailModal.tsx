@@ -120,24 +120,6 @@ export async function OrderDetailModal({ order }: { order: OrderWithDetails }) {
                   {badge.label}
                 </span>
               </div>
-              {/*
-                Select per cambiare stato — usa HTMX per fare PATCH senza ricaricare.
-                hx-trigger="change" → parte automaticamente quando cambia il valore.
-                hx-swap="none"     → non sostituisce nulla nel DOM (solo aggiorna il db).
-              */}
-              <select
-                  id={`status-${order.id}`}
-                  hx-post={`/admin/orders/${order.id}/status`}
-                  hx-trigger="change"
-                  hx-target="#pending-count"   // target esplicito
-                  hx-swap="outerHTML"          // ora gli OOB funzionano
-                  name="status"
-                >
-                <option value="pending"   selected={order.status === "pending"}>In attesa</option>
-                <option value="shipped"   selected={order.status === "shipped"}>Spedito</option>
-                <option value="delivered" selected={order.status === "delivered"}>Consegnato</option>
-                <option value="cancelled" selected={order.status === "cancelled"}>Annullato</option>
-              </select>
             </div>
 
           </div>
