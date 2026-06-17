@@ -161,7 +161,8 @@ function isProtectedRoute(url: string): boolean {
     pathname.startsWith("/updateCartQuantity/") ||
     pathname.startsWith("/edit-product/") ||
     pathname.startsWith("/edit-product-modal/") ||
-    pathname.startsWith("/dashboard/")
+    pathname.startsWith("/dashboard/") ||
+    pathname.startsWith("/orders/")
   )
 }
 
@@ -947,6 +948,38 @@ server.patch("/admin/products/:id/status", async (req, res) => {
     .header("HX-Redirect", redirectUrl)
     .send()
 })
+
+server.patch("/orders/:id/mark-sent", async (req, res) => {
+  const { id } = req.params as { id: string }
+  const orderId = parseInt(id, 10)
+  const user = req.currentUser!
+
+  const order = await db.query.orders.findFirst({ where: { id: orderId } })
+  if (!order) return res.status(404).send("Ordine non trovato")
+
+  const product = await db.query.products.findFirst({ where: { id: order.productId } })
+  if (!product) return res.status(404).send("Prodotto non trovato")
+  if (product.userId !== user.id) return res.status(403).send("Non autorizzato")
+  if (order.status !== "not yet sent") return res.status(400).send("Stato non modificabile")
+
+  await db.update(orders).set({ status: "sent" }).where(eq(orders.id, orderId))
+
+  return res.status(200).html(
+    <div id={`sold-order-${orderId}`} class="flex items-center justify-between py-3 gap-4">
+      <div class="flex-1">
+        <p class="font-medium text-gray-800">{product.productName}</p>
+        <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-blue-50 text-blue-700 border-blue-200">
+          Spedito
+        </span>
+        <span class="text-emerald-600 font-bold">+${order.totalPrice.toLocaleString("it-IT")}</span>
+      </div>
+    </div>
+  )
+})
+
 
   
 }
