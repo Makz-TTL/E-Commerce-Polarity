@@ -1021,18 +1021,22 @@ export default (server: ZodFastifyInstance) => {
 server.post("/orders/:id/cancel", async (req, res) => {
   if (!req.session.username) return res.status(401).send("Non autorizzato")
 
-const params = req.params as { id: string }
+  const params = req.params as { id: string }
   const orderId = Number(params.id)
   
   const [user] = await db.select().from(users).where(eq(users.userName, req.session.username))
   if (!user) return res.status(404).send("Utente non trovato")
 
-  const order = await db.query.orders.findFirst({
-    where: { id: orderId }
-  })
-
+  const [order] = await db.select().from(orders).where(eq(orders.id, orderId))
   if (!order || order.userId !== user.id || order.status !== "not yet sent") {
     return res.status(403).send("Azione non permessa")
+  }
+
+  const [product] = await db.select().from(products).where(eq(products.id, order.productId))
+  if (product) {
+    await db.update(products)
+      .set({ stock: product.stock + order.quantity })
+      .where(eq(products.id, product.id))
   }
 
   await db.delete(orders).where(eq(orders.id, orderId))
