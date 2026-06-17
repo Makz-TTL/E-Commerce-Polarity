@@ -4,7 +4,7 @@ import Marketplace from "../components/marketplace"
 import MainLayout from "../layouts/MainLayout"
 import SignUpForm from "../components/SignUpForm"
 import Cart from "../components/cart"
-import PorfilePage from "../components/ProfilePage"
+import ProfilePage from "../components/ProfilePage"
 import { orders, products, users } from "../../db/schema"
 import { db } from "../../db"
 import LoginForm from "../components/LoginForm"
@@ -167,8 +167,12 @@ server.get("/dashboard", async (req, res) => {
     )
   })
 
+
 server.get("/profile", async (req, res) => {
   if (!req.session.username) return res.redirect("/")
+
+  const query    = req.query as { tab?: string }
+  const activeTab = query.tab || "products"
 
   if (req.session.sessionToken) {
     const [user] = await db.select().from(users).where(eq(users.session, req.session.sessionToken)).limit(1)
@@ -177,9 +181,17 @@ server.get("/profile", async (req, res) => {
     }
   }
 
+  const isHtmx = req.headers["hx-request"] === "true"
+
+  if (isHtmx) {
+    return res.html(
+      await ProfilePage({ username: req.session.username, sessionUsername: req.session.username, activeTab })
+    )
+  }
+
   return res.html(
     <MainLayout>
-      {await PorfilePage({ username: req.session.username, sessionUsername: req.session.username })}
+      {await ProfilePage({ username: req.session.username, sessionUsername: req.session.username, activeTab })}
     </MainLayout>
   )
 })
