@@ -17,6 +17,7 @@ import PaymentDeclined from "../components/paymentDeclined"
 import AdminDashboard, { OrderWithDetails } from "../components/adminDashboard"
 import BannedPage from "../components/bannedPage"
 import Mail from "nodemailer/lib/mailer"
+import TransactionListModal from "../components/TransactionsListModal"
 
 export default (server: ZodFastifyInstance) => {
 
@@ -166,22 +167,22 @@ server.get("/dashboard", async (req, res) => {
     )
   })
 
-  server.get("/profile", async (req, res) => {
-    if (!req.session.username) return res.redirect("/")
+server.get("/profile", async (req, res) => {
+  if (!req.session.username) return res.redirect("/")
 
-    if (req.session.sessionToken) {
-      const [user] = await db.select().from(users).where(eq(users.session, req.session.sessionToken)).limit(1)
-      if (user?.hasUnseenModeration) {
-        await db.update(users).set({ hasUnseenModeration: false }).where(eq(users.id, user.id))
-      }
+  if (req.session.sessionToken) {
+    const [user] = await db.select().from(users).where(eq(users.session, req.session.sessionToken)).limit(1)
+    if (user?.hasUnseenModeration) {
+      await db.update(users).set({ hasUnseenModeration: false }).where(eq(users.id, user.id))
     }
+  }
 
-    return res.html(
-      <MainLayout>
-        {await PorfilePage({ username: req.session.username })}
-      </MainLayout>
-    )
-  })
+  return res.html(
+    <MainLayout>
+      {await PorfilePage({ username: req.session.username, sessionUsername: req.session.username })}
+    </MainLayout>
+  )
+})
 
   server.get("/checkout", async (req, res) => {
     if (!req.session.username) return res.redirect("/")
@@ -271,4 +272,6 @@ server.get("/dashboard", async (req, res) => {
       return res.status(500).send("Errore interno durante il caricamento dei dettagli del prodotto")
     }
   })
+
+ 
 }
