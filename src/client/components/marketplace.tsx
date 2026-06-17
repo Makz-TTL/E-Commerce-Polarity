@@ -5,6 +5,7 @@ import { products as productsTable, users as usersTable } from "../../db/schema"
 import { eq, gt, and, like, ilike } from "drizzle-orm"
 import { getCartCount } from "../helpers/cartCounter"
 import OtpForm from "./OtpForm"
+import Navbar from "./Navbar"
 
 type MarketplaceProps = {
   searchParams?: { category?: string; search?: string }
@@ -195,7 +196,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
 
   return (
     <div class="bg-gray-50/50 min-h-screen pb-12">
-      <nav class="w-full bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
+      {/* <nav class="w-full bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex justify-between h-16 items-center">
             <div class="flex-shrink-0 flex items-center">
@@ -251,7 +252,8 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
             </div>
           </div>
         </div>
-      </nav>
+      </nav> */}
+      <Navbar session={session} currentUser={currentUser} cartCount={cartCount} />
 
       <h1 class="text-3xl font-extrabold tracking-tight text-gray-900 px-6 pt-8 max-w-7xl mx-auto">
         Marketplace

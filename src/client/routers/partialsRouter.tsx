@@ -46,6 +46,22 @@ export default (server: ZodFastifyInstance) => {
     const { id } = request.params as { id: string };
     const userId = Number(id);
 
+    const callerUserId = request.session.userId
+    if (!callerUserId) {
+      return reply.status(401).send("NO")
+    }
+
+    const callerUser = await db.query.users.findFirst({
+      where: {
+        id: callerUserId
+      }
+    })
+
+    if (!callerUser || callerUser.isAdmin === false) {
+      return reply.status(403).send("NO MA SEI LOGGATO")
+    }
+
+
     try {
       // 1. Recuperiamo lo stato attuale dell'utente
       const [currentUser] = await db
@@ -78,7 +94,7 @@ export default (server: ZodFastifyInstance) => {
       return UserRow(updatedUser, 0); 
 
     } catch (error) {
-      server.log.error(error);
+      console.log(error)
       return reply.code(500).send("Errore durante la modifica dello stato di ban");
     }
   });
@@ -100,7 +116,7 @@ export default (server: ZodFastifyInstance) => {
     )
   })
 
-  server.post("/verify-otp", async (req, res) => {
+server.post("/verify-otp", async (req, res) => {
   const { otp, email } = req.body as { otp: string; email: string }
 
   if (!email) {
@@ -130,6 +146,7 @@ export default (server: ZodFastifyInstance) => {
 
     req.session.sessionToken = sessionToken
     req.session.username = user.userName
+    req.session.userId = user.id
 
     if (typeof req.session.save === "function") {
       await req.session.save()

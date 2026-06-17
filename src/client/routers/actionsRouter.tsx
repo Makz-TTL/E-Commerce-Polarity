@@ -236,6 +236,7 @@ export default (server: ZodFastifyInstance) => {
 
       req.session.sessionToken = sessionToken
       req.session.username = dbUser.userName
+      req.session.userId = dbUser.id
 
       if (typeof req.session.save === "function") {
         await req.session.save()
@@ -426,6 +427,7 @@ export default (server: ZodFastifyInstance) => {
 
       await db.update(users).set({ name: nome, lastName: cognome, userName: username }).where(eq(users.id, currentUser.id))
       req.session.username = username
+      req.session.userId = currentUser.id
 
       return res
         .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Profilo aggiornato con successo!" } }))
@@ -886,6 +888,21 @@ export default (server: ZodFastifyInstance) => {
 
 
 server.patch("/admin/products/:id/status", async (req, res) => {
+  const callerUserId = req.session.userId
+  if (!callerUserId) {
+    return res.status(401).send("NO")
+  }
+
+  const callerUser = await db.query.users.findFirst({
+    where: {
+      id: callerUserId
+    }
+  })
+
+  if (!callerUser || callerUser.isAdmin === false) {
+    return res.status(403).send("NO MA SEI LOGGATO")
+  }
+
   const { id } = req.params as { id: string }
   const { status } = req.body as { status: string }
   const allowed = ["approved", "pending", "rejected"]
