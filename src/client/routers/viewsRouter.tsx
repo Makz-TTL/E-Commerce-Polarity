@@ -14,8 +14,10 @@ import Payment from "../components/payment"
 import ProductInfoPage from "../components/ProductInfoPage"
 import PaymentAccepted from "../components/paymentAccepted"
 import PaymentDeclined from "../components/paymentDeclined"
-import AdminDashboard from "../components/adminDashboard"
+import AdminDashboard, { OrderWithDetails } from "../components/adminDashboard"
 import BannedPage from "../components/bannedPage"
+import Mail from "nodemailer/lib/mailer"
+import TransactionListModal from "../components/TransactionsListModal"
 
 export default (server: ZodFastifyInstance) => {
 
@@ -106,15 +108,49 @@ export default (server: ZodFastifyInstance) => {
   })
 
 
-  server.get("/dashboard", async (req, res) => {
-    if (!req.session.username) return res.redirect("/")
 
-    return res.html(
-      <MainLayout>
-        <AdminDashboard />
-      </MainLayout>
-    )
+server.get("/dashboard", async (req, res) => {
+  if (!req.session.username) return res.redirect("/")
+
+  const query     = req.query as { tab?: string }
+  const activeTab = query.tab || "users"
+
+  const [allUsers, allProducts, allOrders] = await Promise.all([
+    db.select().from(users),
+    db.select().from(products),
+    db.select().from(orders),
+  ])
+
+  const totalRevenue = allOrders.reduce((sum, o) => sum + (o.totalPrice ?? 0), 0)
+  const pendingOrders = allOrders.filter(o => o.status === "pending").length
+
+  const ordersWithDetails: OrderWithDetails[] = allOrders.map(order => {
+    const user    = allUsers.find(u => u.id === order.userId)
+    const product = allProducts.find(p => p.id === order.productId)
+    return {
+      ...order,
+      userName:    user    ? `${user.name} ${user.lastName}` : "Utente rimosso",
+      productName: product?.productName ?? "Prodotto rimosso",
+    }
   })
+
+  const html = (
+    <MainLayout>
+      <AdminDashboard
+        activeTab={activeTab}
+        allUsers={allUsers}
+        allProducts={allProducts}
+        allOrders={allOrders}
+        ordersWithDetails={ordersWithDetails}
+        totalRevenue={totalRevenue}
+        pendingOrders={pendingOrders}
+      />
+    </MainLayout>
+  )
+
+ 
+  return res.type("text/html").send(html)
+})
 
 
 
@@ -131,22 +167,22 @@ export default (server: ZodFastifyInstance) => {
     )
   })
 
-  server.get("/profile", async (req, res) => {
-    if (!req.session.username) return res.redirect("/")
+server.get("/profile", async (req, res) => {
+  if (!req.session.username) return res.redirect("/")
 
-    if (req.session.sessionToken) {
-      const [user] = await db.select().from(users).where(eq(users.session, req.session.sessionToken)).limit(1)
-      if (user?.hasUnseenModeration) {
-        await db.update(users).set({ hasUnseenModeration: false }).where(eq(users.id, user.id))
-      }
+  if (req.session.sessionToken) {
+    const [user] = await db.select().from(users).where(eq(users.session, req.session.sessionToken)).limit(1)
+    if (user?.hasUnseenModeration) {
+      await db.update(users).set({ hasUnseenModeration: false }).where(eq(users.id, user.id))
     }
+  }
 
-    return res.html(
-      <MainLayout>
-        {await PorfilePage({ username: req.session.username })}
-      </MainLayout>
-    )
-  })
+  return res.html(
+    <MainLayout>
+      {await PorfilePage({ username: req.session.username, sessionUsername: req.session.username })}
+    </MainLayout>
+  )
+})
 
   server.get("/checkout", async (req, res) => {
     if (!req.session.username) return res.redirect("/")
@@ -257,4 +293,6 @@ export default (server: ZodFastifyInstance) => {
       return res.status(500).send("Errore interno durante il caricamento dei dettagli del prodotto")
     }
   })
+
+ 
 }

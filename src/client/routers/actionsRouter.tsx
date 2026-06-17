@@ -171,7 +171,8 @@ function isProtectedRoute(url: string): boolean {
     pathname.startsWith("/updateCartQuantity/") ||
     pathname.startsWith("/edit-product/") ||
     pathname.startsWith("/edit-product-modal/") ||
-    pathname.startsWith("/dashboard/")
+    pathname.startsWith("/dashboard/") ||
+    pathname.startsWith("/orders/")
   )
 }
 
@@ -246,6 +247,7 @@ export default (server: ZodFastifyInstance) => {
 
       req.session.sessionToken = sessionToken
       req.session.username = dbUser.userName
+      req.session.userId = dbUser.id
 
       if (typeof req.session.save === "function") {
         await req.session.save()
@@ -436,6 +438,7 @@ export default (server: ZodFastifyInstance) => {
 
       await db.update(users).set({ name: nome, lastName: cognome, userName: username }).where(eq(users.id, currentUser.id))
       req.session.username = username
+      req.session.userId = currentUser.id
 
       return res
         .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Profilo aggiornato con successo!" } }))
@@ -835,102 +838,128 @@ export default (server: ZodFastifyInstance) => {
     return res.status(200).html(<EditProductModal product={product} />)
   })
 
-  server.post("/edit-product/:id", async (req, res) => {
-    const { id } = req.params as { id: string }
-    const productId = parseInt(id, 10)
-    const user = req.currentUser!
+server.post("/edit-product/:id", async (req, res) => {
+  const { id } = req.params as { id: string }
+  const productId = parseInt(id, 10)
+  const user = req.currentUser!
+  const resolvedUploadDir = path.join(process.cwd(), "public", "images")
+  fs.mkdirSync(resolvedUploadDir, { recursive: true })
 
-    try {
-      const parts = req.parts()
-      let productName = "", price = 0, stock = 0, category = "", description = "", coverIndex = 0
-      const imageUrls: string[] = []
+  try {
+    const parts = req.parts()
+    let productName = "", price = 0, stock = 0, category = "", description = "", coverImage = ""
+    const keepImages: string[] = []
+    const newImageUrls: string[] = []
 
-      for await (const part of parts) {
-        if (part.type === "file" && part.fieldname === "images" && part.filename) {
-          const ext = path.extname(part.filename).toLowerCase()
-          if (!IMAGE_FORMATS.has(ext)) { part.file.resume(); continue }
+    for await (const part of parts) {
+      if (part.type === "file" && part.fieldname === "images" && part.filename) {
+        const ext = path.extname(part.filename).toLowerCase()
+        if (!IMAGE_FORMATS.has(ext)) { part.file.resume(); continue }
 
-          const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.jpg`
-          const uploadPath = path.join(uploadDir, uniqueFilename)
-          const optimizer = sharp({ failOn: "none" })
-            .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
-            .jpeg({ quality: 80, progressive: true })
+        const uniqueFilename = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.jpg`
+        const uploadPath = path.join(resolvedUploadDir, uniqueFilename)
+        const optimizer = sharp({ failOn: "none" })
+          .resize({ width: 1200, height: 1200, fit: "inside", withoutEnlargement: true })
+          .jpeg({ quality: 80, progressive: true })
 
-          await pipeline(part.file, optimizer, fs.createWriteStream(uploadPath))
-          imageUrls.push(`/images/${uniqueFilename}`)
-        } else if (part.type === "field") {
-          if (part.fieldname === "productName") productName = part.value as string
-          if (part.fieldname === "price") price = parseFloat(part.value as string) || 0
-          if (part.fieldname === "stock") stock = parseInt(part.value as string, 10) || 0
-          if (part.fieldname === "category") category = part.value as string
-          if (part.fieldname === "description") description = part.value as string
-          if (part.fieldname === "coverIndex") coverIndex = parseInt(part.value as string, 10) || 0
-        }
+        await pipeline(part.file, optimizer, fs.createWriteStream(uploadPath))
+        newImageUrls.push(`/images/${uniqueFilename}`)
+      } else if (part.type === "field") {
+        if (part.fieldname === "productName") productName = part.value as string
+        if (part.fieldname === "price")       price = parseFloat(part.value as string) || 0
+        if (part.fieldname === "stock")       stock = parseInt(part.value as string, 10) || 0
+        if (part.fieldname === "category")    category = part.value as string
+        if (part.fieldname === "description") description = part.value as string
+        if (part.fieldname === "coverImage")  coverImage = part.value as string
+        if (part.fieldname === "keepImages")  keepImages.push(part.value as string)
       }
-
-      if (!productName || price <= 0 || stock < 1) {
-        const product = await db.query.products.findFirst({ where: { id: productId } })
-        return res.status(200).html(<EditProductModal product={product!} error="Campi non compilati correttamente." />)
-      }
-
-      res
-        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Modifiche ricevute. Il prodotto è in fase di revisione." } }))
-        .header("HX-Redirect", `/profile?username=${user.userName}`)
-        .send()
-
-      setImmediate(async () => {
-        try {
-          const messageContent: any[] = [
-            { text: `Analizza questo prodotto modificato:\n${JSON.stringify({ productName, category, description, price })}` }
-          ]
-
-          for (const url of imageUrls) {
-            const absolutePath = path.join(process.cwd(), "public", url)
-            const content = await imageToBedrockContent(absolutePath)
-            if (content) messageContent.push(content)
-          }
-
-          const command = new ConverseCommand({
-            modelId: process.env.BEDROCK_MODEL_ID || "eu.anthropic.claude-sonnet-4-6",
-            messages: [{ role: "user", content: messageContent }],
-            system: [{ text: MODERATION_SYSTEM_PROMPT }],
-            inferenceConfig: { temperature: 0.1, maxTokens: 300 },
-          })
-
-          const bedrockResponse = await bedrockClient.send(command)
-          const score = parseBedrockScore(bedrockResponse.output?.message?.content?.[0]?.text || "0.0")
-          const status = score < 0.50 ? "rejected" : score < 0.80 ? "pending" : "approved"
-
-          const updateData: any = { productName, price, stock, category, description, status, reliability: score }
-
-          if (imageUrls.length > 0) {
-            if (coverIndex >= 0 && coverIndex < imageUrls.length) {
-              const coverImage = imageUrls.splice(coverIndex, 1)[0]
-              imageUrls.unshift(coverImage)
-            }
-            updateData.imageUrl = JSON.stringify(imageUrls)
-          }
-
-          await db.update(products).set(updateData).where(eq(products.id, productId))
-          await db.update(users).set({ hasUnseenModeration: true }).where(eq(users.id, user.id))
-
-          server.log.info(`Prodotto ${productId} aggiornato. Status: ${status}, Score: ${score}`)
-        } catch (bgError) {
-          server.log.error(bgError)
-        }
-      })
-    } catch (error) {
-      server.log.error(error)
-      return res.status(500).send("Errore durante la modifica del prodotto")
     }
-  })
 
+    if (!productName || price < 0.01 || stock < 1) {
+      const product = await db.query.products.findFirst({ where: { id: productId } })
+      return res.status(200).html(<EditProductModal product={product!} error="Campi non compilati correttamente." />)
+    }
 
+    let finalImages = [...keepImages, ...newImageUrls]
+
+    if (coverImage && !coverImage.startsWith("new-") && keepImages.includes(coverImage)) {
+      finalImages = [coverImage, ...finalImages.filter(u => u !== coverImage)]
+    } else if (coverImage.startsWith("new-") && newImageUrls.length > 0) {
+      finalImages = [...newImageUrls, ...keepImages]
+    }
+
+    await db.update(products)
+      .set({ productName, price, stock, category, description, imageUrl: JSON.stringify(finalImages) })
+      .where(eq(products.id, productId))
+
+    const toast = encodeURIComponent("Modifiche ricevute. Il prodotto è in fase di revisione.")
+    res.header("HX-Redirect", `/profile?username=${user.userName}&toast=${toast}`).send()
+
+    setImmediate(async () => {
+      try {
+        const messageContent: any[] = [
+          { text: `Analizza questo prodotto modificato:\n${JSON.stringify({ productName, category, description, price })}` }
+        ]
+
+        for (const url of newImageUrls) {
+          const absolutePath = path.join(process.cwd(), "public", url)
+          const content = await imageToBedrockContent(absolutePath)
+          if (content) messageContent.push(content)
+        }
+
+        const command = new ConverseCommand({
+          modelId: process.env.BEDROCK_MODEL_ID || "eu.anthropic.claude-sonnet-4-6",
+          messages: [{ role: "user", content: messageContent }],
+          system: [{ text: MODERATION_SYSTEM_PROMPT }],
+          inferenceConfig: { temperature: 0.1, maxTokens: 300 },
+        })
+
+        const bedrockResponse = await bedrockClient.send(command)
+        const score = parseBedrockScore(bedrockResponse.output?.message?.content?.[0]?.text || "0.0")
+        const status = score < 0.50 ? "rejected" : score < 0.80 ? "pending" : "approved"
+
+        await db.update(products)
+          .set({ status, reliability: score })
+          .where(eq(products.id, productId))
+
+        await db.update(users)
+          .set({ hasUnseenModeration: true })
+          .where(eq(users.id, user.id))
+
+        server.log.info(`Prodotto ${productId} moderato. Status: ${status}, Score: ${score}`)
+      } catch (bgError) {
+        server.log.error(bgError, "moderation background error")
+      }
+    })
+  } catch (error) {
+    server.log.error(error, "edit-product error")
+    if (!res.sent) {
+      res.status(500).send("Errore durante la modifica del prodotto")
+    }
+  }
+})
 
   //BACKEND LOGIC FOR ADMIN
 
 
 server.patch("/admin/products/:id/status", async (req, res) => {
+  const callerUserName = req.session.username
+    
+  if (!callerUserName) {
+    return res.status(401).send("NO")
+  }
+
+  const callerUser= await db.query.users.findFirst({
+    where: {
+      userName: callerUserName
+    }
+  })
+
+  if (!callerUser || !callerUser.isAdmin) {
+    return res.status(403).send("NO MA SEI LOGGATO")
+  }
+
+
   const { id } = req.params as { id: string }
   const { status } = req.body as { status: string }
   const allowed = ["approved", "pending", "rejected"]
@@ -938,12 +967,64 @@ server.patch("/admin/products/:id/status", async (req, res) => {
   
   await db.update(products).set({ status }).where(eq(products.id, parseInt(id, 10)))
   
+ 
+  const currentUrlHeader = req.headers["hx-current-url"] as string
+  let redirectUrl = "/dashboard?tab=products" 
   
-  const message = encodeURIComponent("Lo stato del prodotto e' stato cambiato")
+  if (currentUrlHeader) {
+    const parsedUrl = new URL(currentUrlHeader)
+    
+   
+    parsedUrl.searchParams.set("toast", "Lo stato del prodotto e' stato cambiato")
+    parsedUrl.searchParams.set("toastType", "success")
+    
+    
+    if (!parsedUrl.searchParams.has("tab")) {
+      parsedUrl.searchParams.set("tab", "products")
+    }
+    
+    redirectUrl = parsedUrl.pathname + parsedUrl.search
+  } else {
+    const message = encodeURIComponent("Lo stato del prodotto e' stato cambiato")
+    redirectUrl = `/dashboard?tab=products&toast=${message}&toastType=success`
+  }
+
   return res
-    .header("HX-Redirect", `/dashboard?toast=${message}&toastType=success`)
+    .header("HX-Redirect", redirectUrl)
     .send()
 })
+
+server.patch("/orders/:id/mark-sent", async (req, res) => {
+  const { id } = req.params as { id: string }
+  const orderId = parseInt(id, 10)
+  const user = req.currentUser!
+
+  const order = await db.query.orders.findFirst({ where: { id: orderId } })
+  if (!order) return res.status(404).send("Ordine non trovato")
+
+  const product = await db.query.products.findFirst({ where: { id: order.productId } })
+  if (!product) return res.status(404).send("Prodotto non trovato")
+  if (product.userId !== user.id) return res.status(403).send("Non autorizzato")
+  if (order.status !== "not yet sent") return res.status(400).send("Stato non modificabile")
+
+  await db.update(orders).set({ status: "sent" }).where(eq(orders.id, orderId))
+
+  return res.status(200).html(
+    <div id={`sold-order-${orderId}`} class="flex items-center justify-between py-3 gap-4">
+      <div class="flex-1">
+        <p class="font-medium text-gray-800">{product.productName}</p>
+        <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-blue-50 text-blue-700 border-blue-200">
+          Spedito
+        </span>
+        <span class="text-emerald-600 font-bold">+${order.totalPrice.toLocaleString("it-IT")}</span>
+      </div>
+    </div>
+  )
+})
+
 
   
 }

@@ -8,7 +8,7 @@ import OtpPasswordForm from "../components/OtpPasswordForm"
 import EditPasswordForm from "../components/EditPassword"
 import SignUpForm from "../components/SignUpForm"
 import { db } from "../../db"
-import { eq } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import * as argon2 from "argon2"
 import { sendTemplateEmail } from "../../emails/index"
 import ForgotPasswordForm from "../components/ForgotPasswordForm"
@@ -18,6 +18,7 @@ import SellProductModal from "../components/SellProductModal"
 import { z } from "zod"
 import TransitionListModal from "../components/TransactionsListModal"
 import { ProductStatusModal } from "../components/ProductStatusModal"
+import TransactionListModal from "../components/TransactionsListModal"
 //import { avatarColorClass, initials } from "../components/adminDashboard"
 
 export default (server: ZodFastifyInstance) => {
@@ -45,6 +46,22 @@ export default (server: ZodFastifyInstance) => {
   server.post("/admin/users/:id/toggle-ban", async (request, reply) => {
     const { id } = request.params as { id: string };
     const userId = Number(id);
+
+    const callerUserId = request.session.userId
+    if (!callerUserId) {
+      return reply.status(401).send("NO")
+    }
+
+    const callerUser = await db.query.users.findFirst({
+      where: {
+        id: callerUserId
+      }
+    })
+
+    if (!callerUser || callerUser.isAdmin === false) {
+      return reply.status(403).send("NO MA SEI LOGGATO")
+    }
+
 
     try {
       // 1. Recuperiamo lo stato attuale dell'utente
@@ -78,7 +95,7 @@ export default (server: ZodFastifyInstance) => {
       return UserRow(updatedUser, 0); 
 
     } catch (error) {
-      server.log.error(error);
+      console.log(error)
       return reply.code(500).send("Errore durante la modifica dello stato di ban");
     }
   });
@@ -100,7 +117,7 @@ export default (server: ZodFastifyInstance) => {
     )
   })
 
-  server.post("/verify-otp", async (req, res) => {
+server.post("/verify-otp", async (req, res) => {
   const { otp, email } = req.body as { otp: string; email: string }
 
   if (!email) {
@@ -130,6 +147,7 @@ export default (server: ZodFastifyInstance) => {
 
     req.session.sessionToken = sessionToken
     req.session.username = user.userName
+    req.session.userId = user.id
 
     if (typeof req.session.save === "function") {
       await req.session.save()
@@ -350,21 +368,50 @@ export default (server: ZodFastifyInstance) => {
     return res.status(200).send()
   })
 
-  server.get("/profile/transactions", async (req, res) => {
-    if (!req.session.username) return res.status(401).send("Non autorizzato")
+server.get("/profile/transactions", async (req, res) => {
+  if (!req.session.username) return res.status(401).send("Non autorizzato")
 
-    const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-    if (!user) return res.status(404).send("Utente non trovato")
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.userName, req.session.username))
+    .limit(1)
 
-    const userProducts = await db.select().from(products).where(eq(products.userId, user.id))
-    const productIds = userProducts.map(p => p.id)
+  if (!user) return res.status(404).send("Utente non trovato")
 
-    const soldOrders = productIds.length > 0
-      ? await db.query.orders.findMany({ where: { productId: { in: productIds } }, with: { product: true } })
-      : []
+  const userProducts = await db
+    .select()
+    .from(products)
+    .where(eq(products.userId, user.id))
 
-    return res.status(200).html( <TransitionListModal soldOrders={ soldOrders }/>)
-  })
+  if (userProducts.length === 0) {
+    return res.status(200).html(<TransactionListModal soldOrders={[]} />)
+  }
+
+  const productIds = userProducts.map(p => p.id)
+
+  const rows = await db
+    .select({
+      id: orders.id,
+      quantity: orders.quantity,
+      totalPrice: orders.totalPrice,
+      status: orders.status,
+      productName: products.productName,
+    })
+    .from(orders)
+    .leftJoin(products, eq(orders.productId, products.id))
+    .where(inArray(orders.productId, productIds))
+
+  const soldOrders = rows.map(o => ({
+    id: o.id,
+    quantity: o.quantity ?? 0,
+    totalPrice: o.totalPrice,
+    status: o.status,
+    product: o.productName ? { productName: o.productName } : null,
+  }))
+
+  return res.status(200).html(<TransactionListModal soldOrders={soldOrders} />)
+})
 
     server.get("/dashboard/products/:id/status-modal", async (req, res) => {
     const { id } = req.params as { id: string }

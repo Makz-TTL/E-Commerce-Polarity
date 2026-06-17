@@ -30,7 +30,7 @@ export default function registerGlobalErrorHandler(server: FastifyInstance) {
       case 502:
         return renderServiceUnavailable(request, reply)
       default:
-  
+        
         return renderError(request, reply)
     }
   })
