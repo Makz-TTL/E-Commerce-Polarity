@@ -16,10 +16,11 @@ export default function BannedPage() {
         </p>
         <a
         
-          href="/marketplace"
+          href="https://www.youtube.com/watch?v=fhb69IVXy6E"
+          target="_blank"
           class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
         >
-          Torna alla home
+          Fai qualcos'altro
         </a>
 
       </div>

@@ -189,7 +189,7 @@ const statusBadge: Record<string, { label: string; bg: string; text: string }> =
 
   //Codice filtro utenti.
   export function UserRows({ user }: { user: User[] }) {
-    if (!users || user.length === 0) {
+    if (!user || user.length === 0) {
       return (
         <tr>
           <td colspan="4" class="p-8 text-center text-sm text-gray-400">
@@ -235,17 +235,8 @@ const statusBadge: Record<string, { label: string; bg: string; text: string }> =
               
               <td class="p-4 text-right">
                 <button
-                  class={`px-3 py-1.5 text-xs font-medium rounded-xl shadow-sm transition-all border ${
-                    isBanned
-                      ? "text-emerald-700 border-emerald-200 bg-white hover:bg-emerald-50"
-                      : "text-amber-700 border-amber-200 bg-white hover:bg-amber-50"
-                  }`}
-                  hx-post={`/admin/users/${user.id}/toggle-ban`}
-                  hx-confirm={
-                    isBanned 
-                      ? `Sbloccare l'utente ${user.name} ${user.lastName}?` 
-                      : `Bannare l'utente ${user.name} ${user.lastName}?`
-                  }
+                  hx-post={isBanned ? `/admin/users/${user.id}/unban` : `/admin/users/${user.id}/ban`}
+                  hx-confirm={isBanned ? `Sbloccare ${user.name}?` : `Bannare ${user.name}?`}
                   hx-target="closest tr"
                   hx-swap="outerHTML"
                 >

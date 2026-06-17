@@ -4,7 +4,6 @@ import ConfirmLogoutModal from "../components/ConfirmLogoutModal"
 import LoginForm from "../components/LoginForm"
 import Modal from "../components/Modal"
 import OtpForm from "../components/OtpForm"
-import OtpPasswordForm from "../components/OtpPasswordForm"
 import EditPasswordForm from "../components/EditPassword"
 import SignUpForm from "../components/SignUpForm"
 import { db } from "../../db"
@@ -16,10 +15,9 @@ import ResetPasswordForm from "../components/ResetPasswordForm"
 import * as crypto from "crypto"
 import SellProductModal from "../components/SellProductModal"
 import { z } from "zod"
-import TransitionListModal from "../components/TransactionsListModal"
 import { ProductStatusModal } from "../components/ProductStatusModal"
 import TransactionListModal from "../components/TransactionsListModal"
-//import { avatarColorClass, initials } from "../components/adminDashboard"
+import { UserRows } from "../components/adminDashboard"
 
 export default (server: ZodFastifyInstance) => {
 
@@ -42,64 +40,44 @@ export default (server: ZodFastifyInstance) => {
   })
 
 
-  // Rotta per gestire il toggle del ban (Banna / Sbanna)
-  server.post("/admin/users/:id/toggle-ban", async (request, reply) => {
+  server.post("/admin/users/:id/ban", async (request, reply) => {
     const { id } = request.params as { id: string };
-    const userId = Number(id);
 
-    const callerUserId = request.session.userId
-    if (!callerUserId) {
-      return reply.status(401).send("NO")
-    }
+    const token = request.session.sessionToken;
+    if (!token) return reply.status(401).send("Non autorizzato");
 
-    const callerUser = await db.query.users.findFirst({
-      where: {
-        id: callerUserId
-      }
-    })
+    const callerUser = await db.select().from(users).where(eq(users.session, token)).limit(1);
+    if (!callerUser[0]?.isAdmin) return reply.status(403).send("Non autorizzato");
 
-    if (!callerUser || callerUser.isAdmin === false) {
-      return reply.status(403).send("NO MA SEI LOGGATO")
-    }
+    await db.update(users).set({ isBanned: true }).where(eq(users.id, Number(id)));
+    const [updatedUser] = await db.select().from(users).where(eq(users.id, Number(id)));
 
-
-    try {
-      // 1. Recuperiamo lo stato attuale dell'utente
-      const [currentUser] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, userId));
-
-      if (!currentUser) {
-        return reply.code(404).send("Utente non trovato");
-      }
-
-      // 2. Invertiamo il valore di isBanned
-      const newBanStatus = !currentUser.isBanned;
-
-      await db
-        .update(users)
-        .set({ isBanned: newBanStatus })
-        .where(eq(users.id, userId));
-
-      // 3. Recuperiamo l'utente aggiornato
-      const [updatedUser] = await db
-        .select()
-        .from(users)
-        .where(eq(users.id, userId));
-
-      // 4. Inviamo la risposta impostando il tipo di contenuto su HTML
-      reply.type("text/html");
-      
-      // Sostituisci "UserRow" con il nome della tua funzione/componente che genera la riga
-      return UserRow(updatedUser, 0); 
-
-    } catch (error) {
-      console.log(error)
-      return reply.code(500).send("Errore durante la modifica dello stato di ban");
-    }
+    reply.type("text/html");
+    return reply.send(await (<UserRows user={[updatedUser]} />));
   });
+
+
+
+  server.post("/admin/users/:id/unban", async (request, reply) => {
+    const { id } = request.params as { id: string };
+
+    const token = request.session.sessionToken;
+    if (!token) return reply.status(401).send("Non autorizzato");
+
+    const callerUser = await db.select().from(users).where(eq(users.session, token)).limit(1);
+    if (!callerUser[0]?.isAdmin) return reply.status(403).send("Non autorizzato");
+
+    await db.update(users).set({ isBanned: false }).where(eq(users.id, Number(id)));
+    const [updatedUser] = await db.select().from(users).where(eq(users.id, Number(id)));
+
+    reply.type("text/html");
+    return reply.send(await (<UserRows user={[updatedUser]} />));
+  }); 
   
+
+
+
+  //Modale Sign Up
   server.get("/signup-modal", (_req, reply) => {
     return reply.html(
       <Modal

@@ -329,14 +329,10 @@ export default async function ProductInfoPage({ product, session }: Props) {
               <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
             <h2 class="text-lg font-bold text-gray-800">Recensioni e Commenti</h2>
-            <span class="text-xs bg-gray-100 text-gray-500 font-medium px-2 py-0.5 rounded-full">Presto disponibile</span>
           </div>
 
           <div class="bg-gray-50/50 rounded-xl border border-dashed border-gray-200 p-8 text-center">
-            <p class="text-gray-400 text-sm">
-              La sezione dei commenti è in fase di sviluppo. <br />
-              Presto potrai leggere le opinioni degli altri acquirenti e lasciare il tuo feedback!
-            </p>
+            <span class="text-[16px] bg-gray-100 text-gray-500 font-medium px-2 py-0.5 rounded-full">Presto disponibile</span>
           </div>
         </div>
 
