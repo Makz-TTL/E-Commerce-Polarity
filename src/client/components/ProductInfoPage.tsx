@@ -15,13 +15,31 @@ type Product = typeof productsTable.$inferSelect & {
 }
 
 type Props = {
-  product: Product
+  product: Product | null
   session?: FastifySessionObject
 }
 
 export default async function ProductInfoPage({ product, session }: Props) {
+  const isOwner = session?.username && product?.seller?.userName && session.username === product.seller.userName
+
+  if (!product || (product.status === "rejected" && !isOwner)) {
+    return (
+      <div class="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center" hx-boost="true">
+        <h1 class="text-4xl font-extrabold text-gray-900 tracking-tight">404</h1>
+        <p class="mt-2 text-base text-gray-500">Annuncio non trovato o non disponibile.</p>
+       <a 
+  href="/" 
+  hx-boost="false" 
+  class="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
+>
+  Torna al Marketplace
+</a>
+      </div>
+    )
+  }
+
   const currentPath = `/product/${product.id}`
-  const isOwnProduct = session?.username && session.username === product.seller?.userName
+  const isOwnProduct = isOwner
 
   const getImages = (): string[] => {
     if (!product.imageUrl) {
@@ -35,7 +53,6 @@ export default async function ProductInfoPage({ product, session }: Props) {
     }
   }
 
-  // Fetch both the cart count and current user data for verification/moderation indicators
   const cartCount = await getCartCount(session?.username)
   
   let currentUser: any = null
@@ -47,10 +64,22 @@ export default async function ProductInfoPage({ product, session }: Props) {
   const images = getImages()
 
   return (
-    <div class="bg-gray-50/50 min-h-screen pb-12">
+    <div class="bg-gray-50/50 min-h-screen pb-12" hx-boost="true">
       <Navbar currentUser={currentUser} session={session} cartCount={cartCount} />
 
-      {/* Torna indietro */}
+      {product.status === "rejected" && (
+        <div class="max-w-5xl mx-auto px-6 mt-6">
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 text-amber-800">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 shrink-0 text-amber-600">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+            <div class="text-sm font-medium">
+              Questo annuncio è stato rifiutato. Solo tu puoi visualizzare questa pagina.
+            </div>
+          </div>
+        </div>
+      )}
+
       <div class="max-w-5xl mx-auto px-6 mt-6">
         <a href="/" class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-indigo-600 transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -60,11 +89,9 @@ export default async function ProductInfoPage({ product, session }: Props) {
         </a>
       </div>
 
-      {/* Box Principale Prodotto */}
       <div class="max-w-5xl mx-auto px-6 mt-4">
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden grid grid-cols-1 md:grid-cols-2 gap-8 p-6 md:p-8 items-start">
           
-          {/* CAROSELLO IMMAGINI */}
           <div class="relative w-full h-80 md:h-[400px] rounded-xl overflow-hidden bg-gray-100 shadow-inner group flex items-center justify-center md:sticky md:top-24">
             {images.map((url, index) => (
               <img 
@@ -159,7 +186,6 @@ export default async function ProductInfoPage({ product, session }: Props) {
             )}
           </div>
 
-          {/* DETTAGLI PRODOTTO */}
           <div class="flex flex-col justify-between self-stretch">
             <div class="space-y-4">
               <span class="inline-block px-3 py-1 bg-indigo-50 text-indigo-600 text-xs font-semibold rounded-full uppercase tracking-wider">
@@ -180,12 +206,13 @@ export default async function ProductInfoPage({ product, session }: Props) {
               </div>
             </div>
 
-            {/* SEZIONE AMMINISTRAZIONE / ACQUISTO / STOCK */}
             <div class="pt-6 mt-8 border-t border-gray-100 flex items-center justify-between">
               <div>
                 <p class="text-xs text-gray-400 uppercase tracking-wider font-medium">Disponibilità</p>
                 <div id={`stock-status-${product.id}`} class="text-sm font-semibold text-gray-800 mt-0.5">
-                  {product.stock > 0 ? (
+                  {product.status === "rejected" ? (
+                    <span class="text-red-500 font-medium">Non disponibile (Rifiutato)</span>
+                  ) : product.stock > 0 ? (
                     <>
                       Stock disponibile: <span id={`stock-badge-${product.id}`} class="inline-block bg-gray-100 text-gray-800 text-xs font-semibold px-2.5 py-1 rounded-full">{product.stock}</span>
                     </>
@@ -195,126 +222,124 @@ export default async function ProductInfoPage({ product, session }: Props) {
               
               <div class="flex gap-3">
                 {isOwnProduct ? (
-                  <button
-                    hx-delete={`/product/${product.id}`}
-                    hx-confirm="Sei sicuro di voler eliminare definitivamente questo annuncio? L'azione è irreversibile."
-                    hx-target="body"
-                    class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                    </svg>
-                    Elimina Annuncio
-                  </button>
-                ) : (
-                  <div id={`purchase-actions-${product.id}`} class={product.stock > 0 ? "flex gap-3" : "hidden"}>
-                    <div
-                      id={`modal-${product.id}`}
-                      class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center cursor-default"
-                      onclick="if(event.target === this) this.classList.add('hidden')"
+                  product.status !== "rejected" && (
+                    <button
+                      hx-delete={`/product/${product.id}`}
+                      hx-confirm="Sei sicuro di voler eliminare definitivamente questo annuncio? L'azione è irreversibile."
+                      hx-target="body"
+                      class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
                     >
-                      <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4" onclick="event.stopPropagation()">
-                        <h3 class="text-lg font-bold text-gray-900">Aggiungi al carrello</h3>
-                        <p class="text-sm text-gray-500">
-                          Disponibili: <span id={`modal-stock-${product.id}`} class="font-semibold text-indigo-600">{product.stock}</span>
-                        </p>
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                      </svg>
+                      Elimina Annuncio
+                    </button>
+                  )
+                ) : (
+                  product.status !== "rejected" && (
+                    <div id={`purchase-actions-${product.id}`} class={product.stock > 0 ? "flex gap-3" : "hidden"}>
+                      <div
+                        id={`modal-${product.id}`}
+                        class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center cursor-default"
+                        onclick="if(event.target === this) this.classList.add('hidden')"
+                      >
+                        <div class="bg-white rounded-2xl shadow-xl p-6 w-80 flex flex-col gap-4" onclick="event.stopPropagation()">
+                          <h3 class="text-lg font-bold text-gray-900">Aggiungi al carrello</h3>
+                          <p class="text-sm text-gray-500">
+                            Disponibili: <span id={`modal-stock-${product.id}`} class="font-semibold text-indigo-600">{product.stock}</span>
+                          </p>
 
-                        <div class="flex flex-col gap-1">
-                          <label class="text-sm font-medium text-gray-700">Quantità</label>
-                          <input
-                            id={`qty-${product.id}`}
-                            type="number"
-                            min="1"
-                            max={product.stock}
-                            value="1"
-                            class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-gray-900 bg-white"
-                            oninput={`
-                                    const max = parseInt(this.max);
-                                    if (this.value !== '' && parseInt(this.value) > max) this.value = max;
-                            `}
-                            onblur={`
-                                if (this.value === '' || parseInt(this.value) < 1) this.value = '1';
-                            `}
-                          />
-                        </div>
+                          <div class="flex flex-col gap-1">
+                            <label class="text-sm font-medium text-gray-700">Quantità</label>
+                            <input
+                              id={`qty-${product.id}`}
+                              type="number"
+                              min="1"
+                              max={product.stock}
+                              value="1"
+                              class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-gray-900 bg-white"
+                              oninput={`
+                                      const max = parseInt(this.max);
+                                      if (this.value !== '' && parseInt(this.value) > max) this.value = max;
+                              `}
+                              onblur={`
+                                  if (this.value === '' || parseInt(this.value) < 1) this.value = '1';
+                              `}
+                            />
+                          </div>
 
-                        <div class="flex gap-2 mt-1">
-                          <button
-                            type="button"
-                            onclick={`document.getElementById('modal-${product.id}').classList.add('hidden')`}
-                            class="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors cursor-pointer"
-                          >
-                            Annulla
-                          </button>
-                          
-                          <button
-                            type="button"
-                            onclick={`
-                              const qtyInput = document.getElementById('qty-${product.id}');
-                              const qty = parseInt(qtyInput.value, 10);
-                              if (isNaN(qty) || qty < 1) return;
+                          <div class="flex gap-2 mt-1">
+                            <button
+                              type="button"
+                              onclick={`document.getElementById('modal-${product.id}').classList.add('hidden')`}
+                              class="flex-1 border border-gray-300 text-gray-700 font-medium py-2 rounded-xl text-sm hover:bg-gray-50 transition-colors cursor-pointer"
+                            >
+                              Annulla
+                            </button>
+                            
+                            <button
+                              type="button"
+                              hx-get={`/addToCart/${product.id}`}
+                              hx-include={`#qty-${product.id}`}
+                              hx-swap="none"
+                              onclick={`
+                                const qtyInput = document.getElementById('qty-${product.id}');
+                                const qty = parseInt(qtyInput.value, 10);
+                                if (isNaN(qty) || qty < 1) return;
 
-                              htmx.ajax('GET', '/addToCart/${product.id}?quantity=' + qty, { swap: 'none' });
-                              document.getElementById('modal-${product.id}').classList.add('hidden');
-                              
-                              const stockBadge = document.getElementById('stock-badge-${product.id}');
-                              if (stockBadge) {
-                                const currentStock = parseInt(stockBadge.innerText, 10);
-                                const newStock = Math.max(0, currentStock - qty);
+                                document.getElementById('modal-${product.id}').classList.add('hidden');
                                 
-                                if (newStock <= 0) {
-                                  document.getElementById('stock-status-${product.id}').innerText = 'Esaurito';
-                                  document.getElementById('purchase-actions-${product.id}').remove();
-                                } else {
-                                  stockBadge.innerText = newStock;
-                                  const modalStockBadge = document.getElementById('modal-stock-${product.id}');
-                                  if (modalStockBadge) modalStockBadge.innerText = newStock;
-                                  qtyInput.max = newStock;
-                                  qtyInput.value = "1";
+                                const stockBadge = document.getElementById('stock-badge-${product.id}');
+                                if (stockBadge) {
+                                  const currentStock = parseInt(stockBadge.innerText, 10);
+                                  const newStock = Math.max(0, currentStock - qty);
+                                  
+                                  if (newStock <= 0) {
+                                    document.getElementById('stock-status-${product.id}').innerText = 'Esaurito';
+                                    document.getElementById('purchase-actions-${product.id}').remove();
+                                  } else {
+                                    stockBadge.innerText = newStock;
+                                    const modalStockBadge = document.getElementById('modal-stock-${product.id}');
+                                    if (modalStockBadge) modalStockBadge.innerText = newStock;
+                                    qtyInput.max = newStock;
+                                    qtyInput.value = "1";
+                                  }
                                 }
-                              }
-                            `}
-                            class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2 rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
-                          >
-                            Conferma
-                          </button>
+                              `}
+                              name="quantity"
+                              class="flex-1 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-2 rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
+                            >
+                              Conferma
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <button
-                      type="button"
-                      onclick={`
-                        event.stopPropagation();
-                        const btn = this;
-                        const badge = document.getElementById('stock-badge-${product.id}');
-                        const statusContainer = document.getElementById('stock-status-${product.id}');
-                        const actionsContainer = document.getElementById('purchase-actions-${product.id}');
-                        
-                        btn.addEventListener('htmx:afterRequest', function(e) {
-                          if (e.detail.successful && badge) {
-                            const currentStock = parseInt(badge.innerText, 10);
-                            const newStock = Math.max(0, currentStock - 1);
-                            
-                            if (newStock <= 0) {
-                              if (statusContainer) statusContainer.innerText = 'Esaurito';
-                              if (actionsContainer) actionsContainer.remove();
+                      <button
+                        type="button"
+                        hx-get={`/addToCart/${product.id}?quantity=1`}
+                        hx-swap="none"
+                        hx-on="htmx:afterRequest: if(event.detail.successful) {
+                          const badge = document.getElementById('stock-badge-${product.id}');
+                          if(badge) {
+                            const newStock = Math.max(0, parseInt(badge.innerText, 10) - 1);
+                            if(newStock <= 0) {
+                              document.getElementById('stock-status-${product.id}').innerText = 'Esaurito';
+                              document.getElementById('purchase-actions-${product.id}').remove();
                             } else {
                               badge.innerText = newStock;
                             }
                           }
-                        }, { once: true });
-
-                        htmx.ajax('GET', '/addToCart/${product.id}?quantity=1', { swap: 'none', elt: btn });
-                      `}
-                      class="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 shrink-0">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
-                      </svg>
-                      Aggiungi al Carrello
-                    </button>
-                  </div>
+                        }"
+                        class="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 shrink-0">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 0 0-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" />
+                        </svg>
+                        Aggiungi al Carrello
+                      </button>
+                    </div>
+                  )
                 )}
               </div>
             </div>
@@ -322,7 +347,6 @@ export default async function ProductInfoPage({ product, session }: Props) {
           </div>
         </div>
 
-        {/* FEEDBACK & RECENSIONI */}
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8 mt-8">
           <div class="flex items-center gap-2 pb-4 border-b border-gray-100 mb-6">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -342,7 +366,6 @@ export default async function ProductInfoPage({ product, session }: Props) {
 
       </div>
 
-      {/* LIGHTBOX MODAL */}
       <div 
         id="lightbox-modal" 
         class="hidden fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 select-none"
