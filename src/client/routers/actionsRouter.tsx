@@ -22,6 +22,7 @@ import { OrderDetailModal } from "../components/orderDetailModal"
 import { count } from "drizzle-orm";
 import { statusBadge } from "../components/orderDetailModal";
 import { OrderWithDetails, OrderRows, ProductRows, UserRows } from "../components/adminDashboard"
+import { User } from "../../db/schema/users"
 
 type PaymentBody = { cardNumber: string; expiry: string }
 type CheckOutBody = { fullName?: string; city?: string; cap?: string; address?: string }
@@ -63,9 +64,9 @@ const signUpSchema = z.object({
 })
 
 const editProfileSchema = z.object({
-  nome: z.string().min(1, "Il nome è obbligatorio"),
-  cognome: z.string().min(1, "Il cognome è obbligatorio"),
-  username: z.string().min(4, "Username deve essere di almeno 4 caratteri"),
+  nome: z.string().trim().min(1, "Il nome è obbligatorio"),
+  cognome: z.string().trim().min(1, "Il cognome è obbligatorio"),
+  username: z.string().trim().min(4, "Username deve essere di almeno 4 caratteri"),
 })
 
 const IMAGE_FORMATS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp"])
@@ -162,6 +163,7 @@ const PROTECTED_ROUTES = new Set([
   "/sell-product",
   "/edit-product",
   "/dashboard",
+  "/admin"
 ])
 
 function isProtectedRoute(url: string): boolean {
@@ -173,7 +175,8 @@ function isProtectedRoute(url: string): boolean {
     pathname.startsWith("/edit-product/") ||
     pathname.startsWith("/edit-product-modal/") ||
     pathname.startsWith("/dashboard/") ||
-    pathname.startsWith("/orders/")
+    pathname.startsWith("/orders/") ||
+    pathname.startsWith("/admin/")
   )
 }
 
@@ -194,7 +197,7 @@ export default (server: ZodFastifyInstance) => {
     const pathname = req.url.split("?")[0]
 
     // Se la rotta è admin, verifica che l'utente sia admin
-    if (pathname.startsWith("/dashboard") && !user.isAdmin) {
+    if ((pathname.startsWith("/dashboard") || pathname.startsWith("/admin/")) && !user.isAdmin) {
       return res.redirect("/")
     }
 
@@ -466,7 +469,7 @@ export default (server: ZodFastifyInstance) => {
         const [taken] = await db.select().from(users).where(eq(users.userName, username)).limit(1)
         if (taken) {
           return res.status(200).html(
-            <SignUpForm isEdit={true} values={{ ...(req.body as any), email: currentUser.eMail }} errors={{ username: "Username già in uso da un altro utente" }} />
+            <SignUpForm isEdit={true} values={{ ...(req.body as User), email: currentUser.eMail }} errors={{ username: "Username già in uso da un altro utente" }} />
           )
         }
       }
@@ -927,6 +930,20 @@ export default (server: ZodFastifyInstance) => {
 
   //Modifica stato ordini.
   server.post("/admin/orders/:id/status", async (request, reply) => {
+    const callerUserName = request.session.username
+
+    if (!callerUserName) {
+      return reply.status(401).send("Devi effettuare il login")
+    }
+
+    const callerUser = await db.query.users.findFirst({
+      where: { userName: callerUserName }
+    })
+
+    if (!callerUser || !callerUser.isAdmin) {
+      return reply.status(403).send("Non autorizzato")
+    }
+
     const { id } = request.params as { id: string };
     const { status } = request.body as { status: string };
 
@@ -1017,24 +1034,25 @@ export default (server: ZodFastifyInstance) => {
   server.get("/edit-product-modal/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
+    const user = req.currentUser!
 
     const product = await db.query.products.findFirst({ where: { id: productId } })
     if (!product) return res.status(404).send("Prodotto non trovato")
+    if (product.userId !== user.id) return res.status(403).send("Non autorizzato")
 
     return res.status(200).html(<EditProductModal product={product} />)
   })
 
-
-
-
-
-  //End-point per l'effettiva modifica prodotto.
   server.post("/edit-product/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
     const user = req.currentUser!
     const resolvedUploadDir = path.join(process.cwd(), "public", "images")
     fs.mkdirSync(resolvedUploadDir, { recursive: true })
+
+    const existingProduct = await db.query.products.findFirst({ where: { id: productId } })
+    if (!existingProduct) return res.status(404).send("Prodotto non trovato")
+    if (existingProduct.userId !== user.id) return res.status(403).send("Non autorizzato")
 
     try {
       const parts = req.parts()
@@ -1193,39 +1211,131 @@ export default (server: ZodFastifyInstance) => {
 
 
 
+server.post("/orders/:id/cancel", async (req, res) => {
+  if (!req.session.username) return res.status(401).send("Non autorizzato")
+
+  const params = req.params as { id: string }
+  const orderId = Number(params.id)
+  
+  const [user] = await db.select().from(users).where(eq(users.userName, req.session.username))
+  if (!user) return res.status(404).send("Utente non trovato")
+
+  const [order] = await db.select().from(orders).where(eq(orders.id, orderId))
+  if (!order || order.userId !== user.id || order.status !== "not yet sent") {
+    return res.status(403).send("Azione non permessa")
+  }
+
+  const [product] = await db.select().from(products).where(eq(products.id, order.productId))
+  if (product) {
+    await db.update(products)
+      .set({ stock: product.stock + order.quantity })
+      .where(eq(products.id, product.id))
+  }
+
+  await db.delete(orders).where(eq(orders.id, orderId))
+
+  return res.send("")
+})
 
 
-  //Chiedere a Makz
-  server.patch("/orders/:id/mark-sent", async (req, res) => {
-    const { id } = req.params as { id: string }
-    const orderId = parseInt(id, 10)
-    const user = req.currentUser!
 
-    const order = await db.query.orders.findFirst({ where: { id: orderId } })
-    if (!order) return res.status(404).send("Ordine non trovato")
+server.post("/orders/:id/mark-sent", async (req, res) => {
+  if (!req.session.username) return res.status(401).send("Non autorizzato")
 
-    const product = await db.query.products.findFirst({ where: { id: order.productId } })
-    if (!product) return res.status(404).send("Prodotto non trovato")
-    if (product.userId !== user.id) return res.status(403).send("Non autorizzato")
-    if (order.status !== "not yet sent") return res.status(400).send("Stato non modificabile")
+  const params = req.params as { id: string }
+  const orderId = Number(params.id)
+  
+  const [user] = await db.select().from(users).where(eq(users.userName, req.session.username))
+  
+  const order = await db.query.orders.findFirst({
+    where: { id: orderId },
+    with: { product: true }
+  })
 
-    await db.update(orders).set({ status: "sent" }).where(eq(orders.id, orderId))
+  if (!order || order.product?.userId !== user.id || order.status !== "not yet sent") {
+    return res.status(403).send("Azione non permessa")
+  }
 
-    return res.status(200).html(
-      <div id={`sold-order-${orderId}`} class="flex items-center justify-between py-3 gap-4">
-        <div class="flex-1">
-          <p class="font-medium text-gray-800">{product.productName}</p>
+
+  const productLink = order.product ? `/product/${order.product.id}` : "#"
+
+  return res.html(
+    <div
+      id={`sold-order-${order.id}`}
+      onclick={`window.location.href='${productLink}'`}
+      class="flex items-center justify-between py-3 gap-4 hover:bg-gray-50/80 px-2 -mx-2 rounded-xl cursor-pointer transition-colors"
+    >
+      <div class="flex-1 min-w-0">
+        <p class="font-medium text-gray-800 truncate">{order.product?.productName ?? "Prodotto eliminato"}</p>
+        <div class="flex items-center gap-2 mt-0.5" onclick="event.stopPropagation()">
           <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
-        </div>
-        <div class="flex items-center gap-3">
           <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-blue-50 text-blue-700 border-blue-200">
             Spedito
           </span>
-          <span class="text-emerald-600 font-bold">+${order.totalPrice.toLocaleString("it-IT")}</span>
         </div>
       </div>
-    )
+      <div class="flex items-center gap-3" onclick="event.stopPropagation()">
+        <span class="text-emerald-600 font-bold">+${order.totalPrice.toLocaleString("it-IT")}</span>
+      </div>
+    </div>
+  )
+})
+
+server.post("/orders/:id/mark-delivered", async (req, res) => {
+  if (!req.session.username) return res.status(401).send("Non autorizzato")
+
+  const params = req.params as { id: string }
+  const orderId = Number(params.id)
+  
+  const [user] = await db.select().from(users).where(eq(users.userName, req.session.username))
+  
+  const order = await db.query.orders.findFirst({
+    where: { id: orderId },
+    with: { product: true }
   })
+
+  if (!order || order.userId !== user.id || order.status !== "sent") {
+    return res.status(403).send("Azione non permessa")
+  }
+
+  await db.update(orders).set({ status: "delivered" }).where(eq(orders.id, orderId))
+
+  let orderCoverImage = "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80"
+  if (order.product?.imageUrl) {
+    try {
+      const images = JSON.parse(order.product.imageUrl)
+      if (Array.isArray(images) && images.length > 0) orderCoverImage = images[0]
+    } catch { 
+      orderCoverImage = order.product.imageUrl
+    } 
+  }
+
+  const productLink = order.product ? `/product/${order.product.id}` : "#"
+
+  return res.html(
+    <div
+      id={`user-order-${order.id}`}
+      onclick={`window.location.href='${productLink}'`}
+      class="flex items-center justify-between py-3 gap-4 hover:bg-gray-50/80 px-2 -mx-2 rounded-xl cursor-pointer transition-colors"
+    >
+      <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+        <img src={orderCoverImage} alt={order.product?.productName || "Prodotto"} class="w-full h-full object-cover" />
+      </div>
+      <div class="flex-1">
+        <p class="font-medium text-gray-800">{order.product?.productName ?? "Prodotto eliminato"}</p>
+        <div class="flex items-center gap-2 mt-0.5" onclick="event.stopPropagation()">
+          <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200">
+            Consegnato
+          </span>
+        </div>
+      </div>
+      <div class="flex items-center gap-3" onclick="event.stopPropagation()">
+        <span class="text-gray-900 font-bold">${order.totalPrice.toLocaleString("it-IT")}</span>
+      </div>
+    </div>
+  )
+})
 
 
   

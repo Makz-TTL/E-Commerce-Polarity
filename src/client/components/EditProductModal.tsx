@@ -57,6 +57,13 @@ export default function EditProductModal({ product, error }: Props) {
 
   return (
     <div id="modal-edit" class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 transition-opacity animate-fade-in">
+      
+      <style> {`
+        .loading-spinner { display: none; }
+        .htmx-request .loading-spinner { display: inline; }
+        .htmx-request .default-text { display: none; }
+      `} </style>
+
       <div
         class="bg-white w-full max-w-xl rounded-2xl shadow-xl border border-gray-100 flex flex-col max-h-[90vh] overflow-hidden"
         onclick="event.stopPropagation()"
