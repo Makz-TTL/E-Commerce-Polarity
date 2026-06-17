@@ -79,7 +79,7 @@ export default async function AdminDashboard() {
 
         <div class="flex items-center justify-between border-b border-gray-100 pb-4">
           <div>
-            <div class="text-xs font-semibold text-indigo-600 uppercase tracking-widest mb-0.5">TechStore</div>
+            <a href="/"><div class="text-xs font-semibold text-indigo-600 uppercase tracking-widest mb-0.5">TechStore</div></a>
             <h1 class="text-2xl font-bold tracking-tight text-gray-900">Admin dashboard</h1>
           </div>
         </div>
@@ -95,7 +95,7 @@ export default async function AdminDashboard() {
           </div>
           <div class="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
             <div class="text-xs font-medium text-gray-400 mb-1">Ordini pendenti</div>
-            <div class={`text-2xl font-bold tracking-tight ${pendingOrders > 0 ? "text-amber-600" : "text-emerald-600"}`}>
+            <div id="pending-count" class={`text-2xl font-bold tracking-tight ${pendingOrders > 0 ? "text-amber-600" : "text-emerald-600"}`}>
               {pendingOrders}
             </div>
           </div>
@@ -113,17 +113,13 @@ export default async function AdminDashboard() {
 
         <div id="admin-tab-users" class="block tab-section animate-fade-in">
           <div class="bg-white border border-gray-100 shadow-sm rounded-2xl overflow-hidden">
-            <div class="px-5 py-4 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
-              <h2 class="text-sm font-semibold text-gray-800">Gestione utenti</h2>
-              <span class="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">{allUsers.length} totali</span>
-            </div>
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse text-sm">
                 <thead>
-                  <tr class="border-b border-gray-100 text-[11px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50/20">
+                  <tr class="border-b border-gray-100 text-[18px] font-bold text-dark-grey tracking-wider bg-gray-50/20">
+                    <th class="p-4">Stato</th>
                     <th class="p-4">Utente</th>
                     <th class="p-4">Email</th>
-                    <th class="p-4">Stato</th>
                     <th class="p-4 text-right">Azioni</th>
                   </tr>
                 </thead>
@@ -135,6 +131,16 @@ export default async function AdminDashboard() {
 
                     return (
                       <tr class={`transition-colors ${isBanned ? "bg-red-50/40 hover:bg-red-50/60" : "hover:bg-gray-50/50"}`}>
+                        
+                        <td class="p-4">
+                          <div class="flex items-center gap-2">
+                            <span class={`w-2.5 h-2.5 rounded-full ${isBanned ? "bg-red-600" : isActive ? "bg-emerald-600" : "bg-red-600"}`} />
+                            <span class={`text-xs font-medium ${isBanned ? "text-red-600" : isActive ? "text-emerald-700" : "text-red-700"}`}>
+                              {isBanned ? "Bannato" : isActive ? "Attivo" : "Non verificato"}
+                            </span>
+                          </div>
+                        </td>
+                        
                         <td class="p-4">
                           <div class="flex items-center gap-3">
                             <div class={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold ${avatar.bg} ${avatar.text}`}>
@@ -143,11 +149,6 @@ export default async function AdminDashboard() {
                             <div>
                               <div class="font-medium text-gray-900">
                                 {user.name} {user.lastName}
-                                {isBanned && (
-                                  <span class="ml-2 px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-red-100 text-red-700">
-                                    Bannato
-                                  </span>
-                                )}
                               </div>
                               <div class="text-xs text-gray-400">@{user.userName}</div>
                             </div>
@@ -155,15 +156,6 @@ export default async function AdminDashboard() {
                         </td>
                         
                         <td class="p-4 text-gray-500 font-normal">{user.eMail}</td>
-                        
-                        <td class="p-4">
-                          <div class="flex items-center gap-2">
-                            <span class={`w-2 h-2 rounded-full ${isBanned ? "bg-red-600" : isActive ? "bg-emerald-500" : "bg-red-400"}`} />
-                            <span class={`text-xs font-medium ${isBanned ? "text-red-600" : isActive ? "text-emerald-700" : "text-red-700"}`}>
-                              {isBanned ? "Bannato" : isActive ? "Attivo" : "Non verificato"}
-                            </span>
-                          </div>
-                        </td>
                         
                         <td class="p-4 text-right">
                           <button
@@ -196,17 +188,16 @@ export default async function AdminDashboard() {
         <div id="admin-tab-products" class="hidden tab-section">
           <div class="bg-white border border-gray-100 shadow-sm rounded-2xl overflow-hidden">
             <div class="px-5 py-4 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
-              <h2 class="text-sm font-semibold text-gray-800">Catalogo prodotti</h2>
-              <span class="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">{allProducts.length} articoli</span>
+              <span class="text-[12px] font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md mr-auto">{allProducts.length} articoli</span>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse text-sm">
                 <thead>
-                  <tr class="border-b border-gray-100 text-[11px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50/20">
+                  <tr class="border-b border-gray-100 text-[18px] font-bold text-black tracking-wider bg-gray-50/20">
+                    <th class="p-4">Moderazione</th>
                     <th class="p-4">Prodotto</th>
                     <th class="p-4">Prezzo</th>
                     <th class="p-4">Categoria</th>
-                    <th class="p-4">Moderazione</th>
                     <th class="p-4 w-1/4">Stock</th>
                     <th class="p-4 text-right">Azioni</th>
                   </tr>
@@ -220,18 +211,15 @@ export default async function AdminDashboard() {
                     const score = product.reliability != null ? Number(product.reliability) : null
                     return (
                       <tr class="hover:bg-gray-50/50 transition-colors">
-                        <td class="p-4 font-medium text-gray-900">{product.productName}</td>
-                        <td class="p-4 font-semibold text-gray-900">${product.price.toLocaleString("it-IT")}</td>
-                        <td class="p-4 text-gray-400 text-xs font-medium">{product.category}</td>
                         <td class="p-4">
                           <div class="flex items-center gap-2">
-                            <span class={`w-2 h-2 rounded-full ${mod.dot}`}></span>
+                            <span class={`w-2.5 h-2.5 rounded-full ${mod.dot}`}></span>
                             <span class={`text-xs font-medium ${mod.text}`}>{mod.label}</span>
-                            {score != null && (
-                              <span class="text-[10px] text-gray-300 font-mono">({score.toFixed(2)})</span>
-                            )}
                           </div>
                         </td>
+                        <td class="p-4 text-[14px] text-grey font-semibold">{product.productName}</td>
+                        <td class="p-4 text-gray-900">${product.price.toLocaleString("it-IT")}</td>
+                        <td class="p-4 text-gray-400 text-xs font-medium bg-grey">{product.category}</td>
                         <td class="p-4">
                           <div class="flex items-center gap-3 w-full">
                             <div class="h-1.5 w-24 bg-gray-100 rounded-full overflow-hidden flex-shrink-0">
@@ -274,14 +262,10 @@ export default async function AdminDashboard() {
 
         <div id="admin-tab-orders" class="hidden tab-section">
           <div class="bg-white border border-gray-100 shadow-sm rounded-2xl overflow-hidden">
-            <div class="px-5 py-4 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between">
-              <h2 class="text-sm font-semibold text-gray-800">Gestione ordini</h2>
-              <span class="text-xs font-medium text-gray-400 bg-gray-100 px-2 py-0.5 rounded-md">{allOrders.length} processati</span>
-            </div>
             <div class="overflow-x-auto">
               <table class="w-full text-left border-collapse text-sm">
                 <thead>
-                  <tr class="border-b border-gray-100 text-[11px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50/20">
+                  <tr class="border-b border-gray-100 text-[18px] font-bold text-black tracking-wider bg-gray-50/20">
                     <th class="p-4 w-12">#</th>
                     <th class="p-4">Cliente</th>
                     <th class="p-4">Prodotto</th>
@@ -305,11 +289,12 @@ export default async function AdminDashboard() {
                       <td class="p-4 text-gray-400">×{order.quantity}</td>
                       <td class="p-4 text-right" onclick="event.stopPropagation()">
                         <select
-                          class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white font-medium text-gray-700 shadow-sm cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
-                          hx-patch={`/admin/orders/${order.id}/status`}
+                          id={`status-${order.id}`}
+                          hx-post={`/admin/orders/${order.id}/status`}
                           hx-trigger="change"
-                          hx-vals="js:{status: this.value}"
                           hx-swap="none"
+                          hx-include={`#status-${order.id}`}  // include se stesso
+                          name="status"  // il name è fondamentale!
                         >
                           <option value="pending" selected={order.status === "pending"}>In attesa</option>
                           <option value="shipped" selected={order.status === "shipped"}>Spedito</option>

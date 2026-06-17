@@ -5,15 +5,17 @@ import type { OrderWithDetails } from "./adminDashboard"
 
 
 
+export const statusBadge: Record<string, { label: string; bg: string; color: string }> = {
+  pending:   { label: "In attesa",  bg: "#FAEEDA", color: "#854F0B" },
+  shipped:   { label: "Spedito",    bg: "#EAF3DE", color: "#3B6D11" },
+  delivered: { label: "Consegnato", bg: "#E1F5EE", color: "#0F6E56" },
+  cancelled: { label: "Annullato",  bg: "#FCEBEB", color: "#A32D2D" },
+};
+
+
 export async function OrderDetailModal({ order }: { order: OrderWithDetails }) {
 
   // Mappa lo status a badge leggibile
-  const statusBadge: Record<string, { label: string; bg: string; color: string }> = {
-    pending:   { label: "In attesa",  bg: "#FAEEDA", color: "#854F0B" },
-    shipped:   { label: "Spedito",    bg: "#EAF3DE", color: "#3B6D11" },
-    delivered: { label: "Consegnato", bg: "#E1F5EE", color: "#0F6E56" },
-    cancelled: { label: "Annullato",  bg: "#FCEBEB", color: "#A32D2D" },
-  }
   const badge = statusBadge[order.status ?? "pending"] ?? statusBadge.pending
 
   return (
@@ -111,7 +113,10 @@ export async function OrderDetailModal({ order }: { order: OrderWithDetails }) {
             <div style="display:flex;align-items:center;justify-content:space-between;">
               <div>
                 <div style="font-size:11px;color:#888;margin-bottom:6px;">Stato attuale</div>
-                <span style={`display:inline-block;font-size:11px;padding:4px 10px;border-radius:999px;background:${badge.bg};color:${badge.color};`}>
+                <span
+                  id={`badge-${order.id}`}
+                  style={`display:inline-block;font-size:11px;padding:4px 10px;border-radius:999px;background:${badge.bg};color:${badge.color};`}
+                >
                   {badge.label}
                 </span>
               </div>
@@ -121,12 +126,13 @@ export async function OrderDetailModal({ order }: { order: OrderWithDetails }) {
                 hx-swap="none"     → non sostituisce nulla nel DOM (solo aggiorna il db).
               */}
               <select
-                style="font-size:12px;border:0.5px solid #ccc;border-radius:8px;padding:5px 10px;background:#fff;cursor:pointer;"
-                hx-patch={`/admin/orders/${order.id}/status`}
-                hx-trigger="change"
-                hx-vals="js:{status: this.value}"
-                hx-swap="none"
-              >
+                  id={`status-${order.id}`}
+                  hx-post={`/admin/orders/${order.id}/status`}
+                  hx-trigger="change"
+                  hx-target="#pending-count"   // target esplicito
+                  hx-swap="outerHTML"          // ora gli OOB funzionano
+                  name="status"
+                >
                 <option value="pending"   selected={order.status === "pending"}>In attesa</option>
                 <option value="shipped"   selected={order.status === "shipped"}>Spedito</option>
                 <option value="delivered" selected={order.status === "delivered"}>Consegnato</option>

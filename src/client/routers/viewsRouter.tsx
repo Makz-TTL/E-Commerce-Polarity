@@ -5,7 +5,7 @@ import MainLayout from "../layouts/MainLayout"
 import SignUpForm from "../components/SignUpForm"
 import Cart from "../components/cart"
 import PorfilePage from "../components/ProfilePage"
-import { products, users } from "../../db/schema"
+import { orders, products, users } from "../../db/schema"
 import { db } from "../../db"
 import LoginForm from "../components/LoginForm"
 import { eq } from "drizzle-orm"
@@ -163,6 +163,27 @@ export default (server: ZodFastifyInstance) => {
       </MainLayout>
     )
   })
+
+
+  // routes/admin/orders.ts (o dove hai gli action routes)
+  server.patch("/admin/orders/:id/status", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const { status } = request.body as { status: string };
+
+    const validStatuses = ["pending", "shipped", "delivered", "cancelled"];
+
+    if (!validStatuses.includes(status)) {
+      return reply.status(400).send({ error: "Stato non valido" });
+    }
+
+    await db
+      .update(orders)
+      .set({ status })
+      .where(eq(orders.id, Number(id)));
+
+    // hx-swap="none" quindi non serve ritornare HTML
+    return reply.status(200).send();
+  });
 
   server.get("/checkout/payment", async (req, res) => {
     if (!req.session.username) return res.redirect("/")
