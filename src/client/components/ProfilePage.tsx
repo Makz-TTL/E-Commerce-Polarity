@@ -44,9 +44,10 @@ export default async function ProfilePage({ username, sessionUsername, activeTab
   const inactiveBtnClass = "text-gray-400 border-transparent hover:text-gray-600"
 
   return (
-<>
+    <>
     <div id="profile-wrapper" class="bg-gray-50 min-h-screen pb-12">
-      <><div class="bg-white border-b border-gray-100 shadow-sm">
+      <>
+        <div class="bg-white border-b border-gray-100 shadow-sm">
             <a href="/" class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-indigo-600 transition-colors px-6 pt-4">
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
@@ -102,7 +103,6 @@ export default async function ProfilePage({ username, sessionUsername, activeTab
 
             <div class="max-w-5xl mx-auto px-6">
                 <div class="flex gap-2 ">
-                    
                     <button
                         hx-get={`/profile?tab=products`}
                         hx-target="#profile-wrapper"
@@ -136,8 +136,9 @@ export default async function ProfilePage({ username, sessionUsername, activeTab
                     )}
                 </div>
             </div>
-        </div><div id="profile-content" class="max-w-5xl mx-auto px-6 mt-8">
+        </div>
 
+        <div id="profile-content" class="max-w-5xl mx-auto px-6 mt-8">
                 {isProducts && (
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                         <div class="flex items-center justify-between mb-5">
@@ -260,6 +261,7 @@ export default async function ProfilePage({ username, sessionUsername, activeTab
 
                                     return (
                                         <div
+                                            id={`user-order-${order.id}`}
                                             onclick={`window.location.href='${productLink}'`}
                                             class="flex items-center justify-between py-3 gap-4 hover:bg-gray-50/80 px-2 -mx-2 rounded-xl cursor-pointer transition-colors"
                                         >
@@ -275,7 +277,31 @@ export default async function ProfilePage({ username, sessionUsername, activeTab
                                                     </span>
                                                 </div>
                                             </div>
-                                            <span class="text-gray-900 font-bold">${order.totalPrice.toLocaleString("it-IT")}</span>
+                                            <div class="flex items-center gap-3" onclick="event.stopPropagation()">
+                                                {order.status === "not yet sent" && (
+                                                    <button
+                                                        hx-post={`/orders/${order.id}/cancel`}
+                                                        hx-target={`#user-order-${order.id}`}
+                                                        hx-swap="outerHTML"
+                                                        hx-confirm="Sei sicuro di voler annullare questo ordine?"
+                                                        class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-colors cursor-pointer"
+                                                    >
+                                                        Annulla ordine
+                                                    </button>
+                                                )}
+                                                {order.status === "sent" && (
+                                                    <button
+                                                        hx-post={`/orders/${order.id}/mark-delivered`}
+                                                        hx-target={`#user-order-${order.id}`}
+                                                        hx-swap="outerHTML"
+                                                        hx-confirm="Confermi di aver ricevuto correttamente questo ordine?"
+                                                        class="px-3 py-1.5 text-xs font-semibold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer"
+                                                    >
+                                                        Segna come ricevuto
+                                                    </button>
+                                                )}
+                                                <span class="text-gray-900 font-bold">${order.totalPrice.toLocaleString("it-IT")}</span>
+                                            </div>
                                         </div>
                                     )
                                 })}
@@ -317,7 +343,7 @@ export default async function ProfilePage({ username, sessionUsername, activeTab
                                             <div class="flex items-center gap-3" onclick="event.stopPropagation()">
                                                 {order.status === "not yet sent" && (
                                                     <button
-                                                        hx-patch={`/orders/${order.id}/mark-sent`}
+                                                        hx-post={`/orders/${order.id}/mark-sent`}
                                                         hx-target={`#sold-order-${order.id}`}
                                                         hx-swap="outerHTML"
                                                         hx-confirm="Confermi di aver spedito questo ordine?"
@@ -336,7 +362,9 @@ export default async function ProfilePage({ username, sessionUsername, activeTab
                     </div>
                 )}
 
-            </div><div id="modal"></div></>
+            </div>
+            <div id="modal"></div>
+        </>
       {isOwnProfile && <ConfirmLogoutModal />}
     </div>
     </>

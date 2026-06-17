@@ -994,32 +994,124 @@ server.patch("/admin/products/:id/status", async (req, res) => {
     .send()
 })
 
-server.patch("/orders/:id/mark-sent", async (req, res) => {
-  const { id } = req.params as { id: string }
-  const orderId = parseInt(id, 10)
-  const user = req.currentUser!
 
-  const order = await db.query.orders.findFirst({ where: { id: orderId } })
-  if (!order) return res.status(404).send("Ordine non trovato")
 
-  const product = await db.query.products.findFirst({ where: { id: order.productId } })
-  if (!product) return res.status(404).send("Prodotto non trovato")
-  if (product.userId !== user.id) return res.status(403).send("Non autorizzato")
-  if (order.status !== "not yet sent") return res.status(400).send("Stato non modificabile")
+server.post("/orders/:id/cancel", async (req, res) => {
+  if (!req.session.username) return res.status(401).send("Non autorizzato")
+
+const params = req.params as { id: string }
+  const orderId = Number(params.id)
+  
+  const [user] = await db.select().from(users).where(eq(users.userName, req.session.username))
+  if (!user) return res.status(404).send("Utente non trovato")
+
+  const order = await db.query.orders.findFirst({
+    where: { id: orderId }
+  })
+
+  if (!order || order.userId !== user.id || order.status !== "not yet sent") {
+    return res.status(403).send("Azione non permessa")
+  }
+
+  await db.delete(orders).where(eq(orders.id, orderId))
+
+  return res.send("")
+})
+
+server.post("/orders/:id/mark-sent", async (req, res) => {
+  if (!req.session.username) return res.status(401).send("Non autorizzato")
+
+  const params = req.params as { id: string }
+  const orderId = Number(params.id)
+  
+  const [user] = await db.select().from(users).where(eq(users.userName, req.session.username))
+  
+  const order = await db.query.orders.findFirst({
+    where: { id: orderId },
+    with: { product: true }
+  })
+
+  if (!order || order.product?.userId !== user.id || order.status !== "not yet sent") {
+    return res.status(403).send("Azione non permessa")
+  }
 
   await db.update(orders).set({ status: "sent" }).where(eq(orders.id, orderId))
 
-  return res.status(200).html(
-    <div id={`sold-order-${orderId}`} class="flex items-center justify-between py-3 gap-4">
-      <div class="flex-1">
-        <p class="font-medium text-gray-800">{product.productName}</p>
-        <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
+  const productLink = order.product ? `/product/${order.product.id}` : "#"
+
+  return res.html(
+    <div
+      id={`sold-order-${order.id}`}
+      onclick={`window.location.href='${productLink}'`}
+      class="flex items-center justify-between py-3 gap-4 hover:bg-gray-50/80 px-2 -mx-2 rounded-xl cursor-pointer transition-colors"
+    >
+      <div class="flex-1 min-w-0">
+        <p class="font-medium text-gray-800 truncate">{order.product?.productName ?? "Prodotto eliminato"}</p>
+        <div class="flex items-center gap-2 mt-0.5" onclick="event.stopPropagation()">
+          <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-blue-50 text-blue-700 border-blue-200">
+            Spedito
+          </span>
+        </div>
       </div>
-      <div class="flex items-center gap-3">
-        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-blue-50 text-blue-700 border-blue-200">
-          Spedito
-        </span>
+      <div class="flex items-center gap-3" onclick="event.stopPropagation()">
         <span class="text-emerald-600 font-bold">+${order.totalPrice.toLocaleString("it-IT")}</span>
+      </div>
+    </div>
+  )
+})
+
+server.post("/orders/:id/mark-delivered", async (req, res) => {
+  if (!req.session.username) return res.status(401).send("Non autorizzato")
+
+  const params = req.params as { id: string }
+  const orderId = Number(params.id)
+  
+  const [user] = await db.select().from(users).where(eq(users.userName, req.session.username))
+  
+  const order = await db.query.orders.findFirst({
+    where: { id: orderId },
+    with: { product: true }
+  })
+
+  if (!order || order.userId !== user.id || order.status !== "sent") {
+    return res.status(403).send("Azione non permessa")
+  }
+
+  await db.update(orders).set({ status: "delivered" }).where(eq(orders.id, orderId))
+
+  let orderCoverImage = "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80"
+  if (order.product?.imageUrl) {
+    try {
+      const images = JSON.parse(order.product.imageUrl)
+      if (Array.isArray(images) && images.length > 0) orderCoverImage = images[0]
+    } catch { 
+      orderCoverImage = order.product.imageUrl
+    } 
+  }
+
+  const productLink = order.product ? `/product/${order.product.id}` : "#"
+
+  return res.html(
+    <div
+      id={`user-order-${order.id}`}
+      onclick={`window.location.href='${productLink}'`}
+      class="flex items-center justify-between py-3 gap-4 hover:bg-gray-50/80 px-2 -mx-2 rounded-xl cursor-pointer transition-colors"
+    >
+      <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+        <img src={orderCoverImage} alt={order.product?.productName || "Prodotto"} class="w-full h-full object-cover" />
+      </div>
+      <div class="flex-1">
+        <p class="font-medium text-gray-800">{order.product?.productName ?? "Prodotto eliminato"}</p>
+        <div class="flex items-center gap-2 mt-0.5" onclick="event.stopPropagation()">
+          <p class="text-xs text-gray-400">Quantità: {order.quantity}</p>
+          <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-emerald-50 text-emerald-700 border-emerald-200">
+            Consegnato
+          </span>
+        </div>
+      </div>
+      <div class="flex items-center gap-3" onclick="event.stopPropagation()">
+        <span class="text-gray-900 font-bold">${order.totalPrice.toLocaleString("it-IT")}</span>
       </div>
     </div>
   )
