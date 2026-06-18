@@ -1112,22 +1112,18 @@ export default (server: ZodFastifyInstance) => {
     const productId = parseInt(id, 10);
 
     if (isNaN(productId)) {
-  const error = new Error("ID non valido") as any
-  error.statusCode = 400
-  return res.send(error)
-}
+      return res.status(400).send("ID non valido");
+    }
     if (!req.session.username) {
-  const error = new Error("Devi effettuare il login") as any
-  error.statusCode = 401
-  return res.send(error)
-}
+      return res.status(401).send("Devi effettuare il login");
+    }
 
     try {
       const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1);
-     if (!user || user.isAdmin) {
-        const error = new Error("Non autorizzato") as any
-        error.statusCode = 403
-        throw error
+      
+      // CORRETTO: Blocca se l'utente NON esiste o se NON è admin
+      if (!user || !user.isAdmin) {
+        return res.status(403).send("Non autorizzato");
       }
 
       // Disabilita il prodotto
@@ -1139,7 +1135,7 @@ export default (server: ZodFastifyInstance) => {
         return res.header("HX-Redirect", "/dashboard?tab=products").status(200).send();
       }
 
-      // Recupera il prodotto aggiornato (incluso il seller) per ri-renderizzare la riga
+      // Recupera il prodotto aggiornato
       const [updatedProduct] = await db
         .select()
         .from(products)
@@ -1155,13 +1151,10 @@ export default (server: ZodFastifyInstance) => {
       return res.send(<SingleProductRow product={updatedProduct} />);
 
     } catch (error) {
-      server.log.error(error)
-      return res.send(error)
+      server.log.error(error);
+      return res.status(500).send("Errore durante la disattivazione");
     }
   });
-
-
-
 
 
   server.post("/admin/product/:id/enable", async (req, res) => {
@@ -1169,22 +1162,18 @@ export default (server: ZodFastifyInstance) => {
     const productId = parseInt(id, 10);
 
     if (isNaN(productId)) {
-  const error = new Error("ID non valido") as any
-  error.statusCode = 400
-  return res.send(error)
-}
+      return res.status(400).send("ID non valido");
+    }
     if (!req.session.username) {
-  const error = new Error("Devi effettuare il login") as any
-  error.statusCode = 401
-  return res.send(error)
-}
+      return res.status(401).send("Devi effettuare il login");
+    }
 
     try {
       const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1);
-      if (!user || user.isAdmin) {
-        const error = new Error("Non autorizzato") as any
-        error.statusCode = 403
-        throw error
+      
+      // CORRETTO: Blocca se l'utente NON esiste o se NON è admin
+      if (!user || !user.isAdmin) {
+        return res.status(403).send("Non autorizzato");
       }
 
       // Riabilita il prodotto
@@ -1206,8 +1195,8 @@ export default (server: ZodFastifyInstance) => {
       return res.send(<SingleProductRow product={updatedProduct} />);
 
     } catch (error) {
-      server.log.error(error)
-      return res.send(error)
+      server.log.error(error);
+      return res.status(500).send("Errore durante l'attivazione");
     }
   });
 
