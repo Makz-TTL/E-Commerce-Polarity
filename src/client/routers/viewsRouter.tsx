@@ -207,21 +207,21 @@ server.get("/dashboard", async (req, res) => {
     }
   })
 
-  server.get("/checkout", async (req, res) => {
-    if (!req.session.username) return res.redirect("/")
+  // server.get("/checkout", async (req, res) => {
+  //   if (!req.session.username) return res.redirect("/")
 
-    const user = await db.query.users.findFirst({ where: { userName: req.session.username } })
-    const cart = await db.query.cart.findMany({
-      where: user ? { userId: user.id } : undefined,
-      with: { cartItem: true },
-    })
+  //   const user = await db.query.users.findFirst({ where: { userName: req.session.username } })
+  //   const cart = await db.query.cart.findMany({
+  //     where: user ? { userId: user.id } : undefined,
+  //     with: { cartItem: true },
+  //   })
 
-    return res.html(
-      <MainLayout>
-        <Checkout session={req.session} cart={cart} user={user} />
-      </MainLayout>
-    )
-  })
+  //   return res.html(
+  //     <MainLayout>
+  //       <Checkout session={req.session} cart={cart} user={user} />
+  //     </MainLayout>
+  //   )
+  // })
 
 
   // routes/admin/orders.ts (o dove hai gli action routes)

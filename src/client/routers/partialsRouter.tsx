@@ -213,10 +213,10 @@ export default (server: ZodFastifyInstance) => {
           <span class="text-gray-400 text-[12px] font-medium">Articoli online</span>
           <div class="text-[24px] font-bold text-gray-900">${onlineProducts}</div>
         </div>
-      `)
-    } catch(error) {
-      server.log.error(error)
-      return res.send(error)
+      `);
+    } catch (error) {
+      console.error(error);
+      return res.status(500).send();
     }
   });
 

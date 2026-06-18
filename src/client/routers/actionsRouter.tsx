@@ -1190,7 +1190,7 @@ export default (server: ZodFastifyInstance) => {
       // Riabilita il prodotto
       await db.update(products).set({ isDisable: false }).where(eq(products.id, productId));
 
-      // 2. Recupera l'INTERO record del prodotto aggiornato per SingleProductRow
+      // Recupera il prodotto aggiornato
       const [updatedProduct] = await db
         .select()
         .from(products)
