@@ -22,7 +22,7 @@ type Props = {
 export default async function ProductInfoPage({ product, session }: Props) {
   const isOwner = session?.username && product?.seller?.userName && session.username === product.seller.userName
 
-  if (!product || (product.status === "rejected" && !isOwner)) {
+  if (!product || (product.status === "rejected" && !isOwner) || product.isDisable) {
     return (
       <div class="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center" hx-boost="true">
         <h1 class="text-4xl font-extrabold text-gray-900 tracking-tight">404</h1>

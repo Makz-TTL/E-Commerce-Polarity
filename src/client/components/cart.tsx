@@ -15,14 +15,20 @@ export default async function Cart({ session } : cartProps) {
     })
 
 
-    const cartProducts = await db.query.cart.findMany({
+    const rawCartProducts = await db.query.cart.findMany({
         where: user ? { userId: user.id } : undefined,
         with: {
             cartItem: true,
         }
     })
 
+    // 2. Filtra in JS: tieni solo gli elementi in cui il prodotto esiste E NON è disabilitato
+    const cartProducts = rawCartProducts.filter((item) => {
+        return item.cartItem && item.cartItem.isDisable === false;
+    });
+
     const cartCount = await getCartCount(session?.username)
+    
     // FUNZIONE PER IL CALCOLO DEL TOTALE
     const totalCart = cartProducts.reduce((sum, item) => {
     // 1. Estrai il prezzo del prodotto (fallo diventare un numero per sicurezza)

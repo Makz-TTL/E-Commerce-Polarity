@@ -79,13 +79,13 @@ const statusBadge: Record<string, { label: string; bg: string; text: string }> =
             <td class="p-4 font-semibold text-gray-900">${order.totalPrice?.toLocaleString("it-IT")}</td>
             <td class="p-4 text-gray-400 mr-auto">×{order.quantity}</td>
             <td class="p-4 text-right">
-              {order.status === 'pending' && (
+              {order.status === 'not yet sent' && (
                 <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
                   In attesa
                 </span>
               )}
               
-              {order.status === 'shipped' && (
+              {order.status === 'sent' && (
                 <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
                   Spedito
                 </span>
@@ -134,6 +134,21 @@ const statusBadge: Record<string, { label: string; bg: string; text: string }> =
 
           return (
             <tr class="hover:bg-gray-50/50 transition-colors">
+              <td>
+
+                {product.isDisable && (
+                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-200 text-black-700 border border-amber-400">
+                    Disabilitato
+                  </span>
+                )}
+
+                {!product.isDisable && (
+                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-200 text-white-700 border border-green-400">
+                    Abilitato
+                  </span>
+                )}
+
+              </td>
               <td class="p-4">
                 <div class="flex items-center gap-2">
                   <span class={`w-2.5 h-2.5 rounded-full ${mod.dot}`}></span>
@@ -167,15 +182,29 @@ const statusBadge: Record<string, { label: string; bg: string; text: string }> =
                   >
                     Moderazione
                   </button>
-                  <button
-                    class="w-8 h-8 flex items-center justify-center text-xs font-medium rounded-xl text-red-600 border border-red-100 bg-white hover:bg-red-50 shadow-sm transition-all"
-                    hx-delete={`/admin/products/${product.id}`}
-                    hx-confirm={`Eliminare "${product.productName}" definitivamente dal catalogo?`}
-                    hx-target="closest tr"
-                    hx-swap="outerHTML"
-                  >
-                    ✕
-                  </button>
+                  {product.isDisable ? (
+                    /* Pulsante per RIABILITARE il prodotto */
+                    <button
+                      class="w-20 h-8 flex items-center justify-center text-xs font-medium rounded-xl text-green-600 border border-green-100 bg-white hover:bg-green-50 shadow-sm transition-all"
+                      hx-post={`/admin/product/${product.id}/enable`}
+                      hx-confirm={`Vuoi riabilitare "${product.productName}" nel catalogo?`}
+                      hx-target="closest tr"
+                      hx-swap="outerHTML"
+                    >
+                      Abilita
+                    </button>
+                  ) : (
+                    /* Pulsante per DISABILITARE il prodotto */
+                    <button
+                      class="w-20 h-8 flex items-center justify-center text-xs font-medium rounded-xl text-red-600 border border-red-100 bg-white hover:bg-red-50 shadow-sm transition-all"
+                      hx-delete={`/admin/product/${product.id}`}
+                      hx-confirm={`Eliminare "${product.productName}" definitivamente dal catalogo?`}
+                      hx-target="closest tr"
+                      hx-swap="outerHTML"
+                    >
+                      Disabilita
+                    </button>
+                  )}
                 </div>
               </td>
             </tr>
@@ -290,8 +319,14 @@ const statusBadge: Record<string, { label: string; bg: string; text: string }> =
             <div class="text-xs font-medium text-gray-400 mb-1">Ordini totali</div>
             <div class="text-2xl font-bold tracking-tight text-gray-900">{allOrders.length}</div>
           </div>
-          <div class="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
-            <div class="text-xs font-medium text-gray-400 mb-1">Articoli totali</div>
+          <div 
+            class="bg-white border border-gray-100 shadow-sm rounded-2xl p-5"
+            id="total-products-counter"
+            hx-get="/admin/stats/total-products"
+            hx-trigger="productDeleted from:body"
+            hx-swap="outerHTML"
+          >
+            <div class="text-xs font-medium text-gray-400 mb-1">Articoli online</div>
             <div id="pending-count" class="text-2xl font-bold tracking-tight">
               {allProducts.length}
             </div>
@@ -478,6 +513,7 @@ const statusBadge: Record<string, { label: string; bg: string; text: string }> =
               <table class="w-full text-left border-collapse text-sm">
                 <thead>
                   <tr class="border-b border-gray-100 text-[14px] font-bold text-gray-500 tracking-wider bg-gray-50/20">
+                    <th class="p-4">Stato</th>
                     <th class="p-4">Moderazione</th>
                     <th class="p-4">Prodotto</th>
                     <th class="p-4">Prezzo</th>

@@ -1,0 +1,2 @@
+ALTER TABLE "orders" ALTER COLUMN "productId" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "orders" DROP CONSTRAINT "orders_productId_products_id_fkey", ADD CONSTRAINT "orders_productId_products_id_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE SET NULL;

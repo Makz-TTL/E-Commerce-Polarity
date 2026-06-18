@@ -7,7 +7,6 @@ import Cart from "../components/cart"
 import ProfilePage from "../components/ProfilePage"
 import { orders, products, users } from "../../db/schema"
 import { db } from "../../db"
-import LoginForm from "../components/LoginForm"
 import { eq } from "drizzle-orm"
 import Checkout from "../components/checkout"
 import Payment from "../components/payment"
@@ -16,6 +15,7 @@ import PaymentAccepted from "../components/paymentAccepted"
 import PaymentDeclined from "../components/paymentDeclined"
 import AdminDashboard, { OrderWithDetails } from "../components/adminDashboard"
 import BannedPage from "../components/bannedPage"
+import NoAuth from "../../handlers/noAuth"
 
 export default (server: ZodFastifyInstance) => {
 
@@ -82,6 +82,18 @@ export default (server: ZodFastifyInstance) => {
       </MainLayout>
     )
   })
+
+
+
+  
+  server.get("/unauthorized", async (req, res) => {
+    if (!req.session.username) return res.redirect("/")
+
+    return NoAuth(req)
+  })
+
+
+
 
   server.get("/cart", async (req, res) => {
     if (!req.session.username) return res.redirect("/")

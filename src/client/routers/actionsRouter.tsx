@@ -23,6 +23,7 @@ import { count } from "drizzle-orm";
 import { statusBadge } from "../components/orderDetailModal";
 import { OrderWithDetails, OrderRows, ProductRows, UserRows } from "../components/adminDashboard"
 import { User } from "../../db/schema/users"
+import NoAuth from "../../handlers/noAuth"
 
 type PaymentBody = { cardNumber: string; expiry: string }
 type CheckOutBody = { fullName?: string; city?: string; cap?: string; address?: string }
@@ -1001,7 +1002,7 @@ export default (server: ZodFastifyInstance) => {
 
 
 
-  //Eliminazione prodotto tramite l'id.
+  //Eliminazione prodotto tramite l'id. per l'utente.
   server.delete("/product/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
@@ -1030,6 +1031,88 @@ export default (server: ZodFastifyInstance) => {
 
 
 
+  //Disabilita prodotto.
+  server.delete("/admin/product/:id", async (req, res) => {
+    const { id } = req.params as { id: string };
+    const productId = parseInt(id, 10);
+
+    if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido");
+    if (!req.session.username) return res.status(401).send("Devi effettuare il login");
+
+    try {
+      const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1);
+      if (!user || !user.isAdmin) return res.header("HX-Redirect", "/unauthorized").status(403).send();
+
+      // 1. Disabilita il prodotto
+      await db.update(products).set({ isDisable: true }).where(eq(products.id, productId));
+
+      // Gestione reindirizzamento se l'utente si trova dentro la pagina del singolo prodotto
+      const currentUrl = req.headers["hx-current-url"] as string || "";
+      if (currentUrl.includes(`/product/${productId}`)) {
+        return res.header("HX-Redirect", "/dashboard?tab=products").status(200).send();
+      }
+
+      // 2. Recupera il prodotto aggiornato (incluso il seller) per ri-renderizzare la riga
+      const [updatedProduct] = await db
+        .select({ /* ... i tuoi campi del select ... */ })
+        .from(products)
+        .leftJoin(users, eq(products.userId, users.id))
+        .where(eq(products.id, productId))
+        .limit(1);
+
+      // 3. Imposta il trigger per il contatore e restituisci il frammento Componente/HTML della riga
+      res.header("HX-Trigger", "productDeleted");
+      
+      // Ritorna la riga aggiornata (puoi usare la stringa o il tuo componente JSX es: <ProductRow product={updatedProduct} />)
+      return res.send(renderProductRow(updatedProduct)); 
+
+    } catch (error) {
+      console.error(error);
+      return res.status(500).send("Errore durante la disattivazione");
+    }
+  });
+
+
+
+
+
+
+  server.post("/admin/product/:id/enable", async (req, res) => {
+    const { id } = req.params as { id: string };
+    const productId = parseInt(id, 10);
+
+    if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido");
+    if (!req.session.username) return res.status(401).send("Devi effettuare il login");
+
+    try {
+      const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1);
+      if (!user || !user.isAdmin) return res.header("HX-Redirect", "/unauthorized").status(403).send();
+
+      // 1. Riabilita il prodotto
+      await db.update(products).set({ isDisable: false }).where(eq(products.id, productId));
+
+      // 2. Recupera il prodotto aggiornato
+      const [updatedProduct] = await db
+        .select({ /* ... i tuoi campi del select ... */ })
+        .from(products)
+        .leftJoin(users, eq(products.userId, users.id))
+        .where(eq(products.id, productId))
+        .limit(1);
+
+      // 3. Invia il trigger (il contatore salirà) e restituisci la riga aggiornata
+      res.header("HX-Trigger", "productDeleted");
+      return res.send(renderProductRow(updatedProduct));
+
+    } catch (error) {
+      console.error(error);
+      return res.status(500).send("Errore durante l'attivazione");
+    }
+  });
+
+
+
+
+
   //Apertura modale per modifica prodotto. 
   server.get("/edit-product-modal/:id", async (req, res) => {
     const { id } = req.params as { id: string }
@@ -1043,6 +1126,11 @@ export default (server: ZodFastifyInstance) => {
     return res.status(200).html(<EditProductModal product={product} />)
   })
 
+
+
+
+
+  //Edit prodotto da parte dell'utente.
   server.post("/edit-product/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
@@ -1340,4 +1428,8 @@ server.post("/orders/:id/mark-delivered", async (req, res) => {
 
 
   
+}
+
+function renderProductRow(updatedProduct: {}): unknown {
+  throw new Error("Function not implemented.")
 }

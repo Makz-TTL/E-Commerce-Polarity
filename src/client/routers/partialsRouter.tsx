@@ -7,7 +7,7 @@ import OtpForm from "../components/OtpForm"
 import EditPasswordForm from "../components/EditPassword"
 import SignUpForm from "../components/SignUpForm"
 import { db } from "../../db"
-import { eq, inArray } from "drizzle-orm"
+import { count, eq, inArray } from "drizzle-orm"
 import * as argon2 from "argon2"
 import { sendTemplateEmail } from "../../emails/index"
 import ForgotPasswordForm from "../components/ForgotPasswordForm"
@@ -25,6 +25,11 @@ export default (server: ZodFastifyInstance) => {
     return reply.html(<ConfirmLogoutModal />)
   })
 
+
+
+
+
+  //Modale Log In.
   server.get("/login-modal", async (req, res) => {
     const { redirect } = req.query as { redirect?: string }
     const currentRedirect = redirect || "/"
@@ -40,6 +45,10 @@ export default (server: ZodFastifyInstance) => {
   })
 
 
+
+
+
+  //End-point per ban utenti.
   server.post("/admin/users/:id/ban", async (request, reply) => {
     const { id } = request.params as { id: string };
 
@@ -58,6 +67,9 @@ export default (server: ZodFastifyInstance) => {
 
 
 
+
+
+  //End-point per unban utenti.
   server.post("/admin/users/:id/unban", async (request, reply) => {
     const { id } = request.params as { id: string };
 
@@ -73,6 +85,7 @@ export default (server: ZodFastifyInstance) => {
     reply.type("text/html");
     return reply.send(await (<UserRows user={[updatedUser]} />));
   }); 
+ 
   
 
 
@@ -89,58 +102,105 @@ export default (server: ZodFastifyInstance) => {
     )
   })
 
+
+
+
+
+  //Preview cart.
   server.get("/cart-preview", (_req, reply) => {
     return reply.html(
       <div class="p-4 text-sm text-gray-600">Il carrello è vuoto.</div>
     )
   })
 
-server.post("/verify-otp", async (req, res) => {
-  const { otp, email } = req.body as { otp: string; email: string }
 
-  if (!email) {
-    return res.status(200).html(
-      <p class="text-red-500 text-sm font-semibold p-4 text-center">
-        Sessione scaduta. Per favore, ricarica la pagina e riprova.
-      </p>
-    )
-  }
 
-  const [user] = await db.select().from(users).where(eq(users.eMail, email)).limit(1)
 
-  if (!user) {
-    return res.status(200).html(<OtpForm email={email} error="Utente non trovato. Riprova la registrazione." />)
-  }
 
-  if (otp !== user.verificationCode) {
-    return res.status(200).html(<OtpForm email={email} error="Codice non valido o scaduto." />)
-  }
+  //Verifica otp.
+  server.post("/verify-otp", async (req, res) => {
+    const { otp, email } = req.body as { otp: string; email: string }
 
-  try {
-    const sessionToken = crypto.randomBytes(32).toString("hex")
-
-    await db.update(users)
-      .set({ isVerified: true, session: sessionToken, verificationCode: null })
-      .where(eq(users.id, user.id))
-
-    req.session.sessionToken = sessionToken
-    req.session.username = user.userName
-    req.session.userId = user.id
-
-    if (typeof req.session.save === "function") {
-      await req.session.save()
+    if (!email) {
+      return res.status(200).html(
+        <p class="text-red-500 text-sm font-semibold p-4 text-center">
+          Sessione scaduta. Per favore, ricarica la pagina e riprova.
+        </p>
+      )
     }
 
-    return res
-      .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Account verificato con successo!" } }))
-      .header("HX-Redirect", "/")
-      .send()
-  } catch (error) {
-    server.log.error(error)
-    return res.status(200).html(<OtpForm email={email} error="Errore di sistema salvando l'utente." />)
-  }
-})
+    const [user] = await db.select().from(users).where(eq(users.eMail, email)).limit(1)
 
+    if (!user) {
+      return res.status(200).html(<OtpForm email={email} error="Utente non trovato. Riprova la registrazione." />)
+    }
+
+    if (otp !== user.verificationCode) {
+      return res.status(200).html(<OtpForm email={email} error="Codice non valido o scaduto." />)
+    }
+
+    try {
+      const sessionToken = crypto.randomBytes(32).toString("hex")
+
+      await db.update(users)
+        .set({ isVerified: true, session: sessionToken, verificationCode: null })
+        .where(eq(users.id, user.id))
+
+      req.session.sessionToken = sessionToken
+      req.session.username = user.userName
+      req.session.userId = user.id
+
+      if (typeof req.session.save === "function") {
+        await req.session.save()
+      }
+
+      return res
+        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Account verificato con successo!" } }))
+        .header("HX-Redirect", "/")
+        .send()
+    } catch (error) {
+      server.log.error(error)
+      return res.status(200).html(<OtpForm email={email} error="Errore di sistema salvando l'utente." />)
+    }
+  })
+
+
+
+
+
+  //Aggiornamento contatore automaticamente.
+  server.get("/admin/stats/total-products", async (req, res) => {
+    if (!req.session.username) return res.status(401).send()
+
+    try {
+      // Conta i prodotti attuali nel DB
+      const [result] = await db.select({ count: count() }).from(products)
+      const totalProducts = result?.count ?? 0
+
+      // Restituisci lo stesso identico pezzetto di HTML/JSX con il numero aggiornato
+      return res.send(`
+        <div 
+          id="total-products-counter"
+          hx-get="/admin/stats/total-products"
+          hx-trigger="productDeleted from:body"
+          hx-swap="outerHTML"
+        >
+          <div class="bg-white p-6 rounded-xl shadow-sm ...">
+            <span class="text-gray-400 text-sm font-medium">Articoli totali</span>
+            <div class="text-3xl font-bold text-gray-900 mt-2">${totalProducts}</div>
+          </div>
+        </div>
+      `)
+    } catch {
+      return res.status(500).send()
+    }
+  })
+
+
+
+
+  
+  //Modale per l'edit del profilo.
   server.get("/edit-profile-modal", async (req, res) => {
     if (!req.session.username) {
       return res.status(401).html(
@@ -188,6 +248,11 @@ server.post("/verify-otp", async (req, res) => {
     }
   })
 
+
+
+
+
+  //Modale per l'edit della password.
   server.get("/editPassword-modal", async (req, res) => {
     if (!req.session.username) return res.status(401).send("Non autorizzato")
     return res.status(200).html(<EditPasswordForm />)
@@ -199,6 +264,11 @@ server.post("/verify-otp", async (req, res) => {
     confirmPassword: z.string().trim().min(1),
   })
 
+
+
+
+
+  //Modifica effettiva della password.
   server.post("/editPassword", async (req, res) => {
     if (!req.session.username) return res.status(401).send("Non autorizzato")
 
@@ -232,10 +302,19 @@ server.post("/verify-otp", async (req, res) => {
       .send()
   })
 
+
+
+
+
+  //Modale per password dimenticata.
   server.get("/forgot-password-modal", async (_req, res) => {
     return res.status(200).html(<ForgotPasswordForm />)
   })
 
+
+
+
+  //Effettivo reimpost della password.
   server.post("/forgot-password", async (req, res) => {
     const { email } = req.body as { email: string }
 
@@ -271,6 +350,11 @@ server.post("/verify-otp", async (req, res) => {
     confirmPassword: z.string().trim().min(1),
   })
 
+
+
+
+
+  //Reset password.
   server.post("/reset-password", async (req, res) => {
     const result = resetPasswordSchema.safeParse(req.body)
 

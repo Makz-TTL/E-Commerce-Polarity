@@ -71,7 +71,8 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
     })
     .from(productsTable)
     .leftJoin(usersTable, eq(productsTable.userId, usersTable.id))
-    .where(and(...queryConditions))
+    .where(and(eq(productsTable.isDisable, false), // <--- Condizione fissa
+      ...queryConditions))
 
   const products = rows.map(row => ({
     ...row,
