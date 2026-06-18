@@ -454,27 +454,23 @@ export default (server: ZodFastifyInstance) => {
 
       // --- LOGICA DI AGGIORNAMENTO IN TEMPO REALE (HTMX OOB) ---
 
-      // 1. Recupera tutti gli elementi aggiornati nel carrello dell'utente (con i dati del prodotto associato)
+      // Recupera tutti gli elementi aggiornati nel carrello dell'utente (con i dati del prodotto associato)
       const cartProducts = await db.query.cart.findMany({
         where: user ? { userId: user.id } : undefined,
         with: { cartItem: true },
       })
-      
 
-      // where: user ? { userId: user.id } : undefined,
-      //   with: { cartItem: true },
-
-      // 2. Calcola il nuovo prezzo totale globale del carrello
+      // Calcola il nuovo prezzo totale globale del carrello
       const totalCart = cartProducts.reduce((sum, item) => {
         const price = item.cartItem?.price ? Number(item.cartItem.price) : 0
         const quantity = item.quantity ? Number(item.quantity) : 1
         return sum + price * quantity
       }, 0)
 
-      // 3. Calcola il numero di elementi totali per il badge
+      // Calcola il numero di elementi totali per il badge
       const cartCount = await getCartCount(user.userName)
 
-      // 4. Rispondi impostando il Toast nell'header e i nodi OOB nel body dell'HTML
+      // Rispondi impostando il Toast nell'header e i nodi OOB nel body dell'HTML
       res.header("HX-Trigger", JSON.stringify({ showAddedToCartToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` } }))
       res.header("Content-Type", "text/html")
 
@@ -547,7 +543,7 @@ export default (server: ZodFastifyInstance) => {
 }
 
     try {
-      // 1. Controlla se l'elemento appartiene all'utente
+      // Controlla se l'elemento appartiene all'utente
       const [item] = await db.select().from(cart)
         .where(and(eq(cart.id, parseInt(cartId, 10)), eq(cart.userId, req.currentUser!.id)))
         .limit(1)
@@ -558,12 +554,12 @@ export default (server: ZodFastifyInstance) => {
   return res.send(error)
 }
 
-      // 2. AGGIORNA LA QUANTITÀ NEL DATABASE (Questo mancava!)
+      // Aggiorna la quantità nel database
       await db.update(cart)
         .set({ quantity: newQty })
         .where(eq(cart.id, parseInt(cartId, 10)))
 
-      // 3. Recupera l'utente e i prodotti AGGIORNATI dal database
+      // Recupera l'utente e i prodotti aggiornati dal database
       const user = await db.query.users.findFirst({ where: { userName: req.session?.username } })
 
       const cartProducts = await db.query.cart.findMany({
@@ -571,20 +567,20 @@ export default (server: ZodFastifyInstance) => {
         with: { cartItem: true },
       })
 
-      // 4. Calcola il totale globale del carrello con i dati aggiornati
+      // Calcola il totale globale del carrello con i dati aggiornati
       const totalCart = cartProducts.reduce((sum, item) => {
         const price = item.cartItem?.price ? Number(item.cartItem.price) : 0
         const quantity = item.quantity ? Number(item.quantity) : 1
         return sum + price * quantity
       }, 0)
 
-      // 5. Trova l'elemento corrente aggiornato per calcolare il suo totale parziale
+      // Trova l'elemento corrente aggiornato per calcolare il suo totale parziale
       const updatedItem = cartProducts.find(p => p.id === parseInt(cartId, 10))
       const itemTotal = (Number(updatedItem?.cartItem?.price) || 0) * (Number(updatedItem?.quantity) || 1)
 
       const cartCount = await getCartCount(req.session?.username)
 
-      // 6. Rispondi con i blocchi OOB (Out-of-Band) aggiornati
+      // Rispondi con i blocchi OOB (Out-of-Band) aggiornati
       return res.status(200).html(
         <>
           <span id={`item-total-${cartId}`} class="text-xl font-semibold text-black-600" hx-swap-oob="true">
@@ -912,66 +908,66 @@ export default (server: ZodFastifyInstance) => {
 
   //End-point per il filtro della sezione utenti.
   server.get('/admin/products/filter', async (req, reply) => {
-    // 1. Recupera i parametri di filtro inviati dal form HTMX
+    // Recupera i parametri di filtro inviati dal form HTMX
     const { status, sortPrice, sortStock } = req.query as { 
       status?: string; 
       sortPrice?: 'asc' | 'desc'; 
       sortStock?: 'asc' | 'desc';
     };
 
-    // 2. Prendi i prodotti reali dal database (esegui la query asincrona)
+    // Prendi i prodotti reali dal database (esegui la query asincrona)
     const dbProducts = await db.select().from(products); 
     // NOTA: Assicurati che "products" sia il riferimento corretto alla tabella del tuo schema db
     
     let filteredProducts = [...dbProducts];
 
-    // 3. Logica di filtraggio dello stato
+    // Logica di filtraggio dello stato
     if (status && status !== 'all') {
       filteredProducts = filteredProducts.filter(p => p.status === status);
     }
     
-    // 4. Logica di ordinamento del Prezzo
+    // Logica di ordinamento del Prezzo
     if (sortPrice === 'asc') {
       filteredProducts.sort((a, b) => Number(a.price) - Number(b.price));
     } else if (sortPrice === 'desc') {
       filteredProducts.sort((a, b) => Number(b.price) - Number(a.price));
     }
     
-    // 5. Logica di ordinamento dello Stock
+    // Logica di ordinamento dello Stock
     if (sortStock === 'asc') {
       filteredProducts.sort((a, b) => Number(a.stock) - Number(b.stock));
     } else if (sortStock === 'desc') {
       filteredProducts.sort((a, b) => Number(b.stock) - Number(a.stock));
     }
 
-    // 6. Imposta l'header corretto e rispondi con il componente compilato
+    // Imposta l'header corretto e rispondi con il componente compilato
     reply.header("Content-Type", "text/html");
     return reply.send(<ProductRows products={filteredProducts} />);
   });
 
 
   server.get('/admin/users/filter', async (req, reply) => {
-    // 1. Recupera il parametro di stato inviato da HTMX
+    // Recupera il parametro di stato inviato da HTMX
     const { status } = req.query as { status?: 'all' | 'active' | 'inactive' | 'banned' };
 
-    // 2. Prendi gli utenti dal database usando la tua istanza db
+    // Prendi gli utenti dal database usando la tua istanza db
     const dbUsers = await db.select().from(users); // Assicurati che "users" punti alla tabella corretta
 
     let filteredUsers = [...dbUsers];
 
-    // 3. Logica di filtraggio
+    // Logica di filtraggio
     if (status === 'active') {
       // Utenti verificati e NON bannati
       filteredUsers = filteredUsers.filter(u => u.isVerified && !u.isBanned);
     } else if (status === 'inactive') {
-      // Utenti non verificati e NON bannati (corretto anche il pallino arancione nel front-end)
+      // Utenti non verificati e NON bannati
       filteredUsers = filteredUsers.filter(u => !u.isVerified && !u.isBanned);
     } else if (status === 'banned') {
       // Utenti bannati
       filteredUsers = filteredUsers.filter(u => u.isBanned);
     }
 
-    // 4. Invia la risposta HTML parziale
+    // Invia la risposta HTML parziale
     reply.header("Content-Type", "text/html");
     return reply.send(
         <UserRows user={filteredUsers} />
@@ -1124,7 +1120,7 @@ export default (server: ZodFastifyInstance) => {
         throw error
       }
 
-      // 1. Disabilita il prodotto
+      // Disabilita il prodotto
       await db.update(products).set({ isDisable: true }).where(eq(products.id, productId));
 
       // Gestione reindirizzamento se l'utente si trova dentro la pagina del singolo prodotto
@@ -1133,7 +1129,7 @@ export default (server: ZodFastifyInstance) => {
         return res.header("HX-Redirect", "/dashboard?tab=products").status(200).send();
       }
 
-      // 2. Recupera il prodotto aggiornato (incluso il seller) per ri-renderizzare la riga
+      // Recupera il prodotto aggiornato (incluso il seller) per ri-renderizzare la riga
       const [updatedProduct] = await db
         .select({ /* ... i tuoi campi del select ... */ })
         .from(products)
@@ -1141,10 +1137,10 @@ export default (server: ZodFastifyInstance) => {
         .where(eq(products.id, productId))
         .limit(1);
 
-      // 3. Imposta il trigger per il contatore e restituisci il frammento Componente/HTML della riga
+      // Imposta il trigger per il contatore e restituisci il frammento Componente/HTML della riga
       res.header("HX-Trigger", "productDeleted");
       
-      // Ritorna la riga aggiornata (puoi usare la stringa o il tuo componente JSX es: <ProductRow product={updatedProduct} />)
+      // Ritorna la riga aggiornata
       return res.send(renderProductRow(updatedProduct)); 
 
     } catch (error) {
@@ -1181,18 +1177,18 @@ export default (server: ZodFastifyInstance) => {
         throw error
       }
 
-      // 1. Riabilita il prodotto
+      // Riabilita il prodotto
       await db.update(products).set({ isDisable: false }).where(eq(products.id, productId));
 
-      // 2. Recupera il prodotto aggiornato
+      // Recupera il prodotto aggiornato
       const [updatedProduct] = await db
-        .select({ /* ... i tuoi campi del select ... */ })
+        .select()
         .from(products)
         .leftJoin(users, eq(products.userId, users.id))
         .where(eq(products.id, productId))
         .limit(1);
 
-      // 3. Invia il trigger (il contatore salirà) e restituisci la riga aggiornata
+      // Invia il trigger (il contatore salirà) e restituisci la riga aggiornata
       res.header("HX-Trigger", "productDeleted");
       return res.send(renderProductRow(updatedProduct));
 

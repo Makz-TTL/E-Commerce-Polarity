@@ -22,7 +22,7 @@ export default async function Cart({ session } : cartProps) {
         }
     })
 
-    // 2. Filtra in JS: tieni solo gli elementi in cui il prodotto esiste E NON è disabilitato
+    // Filtra in JS: tieni solo gli elementi in cui il prodotto esiste E NON è disabilitato
     const cartProducts = rawCartProducts.filter((item) => {
         return item.cartItem && item.cartItem.isDisable === false;
     });
@@ -31,13 +31,13 @@ export default async function Cart({ session } : cartProps) {
     
     // FUNZIONE PER IL CALCOLO DEL TOTALE
     const totalCart = cartProducts.reduce((sum, item) => {
-    // 1. Estrai il prezzo del prodotto (fallo diventare un numero per sicurezza)
+    // Estrai il prezzo del prodotto (fallo diventare un numero per sicurezza)
     const price = item.cartItem?.price ? Number(item.cartItem.price) : 0;
     
-    // 2. Estrai la quantità dal carrello (se non esiste, di base è 1)
+    // Estrai la quantità dal carrello (se non esiste, di base è 1)
     const quantity = item.quantity ? Number(item.quantity) : 1;
     
-    // 3. Moltiplica prezzo per quantità e aggiungilo al totale parziale
+    // Moltiplica prezzo per quantità e aggiungilo al totale parziale
     return sum + (price * quantity);
     }, 0);
 

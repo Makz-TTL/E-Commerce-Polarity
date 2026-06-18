@@ -224,7 +224,6 @@ server.get("/dashboard", async (req, res) => {
   })
 
 
-  // routes/admin/orders.ts (o dove hai gli action routes)
   server.patch("/admin/orders/:id/status", async (request, reply) => {
     const callerUserName = request.session.username
     
@@ -364,7 +363,6 @@ server.get("/product/:id", async (req, res) => {
 
     return res.html(
       <MainLayout>
-       
         <ProductInfoPage product={product} session={currentSession} />
       </MainLayout>
     )
