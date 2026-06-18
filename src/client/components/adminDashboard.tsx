@@ -291,7 +291,7 @@ export default function AdminDashboard({
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div class="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
-            <div class="text-xs font-medium text-gray-400 mb-1">Totale ricavi</div>
+            <div class="text-xs font-medium text-gray-400 mb-1">Totale vendite</div>
             <div class="text-2xl font-bold tracking-tight text-emerald-600">${totalRevenue.toLocaleString("it-IT")}</div>
           </div>
           <div class="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
