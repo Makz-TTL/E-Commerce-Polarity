@@ -1018,29 +1018,30 @@ export default (server: ZodFastifyInstance) => {
 
   //Eliminazione prodotto tramite l'id. per l'utente.
   server.delete("/product/:id", async (req, res) => {
-    const { id } = req.params as { id: string }
-    const productId = parseInt(id, 10)
+  const { id } = req.params as { id: string }
+  const productId = parseInt(id, 10)
 
-    if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido")
-    if (!req.session.username) return res.status(401).send("Devi effettuare il login per completare questa azione")
+  if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido")
+  if (!req.session.username) return res.status(401).send("Devi effettuare il login per completare questa azione")
 
-    try {
-      const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-      if (!user) return res.status(404).send("Utente non trovato")
+  try {
+    const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
+    if (!user) return res.status(404).send("Utente non trovato")
 
-      await db.delete(products).where(and(eq(products.id, productId), eq(products.userId, user.id)))
+    await db.delete(orders).where(eq(orders.productId, productId))
+    await db.delete(products).where(and(eq(products.id, productId), eq(products.userId, user.id)))
 
-      const currentUrl = req.headers["hx-current-url"] as string || ""
-      if (currentUrl.includes(`/product/${productId}`)) {
-        return res.header("HX-Redirect", "/").status(200).send()
-      }
-
-      return res.status(200).send()
-    } catch (error){
-      console.error("DELETE /product/:id error:", error)
-      return res.status(500).send("Impossibile eliminare il prodotto")
+    const currentUrl = req.headers["hx-current-url"] as string || ""
+    if (currentUrl.includes(`/product/${productId}`)) {
+      return res.header("HX-Redirect", "/").status(200).send()
     }
-  })
+
+    return res.status(200).send()
+  } catch (err) {
+    console.error("DELETE /product/:id error:", err)
+    return res.status(500).send("Impossibile eliminare il prodotto")
+  }
+})
 
 
 
