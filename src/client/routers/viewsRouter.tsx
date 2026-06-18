@@ -224,6 +224,7 @@ server.get("/dashboard", async (req, res) => {
   })
 
 
+  // routes/admin/orders.ts (o dove hai gli action routes)
   server.patch("/admin/orders/:id/status", async (request, reply) => {
     const callerUserName = request.session.username
     
@@ -303,11 +304,7 @@ server.get("/product/:id", async (req, res) => {
   const { id } = req.params as { id: string }
   const productId = parseInt(id, 10)
 
-  if (isNaN(productId)) {
-  const error = new Error("ID non valido") as any
-  error.statusCode = 400
-  return res.send(error)
-}
+  if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido")
 
   try {
     const productRows = await db
@@ -363,6 +360,7 @@ server.get("/product/:id", async (req, res) => {
 
     return res.html(
       <MainLayout>
+       
         <ProductInfoPage product={product} session={currentSession} />
       </MainLayout>
     )
