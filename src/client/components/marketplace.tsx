@@ -190,10 +190,6 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
     </div>
   )
 
-  if (partial) {
-    return productsGrid
-  }
-
   return (
     <div class="bg-gray-50/50 min-h-screen pb-12">
       <Navbar session={session} currentUser={currentUser} cartCount={cartCount} />

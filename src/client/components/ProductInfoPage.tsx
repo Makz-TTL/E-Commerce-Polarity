@@ -28,12 +28,12 @@ export default async function ProductInfoPage({ product, session }: Props) {
         <h1 class="text-4xl font-extrabold text-gray-900 tracking-tight">404</h1>
         <p class="mt-2 text-base text-gray-500">Annuncio non trovato o non disponibile.</p>
        <a 
-  href="/" 
-  hx-boost="false" 
-  class="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
->
-  Torna al Marketplace
-</a>
+          href="/"
+          hx-boost="false"
+          class="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
+        >
+          Torna al Marketplace
+        </a>
       </div>
     )
   }
