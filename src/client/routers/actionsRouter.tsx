@@ -21,7 +21,7 @@ import CartBadgeOOB from "../components/CartBadgeOOB"
 import { OrderDetailModal } from "../components/orderDetailModal"
 import { count } from "drizzle-orm";
 import { statusBadge } from "../components/orderDetailModal";
-import { OrderWithDetails, OrderRows, ProductRows, UserRows } from "../components/adminDashboard"
+import { OrderWithDetails, OrderRows, ProductRows, UserRows, SingleProductRow } from "../components/adminDashboard"
 import { User } from "../../db/schema/users"
 import NoAuth from "../../handlers/noAuth"
 
@@ -653,8 +653,19 @@ export default (server: ZodFastifyInstance) => {
     const user = await db.query.users.findFirst({ where: { userName: req.session.username } })
     const cartItems = await db.query.cart.findMany({
       where: user ? { userId: user.id } : undefined,
-      with: { cartItem: true },
+      with: { cartItem: true, },
     })
+
+    for (const item of cartItems) {
+      // Accediamo alla relazione col prodotto reale (item.cartItem)
+      if (item.cartItem?.isDisable) {
+        const msg = `Il prodotto "${item.cartItem.productName}" non è più disponibile. Rimuovilo per proseguire.`;
+        
+        return res
+          .header("HX-Trigger", JSON.stringify({ showErrorToast: { message: msg } }))
+          .send()
+      }
+    }
 
     const stockIssues = cartItems.filter(item => (item.quantity ?? 1) > (item.cartItem?.stock ?? 0))
 
@@ -1047,7 +1058,6 @@ export default (server: ZodFastifyInstance) => {
 
 
 
-  //Disabilita prodotto.
   server.delete("/admin/product/:id", async (req, res) => {
     const { id } = req.params as { id: string };
     const productId = parseInt(id, 10);
@@ -1068,26 +1078,26 @@ export default (server: ZodFastifyInstance) => {
         return res.header("HX-Redirect", "/dashboard?tab=products").status(200).send();
       }
 
-      // 2. Recupera il prodotto aggiornato (incluso il seller) per ri-renderizzare la riga
+      // 2. Recupera l'INTERO record del prodotto aggiornato per SingleProductRow
       const [updatedProduct] = await db
-        .select({ /* ... i tuoi campi del select ... */ })
+        .select()
         .from(products)
-        .leftJoin(users, eq(products.userId, users.id))
         .where(eq(products.id, productId))
         .limit(1);
 
-      // 3. Imposta il trigger per il contatore e restituisci il frammento Componente/HTML della riga
-      res.header("HX-Trigger", "productDeleted");
-      
-      // Ritorna la riga aggiornata (puoi usare la stringa o il tuo componente JSX es: <ProductRow product={updatedProduct} />)
-      return res.send(renderProductRow(updatedProduct)); 
+      if (!updatedProduct) return res.status(404).send("Prodotto non trovato");
+
+      // Imposta il trigger per il contatore
+      res.header("HX-Trigger", "productDisabled");
+
+      // Restituisci la riga singola pulita
+      return res.send(<SingleProductRow product={updatedProduct} />);
 
     } catch (error) {
       console.error(error);
       return res.status(500).send("Errore durante la disattivazione");
     }
   });
-
 
 
 
@@ -1107,17 +1117,20 @@ export default (server: ZodFastifyInstance) => {
       // 1. Riabilita il prodotto
       await db.update(products).set({ isDisable: false }).where(eq(products.id, productId));
 
-      // 2. Recupera il prodotto aggiornato
+      // 2. Recupera l'INTERO record del prodotto aggiornato per SingleProductRow
       const [updatedProduct] = await db
-        .select({ /* ... i tuoi campi del select ... */ })
+        .select()
         .from(products)
-        .leftJoin(users, eq(products.userId, users.id))
         .where(eq(products.id, productId))
         .limit(1);
 
-      // 3. Invia il trigger (il contatore salirà) e restituisci la riga aggiornata
-      res.header("HX-Trigger", "productDeleted");
-      return res.send(renderProductRow(updatedProduct));
+      if (!updatedProduct) return res.status(404).send("Prodotto non trovato");
+
+      // Imposta il trigger per il contatore
+      res.header("HX-Trigger", "productEnabled");
+
+      // Restituisci la riga singola pulita
+      return res.send(<SingleProductRow product={updatedProduct} />);
 
     } catch (error) {
       console.error(error);
@@ -1442,6 +1455,4 @@ server.post("/orders/:id/mark-delivered", async (req, res) => {
   
 }
 
-function renderProductRow(updatedProduct: {}): unknown {
-  throw new Error("Function not implemented.")
-}
+

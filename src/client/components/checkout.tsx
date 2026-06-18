@@ -12,6 +12,7 @@ type CheckoutProps = {
       category: string
       price: number | string
       imageUrl?: string | null
+      isDisable: false
     } | null
   }[]
   user?: { name: string; lastName: string } | null

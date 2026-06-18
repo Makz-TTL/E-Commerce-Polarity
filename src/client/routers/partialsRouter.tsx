@@ -170,31 +170,35 @@ export default (server: ZodFastifyInstance) => {
 
   //Aggiornamento contatore automaticamente.
   server.get("/admin/stats/total-products", async (req, res) => {
-    if (!req.session.username) return res.status(401).send()
+    if (!req.session.username) return res.status(401).send();
 
     try {
-      // Conta i prodotti attuali nel DB
-      const [result] = await db.select({ count: count() }).from(products)
-      const totalProducts = result?.count ?? 0
+      // Conta SOLO i prodotti che NON sono disabilitati
+      const [result] = await db
+        .select({ count: count() })
+        .from(products)
+        .where(eq(products.isDisable, false)); 
 
-      // Restituisci lo stesso identico pezzetto di HTML/JSX con il numero aggiornato
+      const onlineProducts = result?.count ?? 0;
+
+      // Restituiamo lo stesso identico elemento con lo stesso ID per l'outerHTML
       return res.send(`
         <div 
+          class="bg-white border border-gray-100 shadow-sm rounded-2xl p-5"
           id="total-products-counter"
           hx-get="/admin/stats/total-products"
-          hx-trigger="productDeleted from:body"
+          hx-trigger="productDisabled from:body, productEnabled from:body"
           hx-swap="outerHTML"
         >
-          <div class="bg-white p-6 rounded-xl shadow-sm ...">
-            <span class="text-gray-400 text-sm font-medium">Articoli totali</span>
-            <div class="text-3xl font-bold text-gray-900 mt-2">${totalProducts}</div>
-          </div>
+          <span class="text-gray-400 text-[12px] font-medium">Articoli online</span>
+          <div class="text-[24px] font-bold text-gray-900">${onlineProducts}</div>
         </div>
-      `)
-    } catch {
-      return res.status(500).send()
+      `);
+    } catch (error) {
+      console.error(error);
+      return res.status(500).send();
     }
-  })
+  });
 
 
 

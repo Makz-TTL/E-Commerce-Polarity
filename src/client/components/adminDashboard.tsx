@@ -12,19 +12,28 @@ export type OrderWithDetails = Order & {
   productName: string
 }
 
+
+
+//FUNCTIONS
 function stockColorClass(stock: number, max = 50): string {
   if (stock === 0) return "bg-red-500"
   if (stock / max < 0.2) return "bg-amber-500"
   return "bg-emerald-500"
 }
 
+
+
 function stockPct(stock: number, max = 50): number {
   return Math.min(100, Math.round((stock / max) * 100))
 }
 
+
+
 export function initials(name: string, lastName: string): string {
   return `${name[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase()
 }
+
+
 
 const AVATAR_TAILWIND_COLORS = [
   { bg: "bg-indigo-100", text: "text-indigo-700" },
@@ -32,9 +41,14 @@ const AVATAR_TAILWIND_COLORS = [
   { bg: "bg-emerald-100", text: "text-emerald-700" },
   { bg: "bg-blue-100", text: "text-blue-700" },
 ]
+
+
+
 export function avatarColorClass(i: number) {
   return AVATAR_TAILWIND_COLORS[i % AVATAR_TAILWIND_COLORS.length]
 }
+
+
 
 const moderationBadge: Record<string, { label: string; bg: string; text: string; dot: string }> = {
   approved: { label: "Approvato",   bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
@@ -42,12 +56,16 @@ const moderationBadge: Record<string, { label: string; bg: string; text: string;
   rejected: { label: "Rifiutato",   bg: "bg-red-50",     text: "text-red-700",     dot: "bg-red-500" },
 }
 
+
+
 const statusBadge: Record<string, { label: string; bg: string; text: string }> = {
   pending:   { label: "In attesa",  bg: "bg-amber-50",  text: "text-amber-800" },
   shipped:   { label: "Spedito",    bg: "bg-emerald-50", text: "text-emerald-800" },
   delivered: { label: "Consegnato", bg: "bg-teal-50",    text: "text-teal-800" },
   cancelled: { label: "Annullato",  bg: "bg-red-50",     text: "text-red-800" },
 }
+
+
 
 type Props = {
   activeTab?: string
@@ -59,6 +77,9 @@ type Props = {
   pendingOrders: number
 }
 
+
+
+//Tabella ordini.
 export function OrderRows({ orders }: { orders: OrderWithDetails[] }) {
   return (
     <>
@@ -102,11 +123,96 @@ export function OrderRows({ orders }: { orders: OrderWithDetails[] }) {
   )
 }
 
+
+
+//Tabella prodotti.
+export function SingleProductRow({ product }: { product: Product }) {
+  const pct = stockPct(product.stock);
+  const color = stockColorClass(product.stock);
+  const esaurito = product.stock === 0;
+  const mod = moderationBadge[product.status ?? "pending"] ?? moderationBadge["pending"];
+
+  return (
+    <tr class="hover:bg-gray-50/50 transition-colors">
+      <td class="p-4">
+        {product.isDisable ? (
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-200 text-black-700 border border-amber-400">
+            Disabilitato
+          </span>
+        ) : (
+          <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-200 text-white-700 border border-green-400">
+            Abilitato
+          </span>
+        )}
+      </td>
+      <td class="p-4">
+        <div class="flex items-center gap-2">
+          <span class={`w-2.5 h-2.5 rounded-full ${mod.dot}`}></span>
+          <span class={`text-xs font-medium ${mod.text}`}>{mod.label}</span>
+        </div>
+      </td>
+      <td class="p-4 text-[14px] text-gray-700 font-semibold">{product.productName}</td>
+      <td class="p-4 text-gray-900">${product.price.toLocaleString("it-IT")}</td>
+      <td class="p-4">
+        <span class="text-gray-500 text-xs font-medium bg-gray-100 px-2 py-1 rounded-lg">
+          {product.category}
+        </span>
+      </td>
+      <td class="p-4">
+        <div class="flex items-center gap-3 w-full">
+          <div class="h-1.5 w-24 bg-gray-100 rounded-full overflow-hidden flex-shrink-0">
+            <div class={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+          </div>
+          <span class={`text-xs font-semibold ${esaurito ? "text-red-600 bg-red-50 px-1.5 py-0.5 rounded" : "text-gray-500"}`}>
+            {esaurito ? "Esaurito" : product.stock}
+          </span>
+        </div>
+      </td>
+      <td class="p-4 text-right">
+        <div class="flex gap-2 justify-end">
+          <button
+            class="px-3 py-1.5 text-xs font-medium rounded-xl text-indigo-700 border border-indigo-200 bg-white hover:bg-indigo-50 shadow-sm transition-all"
+            hx-get={`/dashboard/products/${product.id}/status-modal`}
+            hx-target="#order-modal-container"
+            hx-swap="innerHTML"
+          >
+            Moderazione
+          </button>
+          {product.isDisable ? (
+            <button
+              class="w-20 h-8 flex items-center justify-center text-xs font-medium rounded-xl text-green-600 border border-green-100 bg-white hover:bg-green-50 shadow-sm transition-all"
+              hx-post={`/admin/product/${product.id}/enable`}
+              hx-confirm={`Vuoi riabilitare "${product.productName}" nel catalogo?`}
+              hx-target="closest tr"
+              hx-swap="outerHTML"
+            >
+              Abilita
+            </button>
+          ) : (
+            <button
+              class="w-20 h-8 flex items-center justify-center text-xs font-medium rounded-xl text-red-600 border border-red-100 bg-white hover:bg-red-50 shadow-sm transition-all"
+              hx-delete={`/admin/product/${product.id}`}
+              hx-confirm={`Eliminare "${product.productName}" definitivamente dal catalogo?`}
+              hx-target="closest tr"
+              hx-swap="outerHTML"
+            >
+              Disabilita
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+
+
+
 export function ProductRows({ products }: { products: Product[] }) {
   if (!products || products.length === 0) {
     return (
       <tr>
-        <td colspan="6" class="p-8 text-center text-sm text-gray-400">
+        <td colspan="7" class="p-8 text-center text-sm text-gray-400">
           Nessun prodotto trovato con i filtri selezionati.
         </td>
       </tr>
@@ -115,89 +221,17 @@ export function ProductRows({ products }: { products: Product[] }) {
 
   return (
     <>
-      {products.map(product => {
-        const pct = stockPct(product.stock);
-        const color = stockColorClass(product.stock);
-        const esaurito = product.stock === 0;
-        const mod = moderationBadge[product.status ?? "pending"] ?? moderationBadge["pending"];
-
-        return (
-          <tr class="hover:bg-gray-50/50 transition-colors">
-            <td class="p-4">
-              {product.isDisable && (
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-200 text-black-700 border border-amber-400">
-                  Disabilitato
-                </span>
-              )}
-              {!product.isDisable && (
-                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-200 text-white-700 border border-green-400">
-                  Abilitato
-                </span>
-              )}
-            </td>
-            <td class="p-4">
-              <div class="flex items-center gap-2">
-                <span class={`w-2.5 h-2.5 rounded-full ${mod.dot}`}></span>
-                <span class={`text-xs font-medium ${mod.text}`}>{mod.label}</span>
-              </div>
-            </td>
-            <td class="p-4 text-[14px] text-gray-700 font-semibold">{product.productName}</td>
-            <td class="p-4 text-gray-900">${product.price.toLocaleString("it-IT")}</td>
-            <td class="p-4">
-              <span class="text-gray-500 text-xs font-medium bg-gray-100 px-2 py-1 rounded-lg">
-                {product.category}
-              </span>
-            </td>
-            <td class="p-4">
-              <div class="flex items-center gap-3 w-full">
-                <div class="h-1.5 w-24 bg-gray-100 rounded-full overflow-hidden flex-shrink-0">
-                  <div class={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
-                </div>
-                <span class={`text-xs font-semibold ${esaurito ? "text-red-600 bg-red-50 px-1.5 py-0.5 rounded" : "text-gray-500"}`}>
-                  {esaurito ? "Esaurito" : product.stock}
-                </span>
-              </div>
-            </td>
-            <td class="p-4 text-right">
-              <div class="flex gap-2 justify-end">
-                <button
-                  class="px-3 py-1.5 text-xs font-medium rounded-xl text-indigo-700 border border-indigo-200 bg-white hover:bg-indigo-50 shadow-sm transition-all"
-                  hx-get={`/dashboard/products/${product.id}/status-modal`}
-                  hx-target="#order-modal-container"
-                  hx-swap="innerHTML"
-                >
-                  Moderazione
-                </button>
-                {product.isDisable ? (
-                  <button
-                    class="w-20 h-8 flex items-center justify-center text-xs font-medium rounded-xl text-green-600 border border-green-100 bg-white hover:bg-green-50 shadow-sm transition-all"
-                    hx-post={`/admin/product/${product.id}/enable`}
-                    hx-confirm={`Vuoi riabilitare "${product.productName}" nel catalogo?`}
-                    hx-target="closest tr"
-                    hx-swap="outerHTML"
-                  >
-                    Abilita
-                  </button>
-                ) : (
-                  <button
-                    class="w-20 h-8 flex items-center justify-center text-xs font-medium rounded-xl text-red-600 border border-red-100 bg-white hover:bg-red-50 shadow-sm transition-all"
-                    hx-delete={`/admin/product/${product.id}`}
-                    hx-confirm={`Eliminare "${product.productName}" definitivamente dal catalogo?`}
-                    hx-target="closest tr"
-                    hx-swap="outerHTML"
-                  >
-                    Disabilita
-                  </button>
-                )}
-              </div>
-            </td>
-          </tr>
-        );
-      })}
+      {products.map(product => (
+        <SingleProductRow product={product} />
+      ))}
     </>
   );
 }
 
+
+
+
+//Tabella utenti.
 export function UserRows({ user }: { user: User[] }) {
   if (!user || user.length === 0) {
     return (
@@ -262,6 +296,9 @@ export function UserRows({ user }: { user: User[] }) {
   );
 }
 
+
+
+//Dashboard.
 export default function AdminDashboard({
   activeTab = "users",
   allUsers,
@@ -281,6 +318,7 @@ export default function AdminDashboard({
     <>
       <div id="admin-dashboard-wrapper" class="antialiased text-gray-900 font-sans p-6 max-w-6xl mx-auto space-y-6">
         
+
         <div class="flex items-center justify-between border-b border-gray-100 pb-4">
           <div>
             <a href="/"><div class="text-xs font-semibold text-indigo-600 uppercase tracking-widest mb-0.5">TechStore</div></a>
@@ -293,6 +331,7 @@ export default function AdminDashboard({
             Torna alla home
           </a>
         </div>
+
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div class="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
@@ -307,7 +346,7 @@ export default function AdminDashboard({
             class="bg-white border border-gray-100 shadow-sm rounded-2xl p-5"
             id="total-products-counter"
             hx-get="/admin/stats/total-products"
-            hx-trigger="productDeleted from:body"
+            hx-trigger="productDisabled from:body, productEnabled from:body"
             hx-swap="outerHTML"
           >
             <div class="text-xs font-medium text-gray-400 mb-1">Articoli online</div>
@@ -320,6 +359,7 @@ export default function AdminDashboard({
             <div class="text-2xl font-bold tracking-tight text-gray-900">{allUsers.length}</div>
           </div>
         </div>
+
 
         <div class="flex gap-2 border-b border-gray-200">
           <button 
@@ -353,6 +393,7 @@ export default function AdminDashboard({
             Ordini
           </button>
         </div>
+
 
         <div id="admin-tab-users" class={`tab-section animate-fade-in ${isUsers ? "block" : "hidden"}`}>
           <div class="px-5 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between gap-4">
@@ -398,6 +439,7 @@ export default function AdminDashboard({
           </div>
         </div>
 
+
         <div id="admin-tab-products" class={`tab-section ${isProducts ? "block" : "hidden"}`}>
           <div class="px-5 py-4 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mr-auto">
             <form 
@@ -438,6 +480,8 @@ export default function AdminDashboard({
                   </svg>
                 </div>
               </div>
+
+
               <div class="relative w-44">
                 <select
                   name="sortStock"
@@ -476,6 +520,7 @@ export default function AdminDashboard({
             </div>
           </div>
         </div>
+
 
         <div id="admin-tab-orders" class={`tab-section ${isOrders ? "block" : "hidden"}`}>
           <div class="mb-4 flex items-center gap-3 relative inline-block text-left">
@@ -521,9 +566,9 @@ export default function AdminDashboard({
             </div>
           </div>
         </div>
-
         <div id="order-modal-container"></div>
       </div>
+
 
       <script>{`
         function closeOrderModal() {
