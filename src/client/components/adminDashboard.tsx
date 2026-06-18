@@ -165,6 +165,7 @@ export function ProductRows({ products }: { products: Product[] }) {
                   hx-target="#order-modal-container"
                   hx-swap="innerHTML"
                   hx-on:click="event.stopPropagation()"
+                  hx-push-url="false"
                 >
                   Moderazione
                 </button>
