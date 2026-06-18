@@ -22,6 +22,15 @@ export default function BannedPage() {
         >
           Fai qualcos'altro
         </a>
+        <br />
+        <br />
+        <a
+        
+          href="/marketplace"
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+        >
+          Vai alla home, sempre se ti hanno sbloccato.
+        </a>
 
       </div>
     </div>
