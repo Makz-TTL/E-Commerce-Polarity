@@ -35,7 +35,6 @@ declare module "@fastify/session" {
       eMail: string
       passwordHash: string
       code: string
-  
     }
   }
 }
@@ -132,6 +131,21 @@ await server.register(import("@fastify/static"), {
   prefix: "/",
 })
 
+// Hook globale per iniettare l'utente corrente in ogni richiesta se loggato
+server.addHook("preHandler", async (req, _reply) => {
+  const session = req.session as any
+  if (session?.userId) {
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, session.userId)).limit(1)
+      if (user) {
+        req.currentUser = user
+      }
+    } catch (error) {
+      server.log.error(error)
+    }
+  }
+})
+
 viewsRouter(server)
 partialsRouter(server)
 actionsRouter(server)
@@ -160,5 +174,11 @@ server.get("/live-style", (_req, reply) => {
   return reply.type("text/css").send(css)
 })
 
-server.listen({ port: +env.PORT, host: "0.0.0.0" })
-console.log(`\nApp is listening on port ${env.PORT}\nTry http://localhost:${env.PORT}\n`)
+
+try {
+  await server.listen({ port: +env.PORT, host: "0.0.0.0" })
+  console.log(`\nApp is listening on port ${env.PORT}\nTry http://localhost:${env.PORT}\n`)
+} catch (err) {
+  server.log.error(err)
+  process.exit(1)
+}

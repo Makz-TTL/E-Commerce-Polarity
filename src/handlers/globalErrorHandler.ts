@@ -14,23 +14,24 @@ interface FastifyHttpError extends Error {
 export default function registerGlobalErrorHandler(server: FastifyInstance) {
   server.setErrorHandler((unknownError: unknown, request, reply) => {
     const error = unknownError as FastifyHttpError
-    console.error(error)
+    server.log.error(error)
 
     const statusCode = error.statusCode || 500
 
-
     switch (statusCode) {
+      case 400:
+        return renderPaymentError(request, reply)
       case 401:
         return renderNoAuth(request, reply)
       case 402:
-        
         return renderPaymentRequired(request, reply) 
       case 403:
         return renderForbidden(request, reply)
+      case 404:
+        return renderNotFound(request, reply)
       case 502:
         return renderServiceUnavailable(request, reply)
       default:
-        
         return renderError(request, reply)
     }
   })
