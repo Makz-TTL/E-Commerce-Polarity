@@ -321,7 +321,9 @@ export default function AdminDashboard({
 
         <div class="flex items-center justify-between border-b border-gray-100 pb-4">
           <div>
-            <a href="/"><div class="text-xs font-semibold text-indigo-600 uppercase tracking-widest mb-0.5">Torna al Marketplace</div></a>
+            <a href="/" class="text-2xl font-extrabold tracking-tight bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+                TechStore
+            </a>
             <h1 class="text-2xl font-bold tracking-tight text-gray-900">Admin dashboard</h1>
           </div>
           <a href="/" class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-indigo-600 transition-colors">
