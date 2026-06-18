@@ -1126,10 +1126,10 @@ export default (server: ZodFastifyInstance) => {
         return res.status(403).send("Non autorizzato");
       }
 
-      // Disabilita il prodotto
+      
       await db.update(products).set({ isDisable: true }).where(eq(products.id, productId));
 
-      // Gestione reindirizzamento se l'utente si trova dentro la pagina del singolo prodotto
+    
       const currentUrl = req.headers["hx-current-url"] as string || "";
       if (currentUrl.includes(`/product/${productId}`)) {
         return res.header("HX-Redirect", "/dashboard?tab=products").status(200).send();
@@ -1147,7 +1147,7 @@ export default (server: ZodFastifyInstance) => {
       // Imposta il trigger per il contatore
       res.header("HX-Trigger", "productDisabled");
 
-      // Restituisci la riga singola pulita
+      
       return res.send(<SingleProductRow product={updatedProduct} />);
 
     } catch (error) {
