@@ -279,40 +279,70 @@ server.get("/dashboard", async (req, res) => {
     )
   })
 
-  server.get("/product/:id", async (req, res) => {
-    const { id } = req.params as { id: string }
-    const productId = parseInt(id, 10)
+server.get("/product/:id", async (req, res) => {
+  const { id } = req.params as { id: string }
+  const productId = parseInt(id, 10)
 
-    if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido")
+  if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido")
 
-    try {
-      const productRows = await db
-        .select()
-        .from(products)
-        .leftJoin(users, eq(products.userId, users.id))
-        .where(eq(products.id, productId))
-        .limit(1)
+  try {
+    const productRows = await db
+      .select()
+      .from(products)
+      .leftJoin(users, eq(products.userId, users.id))
+      .where(eq(products.id, productId))
+      .limit(1)
 
-      const result = productRows[0]
-      if (!result) return res.status(404).send("Prodotto non trovato o non più disponibile")
+    const result = productRows[0]
+    if (!result) return res.status(404).send("Prodotto non trovato")
 
-      const product = {
-        ...result.products,
-        seller: result.users ? {
-          userName: result.users.userName,
-          name: result.users.name,
-          lastName: result.users.lastName,
-        } : undefined,
-      }
+    const currentSession = req.session as any
+    const sessionUsername = currentSession?.username
+    const isAdmin = currentSession?.isAdmin === true || currentSession?.isAdmin === "true" || currentSession?.isAdmin === 1
 
+    const productData = result.products
+    const sellerData = result.users
+
+    const isOwner = sessionUsername && sellerData?.userName && sessionUsername === sellerData.userName
+    const hasAccess = isOwner || isAdmin
+
+    if ((productData.status === "rejected" || productData.status === "pending") && !hasAccess) {
       return res.status(200).html(
         <MainLayout>
-          <ProductInfoPage product={product} session={req.session} />
+          <div class="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center">
+            <h1 class="text-4xl font-extrabold text-gray-900 tracking-tight">Accesso Negato</h1>
+            <p class="mt-2 text-base text-gray-500">Non hai accesso a questo prodotto</p>
+            <a href="/" class="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors">
+              Torna al Marketplace
+            </a>
+          </div>
         </MainLayout>
       )
-    } catch (error) {
-      server.log.error(error)
-      return res.status(500).send("Errore interno durante il caricamento dei dettagli del prodotto")
     }
-  })
+
+    const product = {
+      ...productData,
+      seller: sellerData ? {
+        userName: sellerData.userName,
+        name: sellerData.name,
+        lastName: sellerData.lastName,
+      } : {
+        userName: "Admin System",
+        name: "Amministratore",
+        lastName: "",
+      },
+    }
+
+    return res.html(
+      <MainLayout>
+       
+        <ProductInfoPage product={product} session={currentSession} />
+      </MainLayout>
+    )
+
+  } catch (error) {
+    server.log.error(error)
+    return res.status(500).send("Errore interno durante il caricamento dei dettagli del prodotto")
+  }
+})
 }

@@ -27,6 +27,7 @@ declare module "@fastify/session" {
   interface FastifySessionObject {
     sessionToken?: string
     username?: string
+    isAdmin: boolean
     tempUserData?: {
       name: string
       lastName: string
@@ -34,6 +35,7 @@ declare module "@fastify/session" {
       eMail: string
       passwordHash: string
       code: string
+  
     }
   }
 }
