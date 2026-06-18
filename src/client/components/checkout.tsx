@@ -8,11 +8,17 @@ type CheckoutProps = {
     productId: number
     quantity: number
     cartItem?: {         
-      productName: string
-      category: string
-      price: number | string
-      imageUrl?: string | null
-      isDisable: false
+      price: number;
+      imageUrl: string | null;
+      productName: string;
+      category: string;
+      id: number;
+      userId: number;
+      description: string | null;
+      stock: number;
+      isDisable: boolean;
+      status: string | null;
+      reliability: number | null;
     } | null
   }[]
   user?: { name: string; lastName: string } | null
