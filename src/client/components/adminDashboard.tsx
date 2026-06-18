@@ -111,158 +111,181 @@ type Props = {
 
 
 
-  
 
-export function ProductRows({ products }: { products: Product[] }) {
-  if (!products || products.length === 0) {
+  //Codice filtri prdotti.
+  export function ProductRows({ products }: { products: Product[] }) {
+    if (!products || products.length === 0) {
+      return (
+        <tr>
+          <td colspan="6" class="p-8 text-center text-sm text-gray-400">
+            Nessun prodotto trovato con i filtri selezionati.
+          </td>
+        </tr>
+      );
+    }
+
     return (
-      <tr>
-        <td colspan="6" class="p-8 text-center text-sm text-gray-400">
-          Nessun prodotto trovato con i filtri selezionati.
-        </td>
-      </tr>
+      <>
+        {products.map(product => {
+          const pct = stockPct(product.stock);
+          const color = stockColorClass(product.stock);
+          const esaurito = product.stock === 0;
+          const mod = moderationBadge[product.status ?? "pending"] ?? moderationBadge["pending"];
+
+          return (
+            <tr class="hover:bg-gray-50/50 transition-colors">
+              <td>
+
+                {product.isDisable && (
+                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-200 text-black-700 border border-amber-400">
+                    Disabilitato
+                  </span>
+                )}
+
+                {!product.isDisable && (
+                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-200 text-white-700 border border-green-400">
+                    Abilitato
+                  </span>
+                )}
+
+              </td>
+              <td class="p-4">
+                <div class="flex items-center gap-2">
+                  <span class={`w-2.5 h-2.5 rounded-full ${mod.dot}`}></span>
+                  <span class={`text-xs font-medium ${mod.text}`}>{mod.label}</span>
+                </div>
+              </td>
+              <td class="p-4 text-[14px] text-gray-700 font-semibold">{product.productName}</td>
+              <td class="p-4 text-gray-900">${product.price.toLocaleString("it-IT")}</td>
+              <td class="p-4">
+                <span class="text-gray-500 text-xs font-medium bg-gray-100 px-2 py-1 rounded-lg">
+                  {product.category}
+                </span>
+              </td>
+              <td class="p-4">
+                <div class="flex items-center gap-3 w-full">
+                  <div class="h-1.5 w-24 bg-gray-100 rounded-full overflow-hidden flex-shrink-0">
+                    <div class={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span class={`text-xs font-semibold ${esaurito ? "text-red-600 bg-red-50 px-1.5 py-0.5 rounded" : "text-gray-500"}`}>
+                    {esaurito ? "Esaurito" : product.stock}
+                  </span>
+                </div>
+              </td>
+              <td class="p-4 text-right">
+                <div class="flex gap-2 justify-end">
+                  <button
+                    class="px-3 py-1.5 text-xs font-medium rounded-xl text-indigo-700 border border-indigo-200 bg-white hover:bg-indigo-50 shadow-sm transition-all"
+                    hx-get={`/dashboard/products/${product.id}/status-modal`}
+                    hx-target="#order-modal-container"
+                    hx-swap="innerHTML"
+                  >
+                    Moderazione
+                  </button>
+                  {product.isDisable ? (
+                    /* Pulsante per RIABILITARE il prodotto */
+                    <button
+                      class="w-20 h-8 flex items-center justify-center text-xs font-medium rounded-xl text-green-600 border border-green-100 bg-white hover:bg-green-50 shadow-sm transition-all"
+                      hx-post={`/admin/product/${product.id}/enable`}
+                      hx-confirm={`Vuoi riabilitare "${product.productName}" nel catalogo?`}
+                      hx-target="closest tr"
+                      hx-swap="outerHTML"
+                    >
+                      Abilita
+                    </button>
+                  ) : (
+                    /* Pulsante per DISABILITARE il prodotto */
+                    <button
+                      class="w-20 h-8 flex items-center justify-center text-xs font-medium rounded-xl text-red-600 border border-red-100 bg-white hover:bg-red-50 shadow-sm transition-all"
+                      hx-delete={`/admin/product/${product.id}`}
+                      hx-confirm={`Eliminare "${product.productName}" definitivamente dal catalogo?`}
+                      hx-target="closest tr"
+                      hx-swap="outerHTML"
+                    >
+                      Disabilita
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          );
+        })}
+      </>
     );
   }
 
-  return (
-    <>
-      {products.map(product => {
-        const pct = stockPct(product.stock);
-        const color = stockColorClass(product.stock);
-        const esaurito = product.stock === 0;
-        const mod = moderationBadge[product.status ?? "pending"] ?? moderationBadge["pending"];
 
-        return (
-          <tr 
-            class="hover:bg-gray-50/50 cursor-pointer transition-all group"
-            hx-get={`/product/${product.id}`}
-            hx-trigger="click"
-            hx-target="body"
-            hx-push-url="true"
-          >
-            <td class="p-4">
-              <div class="flex items-center gap-2">
-                <span class={`w-2.5 h-2.5 rounded-full ${mod.dot}`}></span>
-                <span class={`text-xs font-medium ${mod.text}`}>{mod.label}</span>
-              </div>
-            </td>
-            <td class="p-4 text-[14px] text-gray-700 font-semibold group-hover:text-indigo-600 transition-colors">
-              {product.productName}
-            </td>
-            <td class="p-4 text-gray-900">${product.price.toLocaleString("it-IT")}</td>
-            <td class="p-4">
-              <span class="text-gray-500 text-xs font-medium bg-gray-100 px-2 py-1 rounded-lg">
-                {product.category}
-              </span>
-            </td>
-            <td class="p-4">
-              <div class="flex items-center gap-3 w-full">
-                <div class="h-1.5 w-24 bg-gray-100 rounded-full overflow-hidden flex-shrink-0">
-                  <div class={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+
+  //Codice filtro utenti.
+  export function UserRows({ user }: { user: User[] }) {
+    if (!user || user.length === 0) {
+      return (
+        <tr>
+          <td colspan="4" class="p-8 text-center text-sm text-gray-400">
+            Nessun utente trovato con questo filtro.
+          </td>
+        </tr>
+      );
+    }
+
+    return (
+      <>
+        {user.map((user, i) => {
+          const avatar = avatarColorClass(i);
+          const isActive = user.isVerified;
+          const isBanned = user.isBanned;
+
+          return (
+            <tr class={`transition-colors ${isBanned ? "bg-red-50/40 hover:bg-red-50/60" : "hover:bg-gray-50/50"}`}>
+              <td class="p-4">
+                <div class="flex items-center gap-2">
+                  <span class={`w-2.5 h-2.5 rounded-full ${isBanned ? "bg-red-600" : isActive ? "bg-emerald-600" : "bg-amber-500"}`} />
+                  <span class={`text-xs font-medium ${isBanned ? "text-red-600" : isActive ? "text-emerald-700" : "text-amber-700"}`}>
+                    {isBanned ? "Bannato" : isActive ? "Attivo" : "Non verificato"}
+                  </span>
                 </div>
-                <span class={`text-xs font-semibold ${esaurito ? "text-red-600 bg-red-50 px-1.5 py-0.5 rounded" : "text-gray-500"}`}>
-                  {esaurito ? "Esaurito" : product.stock}
-                </span>
-              </div>
-            </td>
-            <td class="p-4 text-right">
-              <div class="flex gap-2 justify-end">
+              </td>
+              
+              <td class="p-4">
+                <div class="flex items-center gap-3">
+                  <div class={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold ${avatar.bg} ${avatar.text}`}>
+                    {initials(user.name, user.lastName)}
+                  </div>
+                  <div>
+                    <div class="font-medium text-gray-900">
+                      {user.name} {user.lastName}
+                    </div>
+                    <div class="text-xs text-gray-400">@{user.userName}</div>
+                  </div>
+                </div>
+              </td>
+              
+              <td class="p-4 text-gray-500 font-normal">{user.eMail}</td>
+              
+              <td class="p-4 text-right">
                 <button
-                  class="px-3 py-1.5 text-xs font-medium rounded-xl text-indigo-700 border border-indigo-200 bg-white hover:bg-indigo-50 shadow-sm transition-all"
-                  hx-get={`/dashboard/products/${product.id}/status-modal`}
-                  hx-target="#order-modal-container"
-                  hx-swap="innerHTML"
-                  hx-on:click="event.stopPropagation()"
-                  hx-push-url="false"
-                >
-                  Moderazione
-                </button>
-                <button
-                  class="w-8 h-8 flex items-center justify-center text-xs font-medium rounded-xl text-red-600 border border-red-100 bg-white hover:bg-red-50 shadow-sm transition-all"
-                  hx-delete={`/admin/products/${product.id}`}
-                  hx-confirm={`Eliminare "${product.productName}" definitivamente dal catalogo?`}
+                  hx-post={isBanned ? `/admin/users/${user.id}/unban` : `/admin/users/${user.id}/ban`}
+                  hx-confirm={isBanned ? `Sbloccare ${user.name}?` : `Bannare ${user.name}?`}
                   hx-target="closest tr"
                   hx-swap="outerHTML"
-                  hx-on:click="event.stopPropagation()"
-                >
-                  ✕
-                </button>
-              </div>
-            </td>
-          </tr>
-        );
-      })}
-    </>
-  );
-}
-
-export function UserRows({ user }: { user: User[] }) {
-  if (!user || user.length === 0) {
-    return (
-      <tr>
-        <td colspan="4" class="p-8 text-center text-sm text-gray-400">
-          Nessun utente trovato con questo filtro.
-        </td>
-      </tr>
-    );
-  }
-
-  return (
-    <>
-      {user.map((user, i) => {
-        const avatar = avatarColorClass(i);
-        const isActive = user.isVerified;
-        const isBanned = user.isBanned;
-
-        return (
-          <tr class={`transition-colors ${isBanned ? "bg-red-50/40 hover:bg-red-50/60" : "hover:bg-gray-50/50"}`}>
-            <td class="p-4">
-              <div class="flex items-center gap-2">
-                <span class={`w-2.5 h-2.5 rounded-full ${isBanned ? "bg-red-600" : isActive ? "bg-emerald-600" : "bg-amber-500"}`} />
-                <span class={`text-xs font-medium ${isBanned ? "text-red-600" : isActive ? "text-emerald-700" : "text-amber-700"}`}>
-                  {isBanned ? "Bannato" : isActive ? "Attivo" : "Non verificato"}
-                </span>
-              </div>
-            </td>
-            
-            <td class="p-4">
-              <div class="flex items-center gap-3">
-                <div class={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold ${avatar.bg} ${avatar.text}`}>
-                  {initials(user.name, user.lastName)}
-                </div>
-                <div>
-                  <div class="font-medium text-gray-900">
-                    {user.name} {user.lastName}
-                  </div>
-                  <div class="text-xs text-gray-400">@{user.userName}</div>
-                </div>
-              </div>
-            </td>
-            
-            <td class="p-4 text-gray-500 font-normal">{user.eMail}</td>
-            
-            <td class="p-4 text-right">
-              <button
-                hx-post={isBanned ? `/admin/users/${user.id}/unban` : `/admin/users/${user.id}/ban`}
-                hx-confirm={isBanned ? `Sbloccare ${user.name}?` : `Bannare ${user.name}?`}
-                hx-target="closest tr"
-                hx-swap="outerHTML"
                 class={`w-24 px-4 py-2 text-sm font-semibold rounded-lg border transition-colors duration-150 text-center ${
                   isBanned
                     ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
                     : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
                 }`}
-              >
+                >
                 {isBanned ? "Pardon" : "Ban"}
-              </button>
-            </td>
-          </tr>
-        );
-      })}
-    </>
-  );
-}
+                </button>
+              </td>
+            </tr>
+          );
+        })}
+      </>
+    );
+  }
 
+
+  
 export default function AdminDashboard({
   activeTab = "users",
   allUsers,
@@ -270,7 +293,8 @@ export default function AdminDashboard({
   allOrders,
   ordersWithDetails,
   totalRevenue,
-  pendingOrders,
+
+
 }: Props) {
   const isUsers    = activeTab === "users"
   const isProducts = activeTab === "products"
