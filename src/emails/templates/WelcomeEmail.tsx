@@ -39,7 +39,6 @@ export default ({ name, code }: WelcomeEmailProps) => (
             Grazie per esserti registrato su TechStore. Usa il codice qui sotto per verificare il tuo account:
           </Text>
           
-          {/* Box ad alta visibilità per il codice OTP (Facile da selezionare e copiare a mano) */}
           <div className={"bg-gray-50 border border-gray-200 rounded-xl p-4 my-6 tracking-widest font-mono text-3xl font-extrabold text-indigo-600 select-all"}>
             {code}
           </div>
