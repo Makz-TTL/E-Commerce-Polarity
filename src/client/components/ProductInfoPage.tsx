@@ -6,8 +6,14 @@ import { getCartCount } from "../helpers/cartCounter"
 import { eq } from "drizzle-orm"
 import Navbar from "./Navbar"
 
+type CustomSession = FastifySessionObject & {
+  isAdmin?: boolean | string | number
+  username?: string
+}
+
 type Product = typeof productsTable.$inferSelect & {
   seller?: {
+    isAdmin? : boolean
     userName?: string
     name?: string
     lastName?: string
@@ -16,24 +22,26 @@ type Product = typeof productsTable.$inferSelect & {
 
 type Props = {
   product: Product | null
-  session?: FastifySessionObject
+  session?: CustomSession
 }
 
 export default async function ProductInfoPage({ product, session }: Props) {
+  const isAdmin = session?.isAdmin === true
   const isOwner = session?.username && product?.seller?.userName && session.username === product.seller.userName
+  const hasAccess = isOwner || isAdmin
 
-  if (!product || (product.status === "rejected" && !isOwner) || product.isDisable) {
+  if (!product || ((product.status === "rejected" || product.status === "pending") && !hasAccess) || product.isDisable) {
     return (
       <div class="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4 text-center" hx-boost="true">
         <h1 class="text-4xl font-extrabold text-gray-900 tracking-tight">404</h1>
         <p class="mt-2 text-base text-gray-500">Annuncio non trovato o non disponibile.</p>
-       <a 
-  href="/" 
-  hx-boost="false" 
-  class="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
->
-  Torna al Marketplace
-</a>
+        <a 
+          href="/" 
+          hx-boost="false" 
+          class="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
+        >
+          Torna al Marketplace
+        </a>
       </div>
     )
   }
@@ -67,14 +75,17 @@ export default async function ProductInfoPage({ product, session }: Props) {
     <div class="bg-gray-50/50 min-h-screen pb-12" hx-boost="true">
       <Navbar currentUser={currentUser} session={session} cartCount={cartCount} />
 
-      {product.status === "rejected" && (
+      {(product.status === "rejected" || product.status === "pending") && (
         <div class="max-w-5xl mx-auto px-6 mt-6">
           <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3 text-amber-800">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 shrink-0 text-amber-600">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
             <div class="text-sm font-medium">
-              Questo annuncio è stato rifiutato. Solo tu puoi visualizzare questa pagina.
+              {product.status === "rejected" 
+                ? "Questo annuncio è stato rifiutato. Solo tu e gli amministratori potete visualizzare questa pagina."
+                : "Questo annuncio è in attesa di approvazione. Solo tu e gli amministratori potete visualizzare questa pagina."
+              }
             </div>
           </div>
         </div>
@@ -149,7 +160,7 @@ export default async function ProductInfoPage({ product, session }: Props) {
                   class="absolute left-3 top-1/2 -translate-y-1/2 z-20 bg-white/80 hover:bg-white text-gray-800 p-2 rounded-full shadow-md transition-all opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-4 h-4">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
 
@@ -195,7 +206,7 @@ export default async function ProductInfoPage({ product, session }: Props) {
               <h1 class="text-3xl font-bold text-gray-900 break-words">{product.productName}</h1>
               
               <div class="text-2xl font-extrabold text-indigo-600">
-                ${product.price.toLocaleString("it-IT")}
+                €{product.price.toLocaleString("it-IT")}
               </div>
 
               <div class="pt-4 border-t border-gray-100">
@@ -221,22 +232,20 @@ export default async function ProductInfoPage({ product, session }: Props) {
               </div>
               
               <div class="flex gap-3">
-                {isOwnProduct ? (
-                  product.status !== "rejected" && (
-                    <button
-                      hx-delete={`/product/${product.id}`}
-                      hx-confirm="Sei sicuro di voler eliminare definitivamente questo annuncio? L'azione è irreversibile."
-                      hx-target="body"
-                      class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                      </svg>
-                      Elimina Annuncio
-                    </button>
-                  )
+                {isOwnProduct || isAdmin ? (
+                  <button
+                    hx-delete={`/product/${product.id}`}
+                    hx-confirm="Sei sicuro di voler eliminare definitivamente questo annuncio? L'azione è irreversibile."
+                    hx-target="body"
+                    class="inline-flex items-center gap-2 px-5 py-2.5 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-semibold rounded-xl text-sm transition-colors shadow-sm cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                    </svg>
+                    Elimina Annuncio
+                  </button>
                 ) : (
-                  product.status !== "rejected" && (
+                  product.status !== "rejected" && product.status !== "pending" && (
                     <div id={`purchase-actions-${product.id}`} class={product.stock > 0 ? "flex gap-3" : "hidden"}>
                       <div
                         id={`modal-${product.id}`}
@@ -362,16 +371,8 @@ export default async function ProductInfoPage({ product, session }: Props) {
 
       </div>
 
-      <div 
-        id="lightbox-modal" 
-        class="hidden fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 select-none"
-        onclick="this.classList.add('hidden')"
-      >
-        <button 
-          type="button" 
-          class="absolute top-4 right-4 text-white/70 hover:text-white p-2.5 rounded-full hover:bg-white/10 transition-colors z-50 cursor-pointer"
-          onclick="document.getElementById('lightbox-modal').classList.add('hidden')"
-        >
+      <div id="lightbox-modal" class="hidden fixed inset-0 bg-black/95 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 select-none" onclick="this.classList.add('hidden')">
+        <button type="button" class="absolute top-4 right-4 text-white/70 hover:text-white p-2.5 rounded-full hover:bg-white/10 transition-colors z-50 cursor-pointer" onclick="document.getElementById('lightbox-modal').classList.add('hidden')">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" class="w-6 h-6">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
           </svg>
@@ -379,12 +380,7 @@ export default async function ProductInfoPage({ product, session }: Props) {
 
         <div class="relative w-full max-w-5xl h-[80vh] flex items-center justify-center" onclick="event.stopPropagation()">
           {images.map((url, index) => (
-            <img 
-              src={url} 
-              alt={`Ingrandimento ${index + 1}`} 
-              data-lightbox-item
-              class="absolute max-w-full max-h-full object-contain transition-all duration-300 opacity-0 z-0 pointer-events-none"
-            />
+            <img src={url} alt={`Ingrandimento ${index + 1}`} data-lightbox-item class="absolute max-w-full max-h-full object-contain transition-all duration-300 opacity-0 z-0 pointer-events-none" />
           ))}
 
           {images.length > 1 && (
@@ -396,14 +392,11 @@ export default async function ProductInfoPage({ product, session }: Props) {
                   const imgs = container.querySelectorAll('[data-lightbox-item]');
                   const dots = document.querySelectorAll('[data-lightbox-dot]');
                   let idx = Array.from(imgs).findIndex(i => i.classList.contains('opacity-100'));
-                  
                   imgs[idx].classList.replace('opacity-100', 'opacity-0');
                   imgs[idx].classList.add('pointer-events-none');
                   imgs[idx].classList.replace('z-10', 'z-0');
                   if(dots.length) dots[idx].classList.replace('bg-white', 'bg-white/40');
-                  
                   idx = (idx - 1 + imgs.length) % imgs.length;
-                  
                   imgs[idx].classList.replace('opacity-0', 'opacity-100');
                   imgs[idx].classList.remove('pointer-events-none');
                   imgs[idx].classList.replace('z-0', 'z-10');
@@ -423,14 +416,11 @@ export default async function ProductInfoPage({ product, session }: Props) {
                   const imgs = container.querySelectorAll('[data-lightbox-item]');
                   const dots = document.querySelectorAll('[data-lightbox-dot]');
                   let idx = Array.from(imgs).findIndex(i => i.classList.contains('opacity-100'));
-                  
                   imgs[idx].classList.replace('opacity-100', 'opacity-0');
                   imgs[idx].classList.add('pointer-events-none');
                   imgs[idx].classList.replace('z-10', 'z-0');
                   if(dots.length) dots[idx].classList.replace('bg-white', 'bg-white/40');
-                  
                   idx = (idx + 1) % imgs.length;
-                  
                   imgs[idx].classList.replace('opacity-0', 'opacity-100');
                   imgs[idx].classList.remove('pointer-events-none');
                   imgs[idx].classList.replace('z-0', 'z-10');

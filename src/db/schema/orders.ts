@@ -5,7 +5,7 @@ import { products } from "./products"
 export const orders = pgTable("orders", {
   id: serial().primaryKey(),
   userId: integer().notNull().references(() => users.id, { onDelete: "cascade" }),
-  productId: integer().notNull().references(() => products.id, { onDelete: "set null" }),
+  productId: integer("productId").notNull().references(() => products.id, { onDelete: "cascade" }),
   quantity: integer().notNull(),
   totalPrice: doublePrecision().notNull(),
   address: text(),

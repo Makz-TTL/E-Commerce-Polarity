@@ -210,65 +210,80 @@ export default (server: ZodFastifyInstance) => {
   })
 
   server.post("/login", async (req, res) => {
-    const { redirect } = req.query as { redirect?: string }
-    const redirectTo = redirect || "/"
-    const result = loginSchema.safeParse(req.body)
+  const { redirect } = req.query as { redirect?: string }
+  const redirectTo = redirect || "/"
+  const result = loginSchema.safeParse(req.body)
 
-    if (!result.success) {
-      const fieldErrors = result.error.flatten().fieldErrors
-      return res.status(200).html(
-        <LoginForm redirectTo={redirectTo} values={req.body as any} error={{
+  if (!result.success) {
+    const fieldErrors = result.error.flatten().fieldErrors
+    return res.status(200).html(
+      <LoginForm 
+        redirectTo={redirectTo} 
+        values={req.body as any} 
+        error={{
           username: fieldErrors.username?.[0],
           password: fieldErrors.password?.[0],
-        }} />
-      )
-    }
+        }} 
+      />
+    )
+  }
 
-    const { username, password } = result.data
+  const { username, password } = result.data
 
-    try {
-      const [dbUser] = await db.select().from(users).where(eq(users.userName, username)).limit(1)
+  try {
+    const [dbUser] = await db.select().from(users).where(eq(users.userName, username)).limit(1)
 
-      if (!dbUser || !(await argon2.verify(dbUser.password, password))) {
-        return res.status(200).html(
-          <LoginForm redirectTo={redirectTo} values={{ username, password }} error={{ password: "Username o password errati" }} />
-        )
-      }
-
-      if (!dbUser.isVerified) {
-        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
-        await db.update(users).set({ verificationCode }).where(eq(users.id, dbUser.id))
-        await sendTemplateEmail({
-          to: dbUser.eMail,
-          subject: "Verifica il tuo account TechStore",
-          template: "WelcomeEmail",
-          payload: { name: dbUser.name, code: verificationCode },
-        })
-        return res.status(200).html(<OtpForm email={dbUser.eMail} />)
-      }
-
-      const sessionToken = crypto.randomBytes(32).toString("hex")
-      await db.update(users).set({ session: sessionToken }).where(eq(users.id, dbUser.id))
-
-      req.session.sessionToken = sessionToken
-      req.session.username = dbUser.userName
-      req.session.userId = dbUser.id
-
-      if (typeof req.session.save === "function") {
-        await req.session.save()
-      }
-
-      return res
-        .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Ti sei loggato con successo" } }))
-        .header("HX-Redirect", redirectTo)
-        .send()
-    } catch (error) {
-      server.log.error(error)
+    if (!dbUser || !(await argon2.verify(dbUser.password, password))) {
       return res.status(200).html(
-        <LoginForm redirectTo={redirectTo} values={result.data} error={{ password: "Si è verificato un errore interno. Riprova più tardi." }} />
+        <LoginForm 
+          redirectTo={redirectTo} 
+          values={{ username, password }} 
+          error={{ password: "Username o password errati" }} 
+        />
       )
     }
-  })
+
+    if (!dbUser.isVerified) {
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
+      await db.update(users).set({ verificationCode }).where(eq(users.id, dbUser.id))
+      await sendTemplateEmail({
+        to: dbUser.eMail,
+        subject: "Verifica il tuo account TechStore",
+        template: "WelcomeEmail",
+        payload: { name: dbUser.name, code: verificationCode },
+      })
+      return res.status(200).html(<OtpForm email={dbUser.eMail} />)
+    }
+
+    const sessionToken = crypto.randomBytes(32).toString("hex")
+    await db.update(users).set({ session: sessionToken }).where(eq(users.id, dbUser.id))
+
+    const session = req.session as any 
+    
+    session.sessionToken = sessionToken
+    session.username = dbUser.userName
+    session.userId = dbUser.id
+    session.isAdmin = dbUser.isAdmin === true 
+
+    if (typeof req.session.save === "function") {
+      await req.session.save()
+    }
+
+    return res
+      .header("HX-Trigger", JSON.stringify({ showSuccessToast: { message: "Ti sei loggato con successo" } }))
+      .header("HX-Redirect", redirectTo)
+      .send()
+  } catch (error) {
+    server.log.error(error)
+    return res.status(200).html(
+      <LoginForm 
+        redirectTo={redirectTo} 
+        values={result.data} 
+        error={{ password: "Si è verificato un errore interno. Riprova più tardi." }} 
+      />
+    )
+  }
+})
 
   server.post("/signUp", async (req, res) => {
     const result = signUpSchema.safeParse(req.body)
@@ -829,7 +844,6 @@ export default (server: ZodFastifyInstance) => {
 
 
 
-
   //End-point per il filtro della sezione ordini.
   server.get("/admin/orders/filter", async (request, reply) => {
     const { filter } = request.query as { filter?: string };
@@ -1022,7 +1036,8 @@ export default (server: ZodFastifyInstance) => {
       }
 
       return res.status(200).send()
-    } catch {
+    } catch (error){
+      console.error("DELETE /product/:id error:", error)
       return res.status(500).send("Impossibile eliminare il prodotto")
     }
   })
