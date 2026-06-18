@@ -828,7 +828,6 @@ export default (server: ZodFastifyInstance) => {
 
 
 
-
   //End-point per il filtro della sezione ordini.
   server.get("/admin/orders/filter", async (request, reply) => {
     const { filter } = request.query as { filter?: string };

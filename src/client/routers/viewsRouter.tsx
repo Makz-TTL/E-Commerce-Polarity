@@ -121,7 +121,7 @@ server.get("/dashboard", async (req, res) => {
     db.select().from(orders),
   ])
 
-  const totalRevenue = allOrders.reduce((sum, o) => sum + (o.totalPrice ?? 0), 0)
+  const totalRevenue = allOrders.reduce((sum, o) => sum + (o.totalPrice ?? 0) , 0)
   const pendingOrders = allOrders.filter(o => o.status === "pending").length
 
   const ordersWithDetails: OrderWithDetails[] = allOrders.map(order => {

@@ -234,14 +234,19 @@ const statusBadge: Record<string, { label: string; bg: string; text: string }> =
               <td class="p-4 text-gray-500 font-normal">{user.eMail}</td>
               
               <td class="p-4 text-right">
-                <button
-                  hx-post={isBanned ? `/admin/users/${user.id}/unban` : `/admin/users/${user.id}/ban`}
-                  hx-confirm={isBanned ? `Sbloccare ${user.name}?` : `Bannare ${user.name}?`}
-                  hx-target="closest tr"
-                  hx-swap="outerHTML"
-                >
-                  {isBanned ? "Sbanna" : "Banna"}
-                </button>
+               <button
+              hx-post={isBanned ? `/admin/users/${user.id}/unban` : `/admin/users/${user.id}/ban`}
+              hx-confirm={isBanned ? `Sbloccare ${user.name}?` : `Bannare ${user.name}?`}
+              hx-target="closest tr"
+              hx-swap="outerHTML"
+              class={`w-24 px-4 py-2 text-sm font-semibold rounded-lg border transition-colors duration-150 text-center ${
+                isBanned
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                  : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+              }`}
+            >
+              {isBanned ? "Pardon" : "Ban"}
+            </button>
               </td>
             </tr>
           );
