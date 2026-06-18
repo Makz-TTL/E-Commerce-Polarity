@@ -74,7 +74,7 @@ export function ProductStatusModal({ product }: { product: Product }) {
             <div class="flex gap-2">
               <button
                 class="flex-1 py-2 text-xs font-semibold rounded-xl border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors"
-                hx-patch={`/admin/products/${product.id}/status`}
+                hx-post={`/admin/products/${product.id}/status`}
                 hx-vals='{"status": "approved"}'
                 hx-swap="none"
                 hx-on-htmx-after-request="closeOrderModal()"
@@ -83,7 +83,7 @@ export function ProductStatusModal({ product }: { product: Product }) {
               </button>
               <button
                 class="flex-1 py-2 text-xs font-semibold rounded-xl border border-amber-200 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors"
-                hx-patch={`/admin/products/${product.id}/status`}
+                hx-post={`/admin/products/${product.id}/status`}
                 hx-vals='{"status": "pending"}'
                 hx-swap="none"
                 hx-on-htmx-after-request="closeOrderModal()"
@@ -92,7 +92,7 @@ export function ProductStatusModal({ product }: { product: Product }) {
               </button>
               <button
                 class="flex-1 py-2 text-xs font-semibold rounded-xl border border-red-200 text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
-                hx-patch={`/admin/products/${product.id}/status`}
+                hx-post={`/admin/products/${product.id}/status`}
                 hx-vals='{"status": "rejected"}'
                 hx-swap="none"
                 hx-on-htmx-after-request="closeOrderModal()"

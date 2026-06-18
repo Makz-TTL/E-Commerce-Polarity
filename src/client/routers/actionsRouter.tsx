@@ -1261,57 +1261,53 @@ export default (server: ZodFastifyInstance) => {
 
 
   //Modifica dello stato del prodotto.
-  server.patch("/admin/products/:id/status", async (req, res) => {
-    const callerUserName = req.session.username
-      
-    if (!callerUserName) {
-      return res.status(401).send("NO")
+ server.post("/admin/products/:id/status", async (req, res) => {
+  const callerUserName = req.session.username
+    
+  if (!callerUserName) {
+    return res.status(401).send("NO")
+  }
+
+  const callerUser = await db.query.users.findFirst({
+    where: {
+      userName: callerUserName
     }
-
-    const callerUser= await db.query.users.findFirst({
-      where: {
-        userName: callerUserName
-      }
-    })
-
-    if (!callerUser || !callerUser.isAdmin) {
-      return res.status(403).send("NO MA SEI LOGGATO")
-    }
-
-
-    const { id } = req.params as { id: string }
-    const { status } = req.body as { status: string }
-    const allowed = ["approved", "pending", "rejected"]
-    if (!allowed.includes(status)) return res.status(400).send("Stato non valido")
-    
-    await db.update(products).set({ status }).where(eq(products.id, parseInt(id, 10)))
-    
-  
-    const currentUrlHeader = req.headers["hx-current-url"] as string
-    let redirectUrl = "/dashboard?tab=products" 
-    
-    if (currentUrlHeader) {
-      const parsedUrl = new URL(currentUrlHeader)
-      
-    
-      parsedUrl.searchParams.set("toast", "Lo stato del prodotto e' stato cambiato")
-      parsedUrl.searchParams.set("toastType", "success")
-      
-      
-      if (!parsedUrl.searchParams.has("tab")) {
-        parsedUrl.searchParams.set("tab", "products")
-      }
-      
-      redirectUrl = parsedUrl.pathname + parsedUrl.search
-    } else {
-      const message = encodeURIComponent("Lo stato del prodotto e' stato cambiato")
-      redirectUrl = `/dashboard?tab=products&toast=${message}&toastType=success`
-    }
-
-    return res
-      .header("HX-Redirect", redirectUrl)
-      .send()
   })
+
+  if (!callerUser || !callerUser.isAdmin) {
+    return res.status(403).send("NO MA SEI LOGGATO")
+  }
+
+  const { id } = req.params as { id: string }
+  const { status } = req.body as { status: string }
+  const allowed = ["approved", "pending", "rejected"]
+  if (!allowed.includes(status)) return res.status(400).send("Stato non valido")
+  
+  await db.update(products).set({ status }).where(eq(products.id, parseInt(id, 10)))
+  
+  const currentUrlHeader = req.headers["hx-current-url"] as string
+  let redirectUrl = "/dashboard?tab=products" 
+  
+  if (currentUrlHeader) {
+    const parsedUrl = new URL(currentUrlHeader)
+    
+    parsedUrl.searchParams.set("toast", "Lo stato del prodotto e' stato cambiato")
+    parsedUrl.searchParams.set("toastType", "success")
+    
+    if (!parsedUrl.searchParams.has("tab")) {
+      parsedUrl.searchParams.set("tab", "products")
+    }
+    
+    redirectUrl = parsedUrl.pathname + parsedUrl.search
+  } else {
+    const message = encodeURIComponent("Lo stato del prodotto e' stato cambiato")
+    redirectUrl = `/dashboard?tab=products&toast=${message}&toastType=success`
+  }
+
+  return res
+    .header("HX-Redirect", redirectUrl)
+    .send()
+})
 
 
 
