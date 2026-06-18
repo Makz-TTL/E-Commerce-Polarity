@@ -1035,7 +1035,8 @@ export default (server: ZodFastifyInstance) => {
       }
 
       return res.status(200).send()
-    } catch {
+    } catch (error){
+      console.error("DELETE /product/:id error:", error)
       return res.status(500).send("Impossibile eliminare il prodotto")
     }
   })
