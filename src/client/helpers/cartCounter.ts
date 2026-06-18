@@ -1,4 +1,3 @@
-// src/server/helpers/cart.ts
 import { db } from "../../db"
 
 export async function getCartCount(username?: string): Promise<number> {

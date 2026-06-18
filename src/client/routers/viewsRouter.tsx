@@ -112,18 +112,21 @@ server.get("/dashboard", async (req, res) => {
 
   const callerUserName = req.session.username
   
-  if (!callerUserName){
-    return res.status(401).send("Devi effettuare il login")
-  }
+  if (!callerUserName) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return res.send(error)
+}
   
   const callerUser = await db.query.users.findFirst({
     where: { userName: callerUserName }
   })
   
   if (!callerUser || !callerUser.isAdmin){
-    return res.status(403).send("Non autorizzato")
-  }
-
+  const error = new Error("Non autorizzato") as any
+  error.statusCode = 403
+  return res.send(error)
+}
   const query = req.query as { tab?: string }
   const activeTab = query.tab || "users"
 
@@ -221,30 +224,35 @@ server.get("/dashboard", async (req, res) => {
   })
 
 
-  // routes/admin/orders.ts (o dove hai gli action routes)
   server.patch("/admin/orders/:id/status", async (request, reply) => {
     const callerUserName = request.session.username
     
-    if (!callerUserName){
-      return reply.status(401).send("Devi effettuare il login")
-    }
+     if (!callerUserName) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return reply.send(error)
+}
     
     const callerUser = await db.query.users.findFirst({
       where: { userName: callerUserName }
     })
     
     if (!callerUser || !callerUser.isAdmin){
-      return reply.status(403).send("Non autorizzato")
-    }
+  const error = new Error("Non autorizzato") as any
+  error.statusCode = 403
+  return reply.send(error)
+}
     
     const { id } = request.params as { id: string };
     const { status } = request.body as { status: string };
 
     const validStatuses = ["pending", "shipped", "delivered", "cancelled"];
 
-    if (!validStatuses.includes(status)) {
-      return reply.status(400).send({ error: "Stato non valido" });
-    }
+    if (!validStatuses.includes(status)){
+  const error = new Error("Stato non valido") as any
+  error.statusCode = 400
+  return reply.send(error)
+}
 
     await db
       .update(orders)
@@ -295,7 +303,11 @@ server.get("/product/:id", async (req, res) => {
   const { id } = req.params as { id: string }
   const productId = parseInt(id, 10)
 
-  if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido")
+  if (isNaN(productId)) {
+  const error = new Error("ID non valido") as any
+  error.statusCode = 400
+  return res.send(error)
+}
 
   try {
     const productRows = await db
@@ -306,7 +318,11 @@ server.get("/product/:id", async (req, res) => {
       .limit(1)
 
     const result = productRows[0]
-    if (!result) return res.status(404).send("Prodotto non trovato")
+    if (!result) {
+        const error = new Error("Prodotto non trovato") as any
+        error.statusCode = 404
+        throw error
+        }
 
     const currentSession = req.session as any
     const sessionUsername = currentSession?.username
@@ -347,14 +363,13 @@ server.get("/product/:id", async (req, res) => {
 
     return res.html(
       <MainLayout>
-       
         <ProductInfoPage product={product} session={currentSession} />
       </MainLayout>
     )
 
   } catch (error) {
     server.log.error(error)
-    return res.status(500).send("Errore interno durante il caricamento dei dettagli del prodotto")
+    return res.send(error)
   }
 })
 }

@@ -53,10 +53,18 @@ export default (server: ZodFastifyInstance) => {
     const { id } = request.params as { id: string };
 
     const token = request.session.sessionToken;
-    if (!token) return reply.status(401).send("Non autorizzato");
+     if (!token) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return reply.send(error)
+}
 
     const callerUser = await db.select().from(users).where(eq(users.session, token)).limit(1);
-    if (!callerUser[0]?.isAdmin) return reply.status(403).send("Non autorizzato");
+    if (!callerUser[0]?.isAdmin)  {
+    const error = new Error("Non autorizzato") as any
+    error.statusCode = 403
+    return reply.send(error)
+}
 
     await db.update(users).set({ isBanned: true }).where(eq(users.id, Number(id)));
     const [updatedUser] = await db.select().from(users).where(eq(users.id, Number(id)));
@@ -74,10 +82,18 @@ export default (server: ZodFastifyInstance) => {
     const { id } = request.params as { id: string };
 
     const token = request.session.sessionToken;
-    if (!token) return reply.status(401).send("Non autorizzato");
+      if (!token) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return reply.send(error)
+}
 
     const callerUser = await db.select().from(users).where(eq(users.session, token)).limit(1);
-    if (!callerUser[0]?.isAdmin) return reply.status(403).send("Non autorizzato");
+    if (!callerUser[0]?.isAdmin){
+      const error = new Error("Non autorizzato") as any
+      error.statusCode = 403
+      return reply.send(error)
+}
 
     await db.update(users).set({ isBanned: false }).where(eq(users.id, Number(id)));
     const [updatedUser] = await db.select().from(users).where(eq(users.id, Number(id)));
@@ -170,7 +186,11 @@ export default (server: ZodFastifyInstance) => {
 
   //Aggiornamento contatore automaticamente.
   server.get("/admin/stats/total-products", async (req, res) => {
-    if (!req.session.username) return res.status(401).send();
+     if (!req.session.username) {
+      const error = new Error("Devi effettuare il login") as any
+      error.statusCode = 401
+      return res.send(error)
+    }
 
     try {
       // Conta SOLO i prodotti che NON sono disabilitati
@@ -193,10 +213,10 @@ export default (server: ZodFastifyInstance) => {
           <span class="text-gray-400 text-[12px] font-medium">Articoli online</span>
           <div class="text-[24px] font-bold text-gray-900">${onlineProducts}</div>
         </div>
-      `);
-    } catch (error) {
-      console.error(error);
-      return res.status(500).send();
+      `)
+    } catch(error) {
+      server.log.error(error)
+      return res.send(error)
     }
   });
 
@@ -207,17 +227,19 @@ export default (server: ZodFastifyInstance) => {
   //Modale per l'edit del profilo.
   server.get("/edit-profile-modal", async (req, res) => {
     if (!req.session.username) {
-      return res.status(401).html(
-        <div class="p-6 text-center">
-          <p class="text-gray-600 mb-4">Devi essere autenticato per modificare il profilo.</p>
-        </div>
-      )
-    }
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return res.send(error)
+}
 
     try {
       const [currentUser] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
 
-      if (!currentUser) return res.status(404).send("Utente non trovato")
+      if (!currentUser) {
+        const error = new Error("Utente non trovato") as any
+        error.statusCode = 404
+        throw error
+        }
 
       return res.status(200).html(
         <div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" id="editProfileModalContainer" onclick="if(event.target === this) this.remove()">
@@ -248,7 +270,8 @@ export default (server: ZodFastifyInstance) => {
       )
     } catch (error) {
       server.log.error(error)
-      return res.status(500).send("Errore nel caricamento dei dati del profilo")
+      server.log.error(error)
+      return res.send(error)
     }
   })
 
@@ -258,7 +281,11 @@ export default (server: ZodFastifyInstance) => {
 
   //Modale per l'edit della password.
   server.get("/editPassword-modal", async (req, res) => {
-    if (!req.session.username) return res.status(401).send("Non autorizzato")
+     if (!req.session.username) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return res.send(error)
+}
     return res.status(200).html(<EditPasswordForm />)
   })
 
@@ -274,7 +301,11 @@ export default (server: ZodFastifyInstance) => {
 
   //Modifica effettiva della password.
   server.post("/editPassword", async (req, res) => {
-    if (!req.session.username) return res.status(401).send("Non autorizzato")
+     if (!req.session.username) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return res.send(error)
+}
 
     const result = editPasswordSchema.safeParse(req.body)
 
@@ -400,23 +431,33 @@ export default (server: ZodFastifyInstance) => {
   })
 
   server.get("/sell-product-modal", async (req, res) => {
-    if (!req.session.username) {
-      return res.status(401).html(
-        <div class="p-6 text-center">
-          <p class="text-gray-600 mb-4">Devi essere autenticato per vendere un prodotto.</p>
-        </div>
-      )
-    }
+     if (!req.session.username) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return res.send(error)
+}
 
     return res.status(200).html(<SellProductModal />)
   })
 
   server.get("/resend-verification", async (req, res) => {
-    if (!req.session.username) return res.status(401).send("Non autorizzato")
+     if (!req.session.username) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return res.send(error)
+}
 
     const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-    if (!user) return res.status(404).send("Utente non trovato")
-    if (user.isVerified) return res.status(400).send("Account già verificato")
+    if (!user) {
+        const error = new Error("Utente non trovato") as any
+        error.statusCode = 404
+        return res.send(error)
+        }
+    if (user.isVerified){
+  const error = new Error("Account gia' verificato") as any
+  error.statusCode = 400
+  return res.send(error)
+}
 
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
 
@@ -435,7 +476,11 @@ export default (server: ZodFastifyInstance) => {
   })
 
 server.get("/profile/transactions", async (req, res) => {
-  if (!req.session.username) return res.status(401).send("Non autorizzato")
+   if (!req.session.username) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return res.send(error)
+}
 
   const [user] = await db
     .select()
@@ -443,7 +488,11 @@ server.get("/profile/transactions", async (req, res) => {
     .where(eq(users.userName, req.session.username))
     .limit(1)
 
-  if (!user) return res.status(404).send("Utente non trovato")
+  if (!user) {
+        const error = new Error("Utente non trovato") as any
+        error.statusCode = 404
+        return res.send(error)
+        }
 
   const userProducts = await db
     .select()
@@ -482,7 +531,11 @@ server.get("/profile/transactions", async (req, res) => {
     server.get("/dashboard/products/:id/status-modal", async (req, res) => {
     const { id } = req.params as { id: string }
     const product = await db.query.products.findFirst({ where: { id: parseInt(id, 10) } })
-    if (!product) return res.status(404).send("Prodotto non trovato")
+    if (!product) {
+        const error = new Error("Prodotto non trovato") as any
+        error.statusCode = 404
+        return res.send(error)
+        }
     return res.status(200).html(<ProductStatusModal product={product} />)
   })
   

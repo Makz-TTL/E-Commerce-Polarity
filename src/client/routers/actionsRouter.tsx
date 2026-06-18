@@ -363,30 +363,53 @@ export default (server: ZodFastifyInstance) => {
 
 
   server.post("/deleteFromCart/:id", async (req, res) => {
-    const { id } = req.params as { id: string }
-    const cartID = parseInt(id, 10)
+  const { id } = req.params as { id: string }
+  const cartID = parseInt(id, 10)
 
-    if (isNaN(cartID)) return res.status(400).send("ID non valido")
+  if (isNaN(cartID)) {
+  const error = new Error("ID non valido") as any
+  error.statusCode = 400
+  return res.send(error)
+}
 
-    try {
-      const [item] = await db.select().from(cart).where(and(eq(cart.id, cartID), eq(cart.userId, req.currentUser!.id))).limit(1)
-      if (!item) return res.status(403).send("Non autorizzato")
 
-      await db.delete(cart).where(eq(cart.id, cartID))
-      return res.header("HX-Redirect", "/cart").send()
-    } catch (error) {
-      server.log.error(error)
-      return res.status(500).send("Errore durante l'eliminazione")
+  if (!req.currentUser) {
+    const error = new Error("Autenticazione richiesta") as any
+    error.statusCode = 401
+    return res.send(error)
+  }
+
+  try {
+    const [item] = await db
+      .select()
+      .from(cart)
+      .where(and(eq(cart.id, cartID), eq(cart.userId, req.currentUser.id)))
+      .limit(1)
+
+    if (!item) {
+      const error = new Error("Non autorizzato") as any
+      error.statusCode = 403
+      throw error
     }
-  })
+
+    await db.delete(cart).where(eq(cart.id, cartID))
+    return res.header("HX-Redirect", "/cart").send()
+  } catch (error) {
+    server.log.error(error)
+    return res.send(error)
+  }
+})
 
   server.get("/addToCart/:id", async (req, res) => {
     const { id } = req.params as { id: string }
     const productId = parseInt(id, 10)
     const quantity = parseInt((req.query as { quantity?: string }).quantity || "1", 10)
 
-    if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido")
-    if (isNaN(quantity) || quantity < 1) return res.status(400).send("Quantità non valida")
+    if (isNaN(productId)) {
+  const error = new Error("ID non valido o quantita' non valida") as any
+  error.statusCode = 400
+  return res.send(error)
+}
 
     if (!req.session.sessionToken) {
       return res
@@ -403,7 +426,11 @@ export default (server: ZodFastifyInstance) => {
 
     try {
       const [product] = await db.select().from(products).where(eq(products.id, productId)).limit(1)
-      if (!product) return res.status(404).send("Prodotto non trovato")
+      if (!product) {
+        const error = new Error("Prodotto non trovato") as any
+        error.statusCode = 404
+        throw error
+        }
 
       if (product.userId === user.id) {
         return res.header("HX-Trigger", JSON.stringify({ showErrorToast: { message: "Non puoi aggiungere al carrello un tuo prodotto!" } })).send()
@@ -427,27 +454,23 @@ export default (server: ZodFastifyInstance) => {
 
       // --- LOGICA DI AGGIORNAMENTO IN TEMPO REALE (HTMX OOB) ---
 
-      // 1. Recupera tutti gli elementi aggiornati nel carrello dell'utente (con i dati del prodotto associato)
+      // Recupera tutti gli elementi aggiornati nel carrello dell'utente (con i dati del prodotto associato)
       const cartProducts = await db.query.cart.findMany({
         where: user ? { userId: user.id } : undefined,
         with: { cartItem: true },
       })
-      
 
-      // where: user ? { userId: user.id } : undefined,
-      //   with: { cartItem: true },
-
-      // 2. Calcola il nuovo prezzo totale globale del carrello
+      // Calcola il nuovo prezzo totale globale del carrello
       const totalCart = cartProducts.reduce((sum, item) => {
         const price = item.cartItem?.price ? Number(item.cartItem.price) : 0
         const quantity = item.quantity ? Number(item.quantity) : 1
         return sum + price * quantity
       }, 0)
 
-      // 3. Calcola il numero di elementi totali per il badge
+      // Calcola il numero di elementi totali per il badge
       const cartCount = await getCartCount(user.userName)
 
-      // 4. Rispondi impostando il Toast nell'header e i nodi OOB nel body dell'HTML
+      // Rispondi impostando il Toast nell'header e i nodi OOB nel body dell'HTML
       res.header("HX-Trigger", JSON.stringify({ showAddedToCartToast: { message: `${quantity}x ${product.productName} aggiunto al carrello!` } }))
       res.header("Content-Type", "text/html")
 
@@ -463,7 +486,8 @@ export default (server: ZodFastifyInstance) => {
           </>
       )
     } catch (error) {
-      return res.status(500).send("Errore durante l'aggiunta al carrello")
+      server.log.error(error)
+      return res.send(error)
     }
   })
 
@@ -499,8 +523,8 @@ export default (server: ZodFastifyInstance) => {
         .header("HX-Redirect", `/profile?username=${username}`)
         .send()
     } catch (error) {
-      server.log.error(error)
-      return res.status(500).send("Errore interno durante il salvataggio.")
+     server.log.error(error)
+     return res.send(error)
     }
   })
 
@@ -512,22 +536,30 @@ export default (server: ZodFastifyInstance) => {
     const { cartId } = req.params as { cartId: string }
     const newQty = parseInt((req.body as { quantity: string }).quantity, 10)
 
-    if (isNaN(newQty) || newQty < 1) return res.status(400).send("Quantità non valida")
+    if (isNaN(newQty) || newQty < 1){
+  const error = new Error("ID non valido") as any
+  error.statusCode = 400
+  return res.send(error)
+}
 
     try {
-      // 1. Controlla se l'elemento appartiene all'utente
+      // Controlla se l'elemento appartiene all'utente
       const [item] = await db.select().from(cart)
         .where(and(eq(cart.id, parseInt(cartId, 10)), eq(cart.userId, req.currentUser!.id)))
         .limit(1)
         
-      if (!item) return res.status(403).send("Non autorizzato")
+      if (!item) {
+  const error = new Error("Non autorizzato") as any
+  error.statusCode = 403
+  return res.send(error)
+}
 
-      // 2. AGGIORNA LA QUANTITÀ NEL DATABASE (Questo mancava!)
+      // Aggiorna la quantità nel database
       await db.update(cart)
         .set({ quantity: newQty })
         .where(eq(cart.id, parseInt(cartId, 10)))
 
-      // 3. Recupera l'utente e i prodotti AGGIORNATI dal database
+      // Recupera l'utente e i prodotti aggiornati dal database
       const user = await db.query.users.findFirst({ where: { userName: req.session?.username } })
 
       const cartProducts = await db.query.cart.findMany({
@@ -535,20 +567,20 @@ export default (server: ZodFastifyInstance) => {
         with: { cartItem: true },
       })
 
-      // 4. Calcola il totale globale del carrello con i dati aggiornati
+      // Calcola il totale globale del carrello con i dati aggiornati
       const totalCart = cartProducts.reduce((sum, item) => {
         const price = item.cartItem?.price ? Number(item.cartItem.price) : 0
         const quantity = item.quantity ? Number(item.quantity) : 1
         return sum + price * quantity
       }, 0)
 
-      // 5. Trova l'elemento corrente aggiornato per calcolare il suo totale parziale
+      // Trova l'elemento corrente aggiornato per calcolare il suo totale parziale
       const updatedItem = cartProducts.find(p => p.id === parseInt(cartId, 10))
       const itemTotal = (Number(updatedItem?.cartItem?.price) || 0) * (Number(updatedItem?.quantity) || 1)
 
       const cartCount = await getCartCount(req.session?.username)
 
-      // 6. Rispondi con i blocchi OOB (Out-of-Band) aggiornati
+      // Rispondi con i blocchi OOB (Out-of-Band) aggiornati
       return res.status(200).html(
         <>
           <span id={`item-total-${cartId}`} class="text-xl font-semibold text-black-600" hx-swap-oob="true">
@@ -562,7 +594,7 @@ export default (server: ZodFastifyInstance) => {
       )
     } catch (error) {
       server.log.error(error)
-      return res.status(500).send("Errore interno del server")
+      return res.send(error)
     }
   })
 
@@ -887,66 +919,66 @@ export default (server: ZodFastifyInstance) => {
 
   //End-point per il filtro della sezione utenti.
   server.get('/admin/products/filter', async (req, reply) => {
-    // 1. Recupera i parametri di filtro inviati dal form HTMX
+    // Recupera i parametri di filtro inviati dal form HTMX
     const { status, sortPrice, sortStock } = req.query as { 
       status?: string; 
       sortPrice?: 'asc' | 'desc'; 
       sortStock?: 'asc' | 'desc';
     };
 
-    // 2. Prendi i prodotti reali dal database (esegui la query asincrona)
+    // Prendi i prodotti reali dal database (esegui la query asincrona)
     const dbProducts = await db.select().from(products); 
     // NOTA: Assicurati che "products" sia il riferimento corretto alla tabella del tuo schema db
     
     let filteredProducts = [...dbProducts];
 
-    // 3. Logica di filtraggio dello stato
+    // Logica di filtraggio dello stato
     if (status && status !== 'all') {
       filteredProducts = filteredProducts.filter(p => p.status === status);
     }
     
-    // 4. Logica di ordinamento del Prezzo
+    // Logica di ordinamento del Prezzo
     if (sortPrice === 'asc') {
       filteredProducts.sort((a, b) => Number(a.price) - Number(b.price));
     } else if (sortPrice === 'desc') {
       filteredProducts.sort((a, b) => Number(b.price) - Number(a.price));
     }
     
-    // 5. Logica di ordinamento dello Stock
+    // Logica di ordinamento dello Stock
     if (sortStock === 'asc') {
       filteredProducts.sort((a, b) => Number(a.stock) - Number(b.stock));
     } else if (sortStock === 'desc') {
       filteredProducts.sort((a, b) => Number(b.stock) - Number(a.stock));
     }
 
-    // 6. Imposta l'header corretto e rispondi con il componente compilato
+    // Imposta l'header corretto e rispondi con il componente compilato
     reply.header("Content-Type", "text/html");
     return reply.send(<ProductRows products={filteredProducts} />);
   });
 
 
   server.get('/admin/users/filter', async (req, reply) => {
-    // 1. Recupera il parametro di stato inviato da HTMX
+    // Recupera il parametro di stato inviato da HTMX
     const { status } = req.query as { status?: 'all' | 'active' | 'inactive' | 'banned' };
 
-    // 2. Prendi gli utenti dal database usando la tua istanza db
+    // Prendi gli utenti dal database usando la tua istanza db
     const dbUsers = await db.select().from(users); // Assicurati che "users" punti alla tabella corretta
 
     let filteredUsers = [...dbUsers];
 
-    // 3. Logica di filtraggio
+    // Logica di filtraggio
     if (status === 'active') {
       // Utenti verificati e NON bannati
       filteredUsers = filteredUsers.filter(u => u.isVerified && !u.isBanned);
     } else if (status === 'inactive') {
-      // Utenti non verificati e NON bannati (corretto anche il pallino arancione nel front-end)
+      // Utenti non verificati e NON bannati
       filteredUsers = filteredUsers.filter(u => !u.isVerified && !u.isBanned);
     } else if (status === 'banned') {
       // Utenti bannati
       filteredUsers = filteredUsers.filter(u => u.isBanned);
     }
 
-    // 4. Invia la risposta HTML parziale
+    // Invia la risposta HTML parziale
     reply.header("Content-Type", "text/html");
     return reply.send(
         <UserRows user={filteredUsers} />
@@ -958,26 +990,31 @@ export default (server: ZodFastifyInstance) => {
   server.post("/admin/orders/:id/status", async (request, reply) => {
     const callerUserName = request.session.username
 
-    if (!callerUserName) {
-      return reply.status(401).send("Devi effettuare il login")
+   if (!callerUserName) {
+    const error = new Error("Devi effettuare il login") as any
+    error.statusCode = 401
+    return reply.send(error)
     }
 
     const callerUser = await db.query.users.findFirst({
       where: { userName: callerUserName }
     })
 
-    if (!callerUser || !callerUser.isAdmin) {
-      return reply.status(403).send("Non autorizzato")
-    }
+    if (!callerUser || !callerUser.isAdmin){
+  const error = new Error("Non autorizzato") as any
+  error.statusCode = 403
+  return reply.send(error)
+}
 
     const { id } = request.params as { id: string };
     const { status } = request.body as { status: string };
 
     const validStatuses = ["pending", "shipped", "delivered", "cancelled"];
-    if (!validStatuses.includes(status)) {
-      return reply.status(400).send({ error: "Stato non valido" });
-    }
-
+    if (!validStatuses.includes(status)){
+    const error = new Error("Stato non valido") as any
+    error.statusCode = 400
+    return reply.send(error)
+}
     await db.update(orders).set({ status }).where(eq(orders.id, Number(id)));
 
     const badge = statusBadge[status] ?? statusBadge["pending"];
@@ -1032,12 +1069,24 @@ export default (server: ZodFastifyInstance) => {
   const { id } = req.params as { id: string }
   const productId = parseInt(id, 10)
 
-  if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido")
-  if (!req.session.username) return res.status(401).send("Devi effettuare il login per completare questa azione")
+  if (isNaN(productId)) {
+  const error = new Error("ID non valido") as any
+  error.statusCode = 400
+  return res.send(error)
+}
+  if (!req.session.username) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return res.send(error)
+}
 
   try {
     const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1)
-    if (!user) return res.status(404).send("Utente non trovato")
+    if (!user) {
+        const error = new Error("Utente non trovato") as any
+        error.statusCode = 404
+        throw error
+        }
 
     await db.delete(orders).where(eq(orders.productId, productId))
     await db.delete(products).where(and(eq(products.id, productId), eq(products.userId, user.id)))
@@ -1049,8 +1098,8 @@ export default (server: ZodFastifyInstance) => {
 
     return res.status(200).send()
   } catch (err) {
-    console.error("DELETE /product/:id error:", err)
-    return res.status(500).send("Impossibile eliminare il prodotto")
+    server.log.error(err)
+    return res.send(err)
   }
 })
 
@@ -1062,14 +1111,26 @@ export default (server: ZodFastifyInstance) => {
     const { id } = req.params as { id: string };
     const productId = parseInt(id, 10);
 
-    if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido");
-    if (!req.session.username) return res.status(401).send("Devi effettuare il login");
+    if (isNaN(productId)) {
+  const error = new Error("ID non valido") as any
+  error.statusCode = 400
+  return res.send(error)
+}
+    if (!req.session.username) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return res.send(error)
+}
 
     try {
       const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1);
-      if (!user || !user.isAdmin) return res.header("HX-Redirect", "/unauthorized").status(403).send();
+     if (!user || user.isAdmin) {
+        const error = new Error("Non autorizzato") as any
+        error.statusCode = 403
+        throw error
+      }
 
-      // 1. Disabilita il prodotto
+      // Disabilita il prodotto
       await db.update(products).set({ isDisable: true }).where(eq(products.id, productId));
 
       // Gestione reindirizzamento se l'utente si trova dentro la pagina del singolo prodotto
@@ -1094,8 +1155,8 @@ export default (server: ZodFastifyInstance) => {
       return res.send(<SingleProductRow product={updatedProduct} />);
 
     } catch (error) {
-      console.error(error);
-      return res.status(500).send("Errore durante la disattivazione");
+      server.log.error(error)
+      return res.send(error)
     }
   });
 
@@ -1107,14 +1168,26 @@ export default (server: ZodFastifyInstance) => {
     const { id } = req.params as { id: string };
     const productId = parseInt(id, 10);
 
-    if (isNaN(productId)) return res.status(400).send("ID Prodotto non valido");
-    if (!req.session.username) return res.status(401).send("Devi effettuare il login");
+    if (isNaN(productId)) {
+  const error = new Error("ID non valido") as any
+  error.statusCode = 400
+  return res.send(error)
+}
+    if (!req.session.username) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return res.send(error)
+}
 
     try {
       const [user] = await db.select().from(users).where(eq(users.userName, req.session.username)).limit(1);
-      if (!user || !user.isAdmin) return res.header("HX-Redirect", "/unauthorized").status(403).send();
+      if (!user || user.isAdmin) {
+        const error = new Error("Non autorizzato") as any
+        error.statusCode = 403
+        throw error
+      }
 
-      // 1. Riabilita il prodotto
+      // Riabilita il prodotto
       await db.update(products).set({ isDisable: false }).where(eq(products.id, productId));
 
       // 2. Recupera l'INTERO record del prodotto aggiornato per SingleProductRow
@@ -1133,8 +1206,8 @@ export default (server: ZodFastifyInstance) => {
       return res.send(<SingleProductRow product={updatedProduct} />);
 
     } catch (error) {
-      console.error(error);
-      return res.status(500).send("Errore durante l'attivazione");
+      server.log.error(error)
+      return res.send(error)
     }
   });
 
@@ -1149,8 +1222,16 @@ export default (server: ZodFastifyInstance) => {
     const user = req.currentUser!
 
     const product = await db.query.products.findFirst({ where: { id: productId } })
-    if (!product) return res.status(404).send("Prodotto non trovato")
-    if (product.userId !== user.id) return res.status(403).send("Non autorizzato")
+    if (!product) {
+        const error = new Error("Prodotto non trovato") as any
+        error.statusCode = 404
+        return res.send(error)
+        }
+    if (product.userId !== user.id){
+  const error = new Error("Non autorizzato") as any
+  error.statusCode = 403
+  return res.send(error)
+}
 
     return res.status(200).html(<EditProductModal product={product} />)
   })
@@ -1168,8 +1249,16 @@ export default (server: ZodFastifyInstance) => {
     fs.mkdirSync(resolvedUploadDir, { recursive: true })
 
     const existingProduct = await db.query.products.findFirst({ where: { id: productId } })
-    if (!existingProduct) return res.status(404).send("Prodotto non trovato")
-    if (existingProduct.userId !== user.id) return res.status(403).send("Non autorizzato")
+    if (!existingProduct) {
+        const error = new Error("Prodotto non trovato") as any
+        error.statusCode = 404
+       return res.send(error)
+        }
+    if (existingProduct.userId !== user.id){
+  const error = new Error("Non autorizzato") as any
+  error.statusCode = 403
+  return res.send(error)
+}
 
     try {
       const parts = req.parts()
@@ -1260,26 +1349,20 @@ export default (server: ZodFastifyInstance) => {
     } catch (error) {
       server.log.error(error, "edit-product error")
       if (!res.sent) {
-        res.status(500).send("Errore durante la modifica del prodotto")
+       server.log.error(error)
+        return res.send(error)
       }
     }
   })
 
-
-
-  
-  //BACKEND LOGIC FOR ADMIN
-
-
-
-
-  //Modifica dello stato del prodotto.
  server.post("/admin/products/:id/status", async (req, res) => {
   const callerUserName = req.session.username
     
-  if (!callerUserName) {
-    return res.status(401).send("NO")
-  }
+   if (!callerUserName) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return res.send(error)
+}
 
   const callerUser = await db.query.users.findFirst({
     where: {
@@ -1288,13 +1371,19 @@ export default (server: ZodFastifyInstance) => {
   })
 
   if (!callerUser || !callerUser.isAdmin) {
-    return res.status(403).send("NO MA SEI LOGGATO")
+    const error = new Error("Non autorizzato") as any
+    error.statusCode = 403
+    return res.send(error)
   }
 
   const { id } = req.params as { id: string }
   const { status } = req.body as { status: string }
   const allowed = ["approved", "pending", "rejected"]
-  if (!allowed.includes(status)) return res.status(400).send("Stato non valido")
+  if (!allowed.includes(status)){
+  const error = new Error("Stato non valido") as any
+  error.statusCode = 400
+  return res.send(error)
+}
   
   await db.update(products).set({ status }).where(eq(products.id, parseInt(id, 10)))
   
@@ -1325,18 +1414,28 @@ export default (server: ZodFastifyInstance) => {
 
 
 server.post("/orders/:id/cancel", async (req, res) => {
-  if (!req.session.username) return res.status(401).send("Non autorizzato")
+  if (!req.session.username) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return res.send(error)
+}
 
   const params = req.params as { id: string }
   const orderId = Number(params.id)
   
   const [user] = await db.select().from(users).where(eq(users.userName, req.session.username))
-  if (!user) return res.status(404).send("Utente non trovato")
+  if (!user) {
+        const error = new Error("Utente non trovato") as any
+        error.statusCode = 404
+        return res.send(error)
+        }
 
   const [order] = await db.select().from(orders).where(eq(orders.id, orderId))
   if (!order || order.userId !== user.id || order.status !== "not yet sent") {
-    return res.status(403).send("Azione non permessa")
-  }
+  const error = new Error("Non autorizzato") as any
+  error.statusCode = 403
+  return res.send(error)
+}
 
   const [product] = await db.select().from(products).where(eq(products.id, order.productId))
   if (product) {
@@ -1353,7 +1452,11 @@ server.post("/orders/:id/cancel", async (req, res) => {
 
 
 server.post("/orders/:id/mark-sent", async (req, res) => {
-  if (!req.session.username) return res.status(401).send("Non autorizzato")
+   if (!req.session.username) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return res.send(error)
+}
 
   const params = req.params as { id: string }
   const orderId = Number(params.id)
@@ -1366,8 +1469,10 @@ server.post("/orders/:id/mark-sent", async (req, res) => {
   })
 
   if (!order || order.product?.userId !== user.id || order.status !== "not yet sent") {
-    return res.status(403).send("Azione non permessa")
-  }
+  const error = new Error("Non autorizzato") as any
+  error.statusCode = 403
+  return res.send(error)
+}
 
    await db.update(orders).set({ status: "sent" }).where(eq(orders.id, orderId))
 
@@ -1396,7 +1501,11 @@ server.post("/orders/:id/mark-sent", async (req, res) => {
 })
 
 server.post("/orders/:id/mark-delivered", async (req, res) => {
-  if (!req.session.username) return res.status(401).send("Non autorizzato")
+   if (!req.session.username) {
+  const error = new Error("Devi effettuare il login") as any
+  error.statusCode = 401
+  return res.send(error)
+}
 
   const params = req.params as { id: string }
   const orderId = Number(params.id)
@@ -1408,9 +1517,11 @@ server.post("/orders/:id/mark-delivered", async (req, res) => {
     with: { product: true }
   })
 
-  if (!order || order.userId !== user.id || order.status !== "sent") {
-    return res.status(403).send("Azione non permessa")
-  }
+  if (!order || order.userId !== user.id || order.status !== "sent"){
+  const error = new Error("Non autorizzato") as any
+  error.statusCode = 403
+  return res.send(error)
+}
 
   await db.update(orders).set({ status: "delivered" }).where(eq(orders.id, orderId))
 
