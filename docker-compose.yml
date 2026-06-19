@@ -1,3 +1,4 @@
+
 name: "e-commerce"
 
 services:
@@ -21,3 +22,14 @@ services:
     ports:
       - 1025:1025
       - 8025:8025
+
+  app:
+    build: .
+    image: maximmatosa/e-commerce:eCommerce
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - base_htmx_postgres
+      
