@@ -24,8 +24,6 @@ const AVAILABLE_CATEGORIES = [
   { value: "Other", label: "Altro" }
 ]
 
-
-
 export default async function Marketplace({ searchParams, partial, session }: MarketplaceProps) {
   const category = searchParams?.category ? searchParams.category.trim() : ""
   const search = searchParams?.search ? searchParams.search.trim() : ""
@@ -71,8 +69,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
     })
     .from(productsTable)
     .leftJoin(usersTable, eq(productsTable.userId, usersTable.id))
-    .where(and(eq(productsTable.isDisable, false), // <--- Condizione fissa
-      ...queryConditions))
+    .where(and(eq(productsTable.isDisable, false), ...queryConditions))
 
   const products = rows.map(row => ({
     ...row,
@@ -191,6 +188,10 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
     </div>
   )
 
+  if (partial) {
+    return productsGrid
+  }
+
   return (
     <div class="bg-gray-50/50 min-h-screen pb-12">
       <Navbar session={session} currentUser={currentUser} cartCount={cartCount} />
@@ -259,7 +260,7 @@ export default async function Marketplace({ searchParams, partial, session }: Ma
             type="hidden"
             name="category"
             value=""
-            hx-get="/"
+            hx-get="/marketplace"
             hx-target="#products-grid"
             hx-swap="outerHTML"
             hx-trigger="change"
