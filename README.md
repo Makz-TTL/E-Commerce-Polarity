@@ -1,4 +1,4 @@
-Ecco un file `README.md` completo e strutturato basato sulle tue configurazioni.
+
 
 ```markdown
 # E-Commerce Base HTMX
